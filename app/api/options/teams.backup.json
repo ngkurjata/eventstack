@@ -1,0 +1,777 @@
+[
+  {
+    "league": "MLB",
+    "team": "Arizona Diamondbacks",
+    "attractionId": ""
+  },
+  {
+    "league": "MLB",
+    "team": "Atlanta Braves",
+    "attractionId": ""
+  },
+  {
+    "league": "MLB",
+    "team": "Baltimore Orioles",
+    "attractionId": ""
+  },
+  {
+    "league": "MLB",
+    "team": "Boston Red Sox",
+    "attractionId": ""
+  },
+  {
+    "league": "MLB",
+    "team": "Chicago Cubs",
+    "attractionId": ""
+  },
+  {
+    "league": "MLB",
+    "team": "Chicago White Sox",
+    "attractionId": ""
+  },
+  {
+    "league": "MLB",
+    "team": "Cincinnati Reds",
+    "attractionId": ""
+  },
+  {
+    "league": "MLB",
+    "team": "Cleveland Guardians",
+    "attractionId": ""
+  },
+  {
+    "league": "MLB",
+    "team": "Colorado Rockies",
+    "attractionId": ""
+  },
+  {
+    "league": "MLB",
+    "team": "Detroit Tigers",
+    "attractionId": ""
+  },
+  {
+    "league": "MLB",
+    "team": "Houston Astros",
+    "attractionId": ""
+  },
+  {
+    "league": "MLB",
+    "team": "Kansas City Royals",
+    "attractionId": ""
+  },
+  {
+    "league": "MLB",
+    "team": "Los Angeles Angels",
+    "attractionId": ""
+  },
+  {
+    "league": "MLB",
+    "team": "Los Angeles Dodgers",
+    "attractionId": ""
+  },
+  {
+    "league": "MLB",
+    "team": "Miami Marlins",
+    "attractionId": ""
+  },
+  {
+    "league": "MLB",
+    "team": "Milwaukee Brewers",
+    "attractionId": ""
+  },
+  {
+    "league": "MLB",
+    "team": "Minnesota Twins",
+    "attractionId": ""
+  },
+  {
+    "league": "MLB",
+    "team": "New York Mets",
+    "attractionId": ""
+  },
+  {
+    "league": "MLB",
+    "team": "New York Yankees",
+    "attractionId": ""
+  },
+  {
+    "league": "MLB",
+    "team": "Oakland Athletics",
+    "attractionId": ""
+  },
+  {
+    "league": "MLB",
+    "team": "Philadelphia Phillies",
+    "attractionId": ""
+  },
+  {
+    "league": "MLB",
+    "team": "Pittsburgh Pirates",
+    "attractionId": ""
+  },
+  {
+    "league": "MLB",
+    "team": "San Diego Padres",
+    "attractionId": ""
+  },
+  {
+    "league": "MLB",
+    "team": "San Francisco Giants",
+    "attractionId": ""
+  },
+  {
+    "league": "MLB",
+    "team": "Seattle Mariners",
+    "attractionId": ""
+  },
+  {
+    "league": "MLB",
+    "team": "St. Louis Cardinals",
+    "attractionId": ""
+  },
+  {
+    "league": "MLB",
+    "team": "Tampa Bay Rays",
+    "attractionId": ""
+  },
+  {
+    "league": "MLB",
+    "team": "Texas Rangers",
+    "attractionId": ""
+  },
+  {
+    "league": "MLB",
+    "team": "Toronto Blue Jays",
+    "attractionId": "K8vZ91718W0"
+  },
+  {
+    "league": "MLB",
+    "team": "Washington Nationals",
+    "attractionId": ""
+  },
+  {
+    "league": "NHL",
+    "team": "Anaheim Ducks",
+    "attractionId": ""
+  },
+  {
+    "league": "NHL",
+    "team": "Arizona Coyotes",
+    "attractionId": ""
+  },
+  {
+    "league": "NHL",
+    "team": "Boston Bruins",
+    "attractionId": ""
+  },
+  {
+    "league": "NHL",
+    "team": "Buffalo Sabres",
+    "attractionId": ""
+  },
+  {
+    "league": "NHL",
+    "team": "Calgary Flames",
+    "attractionId": ""
+  },
+  {
+    "league": "NHL",
+    "team": "Carolina Hurricanes",
+    "attractionId": ""
+  },
+  {
+    "league": "NHL",
+    "team": "Chicago Blackhawks",
+    "attractionId": ""
+  },
+  {
+    "league": "NHL",
+    "team": "Colorado Avalanche",
+    "attractionId": ""
+  },
+  {
+    "league": "NHL",
+    "team": "Columbus Blue Jackets",
+    "attractionId": ""
+  },
+  {
+    "league": "NHL",
+    "team": "Dallas Stars",
+    "attractionId": ""
+  },
+  {
+    "league": "NHL",
+    "team": "Detroit Red Wings",
+    "attractionId": ""
+  },
+  {
+    "league": "NHL",
+    "team": "Edmonton Oilers",
+    "attractionId": ""
+  },
+  {
+    "league": "NHL",
+    "team": "Florida Panthers",
+    "attractionId": ""
+  },
+  {
+    "league": "NHL",
+    "team": "Los Angeles Kings",
+    "attractionId": ""
+  },
+  {
+    "league": "NHL",
+    "team": "Minnesota Wild",
+    "attractionId": ""
+  },
+  {
+    "league": "NHL",
+    "team": "Montreal Canadiens",
+    "attractionId": ""
+  },
+  {
+    "league": "NHL",
+    "team": "Nashville Predators",
+    "attractionId": ""
+  },
+  {
+    "league": "NHL",
+    "team": "New Jersey Devils",
+    "attractionId": ""
+  },
+  {
+    "league": "NHL",
+    "team": "New York Islanders",
+    "attractionId": ""
+  },
+  {
+    "league": "NHL",
+    "team": "New York Rangers",
+    "attractionId": ""
+  },
+  {
+    "league": "NHL",
+    "team": "Ottawa Senators",
+    "attractionId": ""
+  },
+  {
+    "league": "NHL",
+    "team": "Philadelphia Flyers",
+    "attractionId": ""
+  },
+  {
+    "league": "NHL",
+    "team": "Pittsburgh Penguins",
+    "attractionId": ""
+  },
+  {
+    "league": "NHL",
+    "team": "San Jose Sharks",
+    "attractionId": ""
+  },
+  {
+    "league": "NHL",
+    "team": "Seattle Kraken",
+    "attractionId": ""
+  },
+  {
+    "league": "NHL",
+    "team": "St. Louis Blues",
+    "attractionId": ""
+  },
+  {
+    "league": "NHL",
+    "team": "Tampa Bay Lightning",
+    "attractionId": ""
+  },
+  {
+    "league": "NHL",
+    "team": "Toronto Maple Leafs",
+    "attractionId": ""
+  },
+  {
+    "league": "NHL",
+    "team": "Vancouver Canucks",
+    "attractionId": ""
+  },
+  {
+    "league": "NHL",
+    "team": "Vegas Golden Knights",
+    "attractionId": ""
+  },
+  {
+    "league": "NHL",
+    "team": "Washington Capitals",
+    "attractionId": ""
+  },
+  {
+    "league": "NHL",
+    "team": "Winnipeg Jets",
+    "attractionId": ""
+  },
+  {
+    "league": "NBA",
+    "team": "Atlanta Hawks",
+    "attractionId": ""
+  },
+  {
+    "league": "NBA",
+    "team": "Boston Celtics",
+    "attractionId": ""
+  },
+  {
+    "league": "NBA",
+    "team": "Brooklyn Nets",
+    "attractionId": ""
+  },
+  {
+    "league": "NBA",
+    "team": "Charlotte Hornets",
+    "attractionId": ""
+  },
+  {
+    "league": "NBA",
+    "team": "Chicago Bulls",
+    "attractionId": ""
+  },
+  {
+    "league": "NBA",
+    "team": "Cleveland Cavaliers",
+    "attractionId": ""
+  },
+  {
+    "league": "NBA",
+    "team": "Dallas Mavericks",
+    "attractionId": ""
+  },
+  {
+    "league": "NBA",
+    "team": "Denver Nuggets",
+    "attractionId": ""
+  },
+  {
+    "league": "NBA",
+    "team": "Detroit Pistons",
+    "attractionId": ""
+  },
+  {
+    "league": "NBA",
+    "team": "Golden State Warriors",
+    "attractionId": ""
+  },
+  {
+    "league": "NBA",
+    "team": "Houston Rockets",
+    "attractionId": ""
+  },
+  {
+    "league": "NBA",
+    "team": "Indiana Pacers",
+    "attractionId": ""
+  },
+  {
+    "league": "NBA",
+    "team": "Los Angeles Clippers",
+    "attractionId": ""
+  },
+  {
+    "league": "NBA",
+    "team": "Los Angeles Lakers",
+    "attractionId": ""
+  },
+  {
+    "league": "NBA",
+    "team": "Memphis Grizzlies",
+    "attractionId": ""
+  },
+  {
+    "league": "NBA",
+    "team": "Miami Heat",
+    "attractionId": ""
+  },
+  {
+    "league": "NBA",
+    "team": "Milwaukee Bucks",
+    "attractionId": ""
+  },
+  {
+    "league": "NBA",
+    "team": "Minnesota Timberwolves",
+    "attractionId": ""
+  },
+  {
+    "league": "NBA",
+    "team": "New Orleans Pelicans",
+    "attractionId": ""
+  },
+  {
+    "league": "NBA",
+    "team": "New York Knicks",
+    "attractionId": ""
+  },
+  {
+    "league": "NBA",
+    "team": "Oklahoma City Thunder",
+    "attractionId": ""
+  },
+  {
+    "league": "NBA",
+    "team": "Orlando Magic",
+    "attractionId": ""
+  },
+  {
+    "league": "NBA",
+    "team": "Philadelphia 76ers",
+    "attractionId": ""
+  },
+  {
+    "league": "NBA",
+    "team": "Phoenix Suns",
+    "attractionId": ""
+  },
+  {
+    "league": "NBA",
+    "team": "Portland Trail Blazers",
+    "attractionId": ""
+  },
+  {
+    "league": "NBA",
+    "team": "Sacramento Kings",
+    "attractionId": ""
+  },
+  {
+    "league": "NBA",
+    "team": "San Antonio Spurs",
+    "attractionId": ""
+  },
+  {
+    "league": "NBA",
+    "team": "Toronto Raptors",
+    "attractionId": ""
+  },
+  {
+    "league": "NBA",
+    "team": "Utah Jazz",
+    "attractionId": ""
+  },
+  {
+    "league": "NBA",
+    "team": "Washington Wizards",
+    "attractionId": ""
+  },
+  {
+    "league": "NFL",
+    "team": "Arizona Cardinals",
+    "attractionId": ""
+  },
+  {
+    "league": "NFL",
+    "team": "Atlanta Falcons",
+    "attractionId": ""
+  },
+  {
+    "league": "NFL",
+    "team": "Baltimore Ravens",
+    "attractionId": ""
+  },
+  {
+    "league": "NFL",
+    "team": "Buffalo Bills",
+    "attractionId": ""
+  },
+  {
+    "league": "NFL",
+    "team": "Carolina Panthers",
+    "attractionId": ""
+  },
+  {
+    "league": "NFL",
+    "team": "Chicago Bears",
+    "attractionId": ""
+  },
+  {
+    "league": "NFL",
+    "team": "Cincinnati Bengals",
+    "attractionId": ""
+  },
+  {
+    "league": "NFL",
+    "team": "Cleveland Browns",
+    "attractionId": ""
+  },
+  {
+    "league": "NFL",
+    "team": "Dallas Cowboys",
+    "attractionId": ""
+  },
+  {
+    "league": "NFL",
+    "team": "Denver Broncos",
+    "attractionId": ""
+  },
+  {
+    "league": "NFL",
+    "team": "Detroit Lions",
+    "attractionId": ""
+  },
+  {
+    "league": "NFL",
+    "team": "Green Bay Packers",
+    "attractionId": ""
+  },
+  {
+    "league": "NFL",
+    "team": "Houston Texans",
+    "attractionId": ""
+  },
+  {
+    "league": "NFL",
+    "team": "Indianapolis Colts",
+    "attractionId": ""
+  },
+  {
+    "league": "NFL",
+    "team": "Jacksonville Jaguars",
+    "attractionId": ""
+  },
+  {
+    "league": "NFL",
+    "team": "Kansas City Chiefs",
+    "attractionId": ""
+  },
+  {
+    "league": "NFL",
+    "team": "Las Vegas Raiders",
+    "attractionId": ""
+  },
+  {
+    "league": "NFL",
+    "team": "Los Angeles Chargers",
+    "attractionId": ""
+  },
+  {
+    "league": "NFL",
+    "team": "Los Angeles Rams",
+    "attractionId": ""
+  },
+  {
+    "league": "NFL",
+    "team": "Miami Dolphins",
+    "attractionId": ""
+  },
+  {
+    "league": "NFL",
+    "team": "Minnesota Vikings",
+    "attractionId": ""
+  },
+  {
+    "league": "NFL",
+    "team": "New England Patriots",
+    "attractionId": ""
+  },
+  {
+    "league": "NFL",
+    "team": "New Orleans Saints",
+    "attractionId": ""
+  },
+  {
+    "league": "NFL",
+    "team": "New York Giants",
+    "attractionId": ""
+  },
+  {
+    "league": "NFL",
+    "team": "New York Jets",
+    "attractionId": ""
+  },
+  {
+    "league": "NFL",
+    "team": "Philadelphia Eagles",
+    "attractionId": ""
+  },
+  {
+    "league": "NFL",
+    "team": "Pittsburgh Steelers",
+    "attractionId": ""
+  },
+  {
+    "league": "NFL",
+    "team": "San Francisco 49ers",
+    "attractionId": ""
+  },
+  {
+    "league": "NFL",
+    "team": "Seattle Seahawks",
+    "attractionId": ""
+  },
+  {
+    "league": "NFL",
+    "team": "Tampa Bay Buccaneers",
+    "attractionId": ""
+  },
+  {
+    "league": "NFL",
+    "team": "Tennessee Titans",
+    "attractionId": ""
+  },
+  {
+    "league": "NFL",
+    "team": "Washington Commanders",
+    "attractionId": ""
+  },
+  {
+    "league": "CFL",
+    "team": "BC Lions",
+    "attractionId": ""
+  },
+  {
+    "league": "CFL",
+    "team": "Calgary Stampeders",
+    "attractionId": ""
+  },
+  {
+    "league": "CFL",
+    "team": "Edmonton Elks",
+    "attractionId": ""
+  },
+  {
+    "league": "CFL",
+    "team": "Hamilton Tiger-Cats",
+    "attractionId": ""
+  },
+  {
+    "league": "CFL",
+    "team": "Montreal Alouettes",
+    "attractionId": ""
+  },
+  {
+    "league": "CFL",
+    "team": "Ottawa Redblacks",
+    "attractionId": ""
+  },
+  {
+    "league": "CFL",
+    "team": "Saskatchewan Roughriders",
+    "attractionId": ""
+  },
+  {
+    "league": "CFL",
+    "team": "Toronto Argonauts",
+    "attractionId": ""
+  },
+  {
+    "league": "CFL",
+    "team": "Winnipeg Blue Bombers",
+    "attractionId": ""
+  },
+  {
+    "league": "MLS",
+    "team": "Atlanta United FC",
+    "attractionId": ""
+  },
+  {
+    "league": "MLS",
+    "team": "Austin FC",
+    "attractionId": ""
+  },
+  {
+    "league": "MLS",
+    "team": "CF Montréal",
+    "attractionId": ""
+  },
+  {
+    "league": "MLS",
+    "team": "Chicago Fire FC",
+    "attractionId": ""
+  },
+  {
+    "league": "MLS",
+    "team": "Colorado Rapids",
+    "attractionId": ""
+  },
+  {
+    "league": "MLS",
+    "team": "Columbus Crew",
+    "attractionId": ""
+  },
+  {
+    "league": "MLS",
+    "team": "FC Dallas",
+    "attractionId": ""
+  },
+  {
+    "league": "MLS",
+    "team": "Inter Miami CF",
+    "attractionId": ""
+  },
+  {
+    "league": "MLS",
+    "team": "LA Galaxy",
+    "attractionId": ""
+  },
+  {
+    "league": "MLS",
+    "team": "Los Angeles FC",
+    "attractionId": ""
+  },
+  {
+    "league": "MLS",
+    "team": "Minnesota United FC",
+    "attractionId": ""
+  },
+  {
+    "league": "MLS",
+    "team": "New England Revolution",
+    "attractionId": ""
+  },
+  {
+    "league": "MLS",
+    "team": "New York City FC",
+    "attractionId": ""
+  },
+  {
+    "league": "MLS",
+    "team": "New York Red Bulls",
+    "attractionId": ""
+  },
+  {
+    "league": "MLS",
+    "team": "Orlando City SC",
+    "attractionId": ""
+  },
+  {
+    "league": "MLS",
+    "team": "Philadelphia Union",
+    "attractionId": ""
+  },
+  {
+    "league": "MLS",
+    "team": "Portland Timbers",
+    "attractionId": ""
+  },
+  {
+    "league": "MLS",
+    "team": "Real Salt Lake",
+    "attractionId": ""
+  },
+  {
+    "league": "MLS",
+    "team": "Seattle Sounders FC",
+    "attractionId": ""
+  },
+  {
+    "league": "MLS",
+    "team": "Sporting Kansas City",
+    "attractionId": ""
+  },
+  {
+    "league": "MLS",
+    "team": "Toronto FC",
+    "attractionId": ""
+  },
+  {
+    "league": "MLS",
+    "team": "Vancouver Whitecaps FC",
+    "attractionId": ""
+  }
+]
