@@ -84,7 +84,10 @@ function cleanupLegacyLocalStorage() {
   // No-op for now.
 }
 
-function useOutsideClick(ref: React.RefObject<HTMLElement>, onOutside: () => void) {
+function useOutsideClick<T extends HTMLElement>(
+  ref: React.RefObject<T | null>,
+  onOutside: () => void
+) {
   useEffect(() => {
     function handler(e: MouseEvent) {
       const el = ref.current;
