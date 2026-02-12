@@ -743,10 +743,7 @@ export default function ResultsPage() {
               <div className="text-lg font-extrabold">{formatRangePretty(start, end)}</div>
               <div className="text-xl font-extrabold">{cityState || "Location TBD"}</div>
                         </div>          
-                        <div>
-              <div className="text-lg font-extrabold">{formatRangePretty(start, end)}</div>
-              <div className="text-xl font-extrabold">{cityState || "Location TBD"}</div>
-                        </div>
+                        
             <div className="mt-3 w-full sm:mt-0 sm:w-auto">
               <div className="flex w-full items-center justify-end gap-2">
                 {includesAll3 && (
