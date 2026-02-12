@@ -318,12 +318,33 @@ function getAnchorLatLon(occ) {
   return null;
 }
 
+// Safer env diagnostics (don’t log the full key)
+function envKeyDebug(key) {
+  const s = String(key || "");
+  const len = s.length;
+  const head = len >= 2 ? s.slice(0, 2) : "";
+  const tail = len >= 2 ? s.slice(-2) : "";
+  return { present: Boolean(key), length: len, head, tail };
+}
+
 export async function GET(req) {
   try {
-    const apiKey = process.env.TICKETMASTER_API_KEY;
-    if (!apiKey) return NextResponse.json({ error: "Missing API key" }, { status: 500 });
-
     const { searchParams } = new URL(req.url);
+    const debugMode = searchParams.get("debug") === "1";
+
+    const apiKey = process.env.TICKETMASTER_API_KEY;
+
+    // Always log safe diagnostics to Vercel function logs
+    const keyDbg = envKeyDebug(apiKey);
+    console.log("ENV TICKETMASTER_API_KEY:", keyDbg);
+
+    if (!apiKey) {
+      // Optionally include safe env diagnostics in response when debug=1
+      return NextResponse.json(
+        { error: "Missing API key", debug: debugMode ? { env: { TICKETMASTER_API_KEY: keyDbg } } : undefined },
+        { status: 500 }
+      );
+    }
 
     const userDays = Number(searchParams.get("days") || 3);
     const effectiveDays = Math.max(1, Math.floor(userDays) - 1);
@@ -418,7 +439,7 @@ export async function GET(req) {
       };
     });
 
-    return NextResponse.json({
+    const payload = {
       count: occurrences.length,
       occurrences: occurrencesForUi,
       debug: {
@@ -434,7 +455,14 @@ export async function GET(req) {
           "Popular nearby events are no longer fetched during /api/search. UI should call /api/nearby only when the user clicks the toggle button.",
         occurrenceDatesSample: debugOccurrenceDates,
       },
-    });
+    };
+
+    // Only attach env debug when explicitly requested
+    if (debugMode) {
+      payload.debug.env = { TICKETMASTER_API_KEY: keyDbg };
+    }
+
+    return NextResponse.json(payload);
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: "Search failed" }, { status: 500 });
