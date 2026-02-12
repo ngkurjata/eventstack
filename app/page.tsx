@@ -70,7 +70,9 @@ function buildGroupedListForQuery(
 
   for (const group of groups) {
     const opts = grouped.get(group) || [];
-    const matches = opts.filter((o) => o.label.toLowerCase().includes(q)).slice(0, 25);
+    const matches = opts
+      .filter((o) => o.label.toLowerCase().includes(q))
+      .slice(0, 25);
 
     if (matches.length) {
       items.push({ type: "group", group });
@@ -130,7 +132,10 @@ function Combobox({
   const [inputValue, setInputValue] = useState("");
   const [activeIdx, setActiveIdx] = useState<number>(-1);
 
-  const selectedLabel = useMemo(() => labelForId(valueId, optionsAll), [valueId, optionsAll]);
+  const selectedLabel = useMemo(
+    () => labelForId(valueId, optionsAll),
+    [valueId, optionsAll]
+  );
 
   const menuItems = useMemo(() => {
     return buildGroupedListForQuery(query, grouped, groups);
@@ -230,7 +235,9 @@ function Combobox({
       if (selectableIndexes.length === 0) return;
       const pos = selectableIndexes.indexOf(activeIdx);
       const prev =
-        pos <= 0 ? selectableIndexes[selectableIndexes.length - 1] : selectableIndexes[pos - 1];
+        pos <= 0
+          ? selectableIndexes[selectableIndexes.length - 1]
+          : selectableIndexes[pos - 1];
       setActiveIdx(prev);
       return;
     }
@@ -250,9 +257,13 @@ function Combobox({
       <div className="mb-2 flex items-end justify-between gap-3">
         <div className="flex items-baseline gap-2">
           <div className="text-sm font-semibold text-slate-900">{label}</div>
-          {!required ? <div className="text-xs font-semibold text-slate-500">(optional)</div> : null}
+          {!required ? (
+            <div className="text-xs font-semibold text-slate-500">(optional)</div>
+          ) : null}
         </div>
-        {help ? <div className="hidden text-xs text-slate-500 sm:block">{help}</div> : null}
+        {help ? (
+          <div className="hidden text-xs text-slate-500 sm:block">{help}</div>
+        ) : null}
       </div>
 
       <div className="relative">
@@ -267,7 +278,13 @@ function Combobox({
               : "bg-white text-slate-900 border-slate-200 placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100",
           ].join(" ")}
           value={showLoading ? "Loading ..." : inputValue}
-          placeholder={showLoading ? "Loading ..." : required ? "Type to search…" : "Type to search (or leave blank)…"}
+          placeholder={
+            showLoading
+              ? "Loading ..."
+              : required
+                ? "Type to search…"
+                : "Type to search (or leave blank)…"
+          }
           onFocus={() => {
             if (showLoading) return;
             setActiveIdx(-1);
@@ -336,7 +353,6 @@ function Combobox({
                   return (
                     <div
                       key={it.option.id}
-                      // ✅ FIX: force readable text on inactive rows (Android was rendering this too faint)
                       className={[
                         "mt-1 flex cursor-pointer items-center justify-between gap-3 rounded-xl px-3 py-2.5",
                         isActive
@@ -384,8 +400,15 @@ export default function Page() {
   const [loadError, setLoadError] = useState("");
   const [combined, setCombined] = useState<CombinedOption[]>([]);
 
-  const [days, setDays] = useState<number>(PUBLIC_MODE ? PUBLIC_PRESET.maxDays : 3);
-  const [radiusMiles, setRadiusMiles] = useState<number>(PUBLIC_MODE ? PUBLIC_PRESET.maxRadiusMiles : 100);
+  // ✅ DAYS: store as text for Android-friendly editing; clamp on blur + on search
+  const [daysText, setDaysText] = useState<string>(
+    String(PUBLIC_MODE ? PUBLIC_PRESET.maxDays : 3)
+  );
+
+  // radius left unchanged for now (we'll fix next)
+  const [radiusMiles, setRadiusMiles] = useState<number>(
+    PUBLIC_MODE ? PUBLIC_PRESET.maxRadiusMiles : 100
+  );
 
   const [p1, setP1] = useState("");
   const [p2, setP2] = useState("");
@@ -448,11 +471,7 @@ export default function Page() {
 
   const { map: grouped, groups } = useMemo(() => groupOptions(combined), [combined]);
 
-  useEffect(() => {
-    if (!PUBLIC_MODE) return;
-    setDays((d) => clamp(Number(d) || 1, 1, PUBLIC_PRESET.maxDays));
-  }, [days]);
-
+  // radius clamping still in place for now
   useEffect(() => {
     if (!PUBLIC_MODE) return;
     setRadiusMiles((r) => clamp(Number(r) || 1, 1, PUBLIC_PRESET.maxRadiusMiles));
@@ -493,7 +512,10 @@ export default function Page() {
       setP1(clamped.p1);
       setP2(clamped.p2);
       setP3(clamped.p3);
-      setDays(clamped.days);
+
+      // ✅ DAYS: store as string
+      setDaysText(String(clamped.days));
+
       setRadiusMiles(clamped.radiusMiles);
       setOriginIata(clamped.origin.trim().toUpperCase());
     };
@@ -520,7 +542,9 @@ export default function Page() {
         p2: String(parsed?.p2 || ""),
         p3: String(parsed?.p3 || ""),
         days: Number.isFinite(Number(parsed?.days)) ? Number(parsed.days) : 3,
-        radiusMiles: Number.isFinite(Number(parsed?.radiusMiles)) ? Number(parsed.radiusMiles) : 100,
+        radiusMiles: Number.isFinite(Number(parsed?.radiusMiles))
+          ? Number(parsed.radiusMiles)
+          : 100,
         origin: String(parsed?.origin || ""),
       });
     } catch {
@@ -535,8 +559,21 @@ export default function Page() {
       p1,
       p2,
       p3: PUBLIC_MODE ? "" : p3,
-      days: PUBLIC_MODE ? clamp(days, 1, PUBLIC_PRESET.maxDays) : days,
-      radiusMiles: PUBLIC_MODE ? clamp(radiusMiles, 1, PUBLIC_PRESET.maxRadiusMiles) : radiusMiles,
+
+      // ✅ DAYS: parse safely from text, then clamp
+      days: (() => {
+        const parsedDays = safeParseInt(
+          daysText,
+          PUBLIC_MODE ? PUBLIC_PRESET.maxDays : 3
+        );
+        return PUBLIC_MODE
+          ? clamp(parsedDays, 1, PUBLIC_PRESET.maxDays)
+          : clamp(parsedDays, 1, 30);
+      })(),
+
+      radiusMiles: PUBLIC_MODE
+        ? clamp(radiusMiles, 1, PUBLIC_PRESET.maxRadiusMiles)
+        : radiusMiles,
       origin: originIata,
     };
 
@@ -554,14 +591,14 @@ export default function Page() {
 
     const next = qs.toString() ? `/?${qs.toString()}` : "/";
     window.history.replaceState(null, "", next);
-  }, [p1, p2, p3, days, radiusMiles, originIata]);
+  }, [p1, p2, p3, daysText, radiusMiles, originIata]);
 
   useEffect(() => {
     if (!PUBLIC_MODE) return;
     if (p3) setP3("");
   }, [p3]);
 
-const canSearch = Boolean(p1 && p2);
+  const canSearch = Boolean(p1 && p2);
 
   useEffect(() => {
     if (!loading && canSearch) {
@@ -578,11 +615,18 @@ const canSearch = Boolean(p1 && p2);
     }
 
     // Airport is optional; flights/buttons will be disabled on results if missing.
-if (!originIata) setOriginErr("");
+    if (!originIata) setOriginErr("");
 
+    // ✅ DAYS: parse+clamp at search time (source of truth)
+    const parsedDays = safeParseInt(daysText, PUBLIC_MODE ? PUBLIC_PRESET.maxDays : 3);
+    const effectiveDays = PUBLIC_MODE
+      ? clamp(parsedDays, 1, PUBLIC_PRESET.maxDays)
+      : clamp(parsedDays, 1, 30);
 
-    const effectiveDays = PUBLIC_MODE ? clamp(days, 1, PUBLIC_PRESET.maxDays) : days;
-    const effectiveRadius = PUBLIC_MODE ? clamp(radiusMiles, 1, PUBLIC_PRESET.maxRadiusMiles) : radiusMiles;
+    const effectiveRadius = PUBLIC_MODE
+      ? clamp(radiusMiles, 1, PUBLIC_PRESET.maxRadiusMiles)
+      : radiusMiles;
+
     const effectiveP3 = PUBLIC_MODE ? "" : p3;
 
     const params = new URLSearchParams();
@@ -612,7 +656,9 @@ if (!originIata) setOriginErr("");
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="mb-4 flex items-end justify-between gap-3">
               <div>
-                <div className="text-lg font-extrabold text-slate-900">Pick 2 of your favorites</div>
+                <div className="text-lg font-extrabold text-slate-900">
+                  Pick 2 of your favorites
+                </div>
               </div>
             </div>
 
@@ -662,15 +708,46 @@ if (!originIata) setOriginErr("");
 
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <label className="block">
-                <div className="mb-2 text-sm font-semibold text-slate-900">Max trip length (# of Days)</div>
+                <div className="mb-2 text-sm font-semibold text-slate-900">
+                  Max trip length (# of Days)
+                </div>
+
+                {/* ✅ DAYS FIX (Android): use text+numeric keyboard; allow empty; clamp on blur */}
                 <input
                   className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-[15px] text-slate-900 shadow-sm outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                  type="number"
-                  min={1}
-                  max={PUBLIC_MODE ? PUBLIC_PRESET.maxDays : 30}
-                  value={days}
-                  onChange={(e) => setDays(Number(e.target.value))}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={daysText}
+                  onFocus={(e) => {
+                    requestAnimationFrame(() => e.currentTarget.select());
+                  }}
+                  onChange={(e) => {
+                    const next = e.target.value;
+
+                    // allow clearing while typing
+                    if (next === "") {
+                      setDaysText("");
+                      return;
+                    }
+
+                    // digits only
+                    if (/^\d+$/.test(next)) {
+                      setDaysText(next);
+                    }
+                  }}
+                  onBlur={() => {
+                    const parsedDays = safeParseInt(
+                      daysText,
+                      PUBLIC_MODE ? PUBLIC_PRESET.maxDays : 3
+                    );
+                    const clampedDays = PUBLIC_MODE
+                      ? clamp(parsedDays, 1, PUBLIC_PRESET.maxDays)
+                      : clamp(parsedDays, 1, 30);
+                    setDaysText(String(clampedDays));
+                  }}
                 />
+
                 <div className="mt-2 text-xs text-slate-500">
                   {PUBLIC_MODE
                     ? `Cannot be greater than ${PUBLIC_PRESET.maxDays} days.`
@@ -737,7 +814,9 @@ if (!originIata) setOriginErr("");
           The next page will show you when and where your favorites cross paths (if at all).
         </footer>
 
-        {loadError ? <div className="mt-6 text-center text-xs text-rose-700">{loadError}</div> : null}
+        {loadError ? (
+          <div className="mt-6 text-center text-xs text-rose-700">{loadError}</div>
+        ) : null}
       </div>
     </main>
   );
