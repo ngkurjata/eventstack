@@ -229,7 +229,8 @@ function Combobox({
       e.preventDefault();
       if (selectableIndexes.length === 0) return;
       const pos = selectableIndexes.indexOf(activeIdx);
-      const prev = pos <= 0 ? selectableIndexes[selectableIndexes.length - 1] : selectableIndexes[pos - 1];
+      const prev =
+        pos <= 0 ? selectableIndexes[selectableIndexes.length - 1] : selectableIndexes[pos - 1];
       setActiveIdx(prev);
       return;
     }
@@ -260,7 +261,6 @@ function Combobox({
           disabled={showLoading}
           className={[
             "w-full rounded-xl border px-4 py-3 text-[15px] shadow-sm outline-none",
-            // fade/transition polish
             "transition-all duration-300",
             showLoading
               ? "bg-slate-50 text-slate-500 border-slate-200"
@@ -296,14 +296,12 @@ function Combobox({
           aria-label={label}
         />
 
-        {/* spinner inside bar while loading */}
         {showLoading && (
           <div className="absolute right-3 top-1/2 -translate-y-1/2">
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700" />
           </div>
         )}
 
-        {/* Hide clear while loading */}
         {!showLoading && (valueId || inputValue) && (
           <button
             type="button"
@@ -334,12 +332,16 @@ function Combobox({
                   }
 
                   const isActive = idx === activeIdx;
+
                   return (
                     <div
                       key={it.option.id}
+                      // ✅ FIX: force readable text on inactive rows (Android was rendering this too faint)
                       className={[
                         "mt-1 flex cursor-pointer items-center justify-between gap-3 rounded-xl px-3 py-2.5",
-                        isActive ? "bg-slate-900 text-white" : "hover:bg-slate-50",
+                        isActive
+                          ? "bg-slate-900 text-white"
+                          : "bg-white text-slate-900 hover:bg-slate-50",
                       ].join(" ")}
                       onMouseEnter={() => setActiveIdx(idx)}
                       onMouseDown={(e) => {
@@ -348,9 +350,16 @@ function Combobox({
                       }}
                     >
                       <div className="min-w-0">
-                        <div className="truncate text-sm font-extrabold leading-tight">{it.option.label}</div>
+                        <div className="truncate text-sm font-extrabold leading-tight">
+                          {it.option.label}
+                        </div>
                       </div>
-                      <div className={["shrink-0 text-xs font-bold", isActive ? "text-slate-200" : "text-slate-500"].join(" ")}>
+                      <div
+                        className={[
+                          "shrink-0 text-xs font-bold",
+                          isActive ? "text-slate-200" : "text-slate-600",
+                        ].join(" ")}
+                      >
                         {it.group}
                       </div>
                     </div>
@@ -388,7 +397,6 @@ export default function Page() {
 
   const didInitRef = useRef(false);
 
-  // pulse search button when it becomes enabled
   const [searchPulse, setSearchPulse] = useState(false);
 
   useEffect(() => {
@@ -555,7 +563,6 @@ export default function Page() {
 
   const canSearch = Boolean(p1 && p2 && originIata);
 
-  // Pulse when Search becomes enabled (after loading completes)
   useEffect(() => {
     if (!loading && canSearch) {
       setSearchPulse(true);
@@ -646,7 +653,6 @@ export default function Page() {
                   valueId={p3}
                   setValueId={setP3}
                   help="Nice-to-have"
-                  // optionally: disabled={loading}
                 />
               </div>
             )}
@@ -732,12 +738,7 @@ export default function Page() {
           The next page will show you when and where your favorites cross paths (if at all).
         </footer>
 
-        {/* Optional: if you ever want to surface load errors without breaking flow */}
-        {loadError ? (
-          <div className="mt-6 text-center text-xs text-rose-700">
-            {loadError}
-          </div>
-        ) : null}
+        {loadError ? <div className="mt-6 text-center text-xs text-rose-700">{loadError}</div> : null}
       </div>
     </main>
   );
