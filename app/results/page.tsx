@@ -716,11 +716,11 @@ export default function ResultsPage() {
                         <div>
               <div className="text-lg font-extrabold">{formatRangePretty(start, end)}</div>
               <div className="text-xl font-extrabold">{cityState || "Location TBD"}</div>
-            </div>
+                        </div>
             <div className="mt-3 w-full sm:mt-0 sm:w-auto">
-              <div className="flex w-full items-center justify-between gap-2 sm:justify-end">
+              <div className="flex w-full items-center justify-end gap-2">
                 {includesAll3 && (
-                  <div className="hidden sm:block text-xs font-extrabold px-3 py-2 rounded-xl bg-white/15 border border-white/25">
+                  <div className="mr-auto hidden sm:block text-xs font-extrabold px-3 py-2 rounded-xl bg-white/15 border border-white/25">
                     Includes All 3 Selections
                   </div>
                 )}
