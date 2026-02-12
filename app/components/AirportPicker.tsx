@@ -126,21 +126,21 @@ export function AirportPicker(props: {
   }}
         onKeyDown={onKeyDown}
         placeholder={props.placeholder ?? "Type city or IATA (e.g., Kelowna or YLW)"}
-        style={{
-          width: "100%",
-          padding: 10,
-          borderRadius: 12,
-          border: "1px solid #d7d7d7",
-          background: "#fff",
-          outline: "none",
-        }}
-        autoComplete="off"
-      />
-
+  className="text-slate-900 placeholder:text-slate-400"
+  style={{
+    width: "100%",
+    padding: 10,
+    borderRadius: 12,
+    border: "1px solid #d7d7d7",
+    background: "#fff",
+    outline: "none",
+  }}
+  autoComplete="off"
+/>
       {/* Always show helper text */}
-      <div style={{ marginTop: 8, fontSize: 12, opacity: 1 }}>
-        Required (autofills Expedia)
-      </div>
+      <div className="mt-2 text-xs text-slate-600">
+  Required (autofills Expedia)
+</div>
 
       {isOpen ? (
         <div
