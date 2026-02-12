@@ -595,27 +595,32 @@ export default function ResultsPage() {
   }
 
     // ✅ CLEAN SHARE: includes prefixed text + link (native share when available; otherwise copy full message)
-  async function shareOccurrence(params: { occKey: string; titleLine: string; detailLines: string[] }) {
+  
+function isProbablyMobile() {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  return /Android|iPhone|iPad|iPod/i.test(ua);
+}
+
+async function shareOccurrence(params: { occKey: string; titleLine: string; detailLines: string[] }) {
   const { occKey, titleLine, detailLines } = params;
 
   const url = `${window.location.origin}/results?${qs.toString()}#${occKey}`;
-
   const prefix = "Check this out!";
   const body = [prefix, titleLine, ...detailLines, "", url].join("\n");
 
-  try {
-    if (navigator.share) {
-      // Key change: share TEXT ONLY (WhatsApp is far more likely to include it)
-      await navigator.share({
-        title: "EventStack",
-        text: body,
-      });
+  // ✅ Use native share only on mobile (where it shows WhatsApp/SMS/etc.)
+  if (isProbablyMobile() && navigator.share) {
+    try {
+      // text-only is more likely to carry message in WhatsApp
+      await navigator.share({ title: "EventStack", text: body });
       return;
+    } catch {
+      // user cancelled or share failed -> fall back
     }
-  } catch {
-    // fall through
   }
 
+  // ✅ Desktop-friendly fallback: copy full message + link
   try {
     await navigator.clipboard.writeText(body);
     showToast("Share text + link copied to clipboard");
@@ -623,7 +628,6 @@ export default function ResultsPage() {
     window.prompt("Copy and share this:", body);
   }
 }
-
 
   function renderOccurrenceBlock(occ: any, keySeed: string) {
     const eventsDeduped = dedupeEventsWithinOccurrence(occ.events);
