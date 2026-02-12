@@ -708,20 +708,21 @@ export default function ResultsPage() {
           )}
         >
           <div
-            className={cx(
-              "px-5 py-4 flex items-start justify-between gap-4",
+                        className={cx(
+              "px-5 py-4 flex flex-col sm:flex-row sm:items-start justify-between gap-3",
               includesAll3 ? "bg-red-600 text-white" : "bg-slate-900 text-white"
             )}
           >
-            <div>
+                        <div>
               <div className="text-lg font-extrabold">{formatRangePretty(start, end)}</div>
               <div className="text-xl font-extrabold">{cityState || "Location TBD"}</div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="mt-3 flex w-full flex-wrap items-center gap-2 sm:mt-0 sm:w-auto sm:justify-end">
               {includesAll3 && (
                 <div className="hidden sm:block text-xs font-extrabold px-3 py-2 rounded-xl bg-white/15 border border-white/25">
                   Includes All 3 Selections
+
                 </div>
               )}
 
