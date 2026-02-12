@@ -274,8 +274,7 @@ function dedupeEventsWithinOccurrence(events: any[]) {
   const seen = new Set<string>();
   for (const e of events || []) {
     const id = eventId(e);
-    const key =
-      id || `${eventSortKey(e)}|${eventVenueKey(e)}|${normalizeTitleForDedup(eventTitle(e))}`;
+    const key = id || `${eventSortKey(e)}|${eventVenueKey(e)}|${normalizeTitleForDedup(eventTitle(e))}`;
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(e);
@@ -288,8 +287,7 @@ function dedupeNearbyPopularEvents(events: any[]) {
   const seen = new Set<string>();
   for (const e of events || []) {
     const id = eventId(e);
-    const key =
-      id || `${eventSortKey(e)}|${eventVenueKey(e)}|${normalizeTitleForDedup(eventTitle(e))}`;
+    const key = id || `${eventSortKey(e)}|${eventVenueKey(e)}|${normalizeTitleForDedup(eventTitle(e))}`;
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(e);
@@ -479,6 +477,7 @@ export default function ResultsPage() {
       const main = [...eventsDeduped]
         .filter((e) => !!eventUrl(e))
         .sort((a, b) => eventSortKey(a) - eventSortKey(b));
+
       const mainDates = uniqueSortedDates(main);
       const firstMain = mainDates[0] ?? null;
       const sortKey = firstMain ? Number(String(firstMain).replace(/-/g, "")) : 99999999;
@@ -594,8 +593,8 @@ export default function ResultsPage() {
     });
   }
 
-// ✅ CLEAN SHARE: with emojis etc
-  
+  /* -------------------- Share helpers (Step 1/2/3) -------------------- */
+
   function isMobileUA() {
     const ua = (navigator.userAgent || "").toLowerCase();
     return /android|iphone|ipad|ipod/.test(ua);
@@ -613,14 +612,25 @@ export default function ResultsPage() {
     return "✅";
   }
 
+  // STEP 1: reject Ticketmaster-style IDs like K8vZ9171uzf
   function pickDisplayNameFromParam(p: string | null): string | null {
     const s = (p || "").trim();
     if (!s) return null;
 
-    // qs.get already decodes %xx; normalize "+" just in case
     const decoded = s.replace(/\+/g, " ");
-    const parts = decoded.split(":").map((x) => x.trim()).filter(Boolean);
-    return parts.length ? parts[parts.length - 1] : null;
+    const parts = decoded
+      .split(":")
+      .map((x) => x.trim())
+      .filter(Boolean);
+
+    if (!parts.length) return null;
+
+    const last = parts[parts.length - 1];
+
+    // Ticketmaster-ish IDs often look like: K8vZ9171uzf / K8vZ91718W0
+    if (/^K[0-9A-Za-z]{8,}$/.test(last)) return null;
+
+    return last;
   }
 
   function formatShortRange(start: string, end: string) {
@@ -643,20 +653,26 @@ export default function ResultsPage() {
     return `${sm} ${sd}, ${sy} - ${em} ${ed}, ${ey}`;
   }
 
+  // STEP 2: accept fallbackTitles, use them when params don't contain readable names
   async function shareOccurrence(params: {
     occKey: string;
     cityState: string | null;
     startYMD: string;
     endYMD: string;
+    fallbackTitles: string[];
   }) {
-    const { occKey, cityState, startYMD, endYMD } = params;
+    const { occKey, cityState, startYMD, endYMD, fallbackTitles } = params;
 
     const url = `${window.location.origin}/results?${qs.toString()}#${occKey}`;
 
-    // Pull clean names from p1/p2/p3, e.g. "Edmonton Oilers", "Chris Isaak"
-    const pickNames = [qs.get("p1"), qs.get("p2"), qs.get("p3")]
+    let pickNames = [qs.get("p1"), qs.get("p2"), qs.get("p3")]
       .map(pickDisplayNameFromParam)
       .filter(Boolean) as string[];
+
+    // If no readable names were found (artist param is only an ID), fallback to event titles.
+    if (pickNames.length === 0 && Array.isArray(fallbackTitles) && fallbackTitles.length) {
+      pickNames = fallbackTitles.slice(0, 3);
+    }
 
     const mark = pickCheckmarkGlyph();
     const loc = cityState || "Location TBD";
@@ -693,9 +709,6 @@ export default function ResultsPage() {
       window.prompt("Copy and share this:", body);
     }
   }
-
-
-// SHARE OCCURENCE ENDS HERE
 
   function renderOccurrenceBlock(occ: any, keySeed: string) {
     const eventsDeduped = dedupeEventsWithinOccurrence(occ.events);
@@ -793,12 +806,7 @@ export default function ResultsPage() {
 
     return (
       <section id={occKey} key={occKey} className="w-full max-w-5xl mx-auto mb-8">
-        <div
-          className={cx(
-            "rounded-3xl overflow-hidden border shadow-sm bg-white",
-            includesAll3 ? "border-red-500/60" : "border-slate-200"
-          )}
-        >
+        <div className={cx("rounded-3xl overflow-hidden border shadow-sm bg-white", includesAll3 ? "border-red-500/60" : "border-slate-200")}>
           <div
             className={cx(
               "relative px-5 py-4 flex flex-col sm:flex-row sm:items-start justify-between gap-3",
@@ -808,13 +816,15 @@ export default function ResultsPage() {
             <button
               type="button"
               onClick={() => {
-  shareOccurrence({
-    occKey,
-    cityState,
-    startYMD: start,
-    endYMD: end,
-  });
-}}
+                // STEP 3: pass fallbackTitles so we never show K8vZ... IDs
+                shareOccurrence({
+                  occKey,
+                  cityState,
+                  startYMD: start,
+                  endYMD: end,
+                  fallbackTitles: main.map((e: any) => eventTitle(e)),
+                });
+              }}
               title="Share this occurrence"
               className="absolute right-4 top-4 sm:hidden rounded-2xl px-4 py-2.5 text-xs font-black tracking-wide bg-white text-slate-900 shadow-lg shadow-black/25 ring-1 ring-white/30 hover:-translate-y-px hover:shadow-xl"
             >
@@ -837,14 +847,15 @@ export default function ResultsPage() {
                 <button
                   type="button"
                   onClick={() => {
-  shareOccurrence({
-    occKey,
-    cityState,
-    startYMD: start,
-    endYMD: end,
-  });
-}}
-
+                    // STEP 3: pass fallbackTitles so we never show K8vZ... IDs
+                    shareOccurrence({
+                      occKey,
+                      cityState,
+                      startYMD: start,
+                      endYMD: end,
+                      fallbackTitles: main.map((e: any) => eventTitle(e)),
+                    });
+                  }}
                   title="Share this occurrence"
                   className="hidden sm:inline-flex shrink-0 rounded-2xl px-4 py-2.5 text-xs font-black tracking-wide transition bg-white text-slate-900 shadow-lg shadow-black/25 ring-1 ring-white/30 hover:-translate-y-px hover:shadow-xl"
                 >
