@@ -371,16 +371,6 @@ function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
 }
 
-/* -------------------- Share (lightweight) helpers -------------------- */
-
-function b64urlEncodeUtf8(str: string) {
-  const bytes = new TextEncoder().encode(str);
-  let bin = "";
-  bytes.forEach((b) => (bin += String.fromCharCode(b)));
-  const b64 = btoa(bin);
-  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-}
-
 function TravelButton({
   label,
   enabled,
@@ -572,7 +562,12 @@ export default function ResultsPage() {
     } catch (e: any) {
       setPopularCacheByOcc((prev) => ({
         ...prev,
-        [occKey]: { loading: false, loaded: true, events: [], error: e?.message || "Failed to load nearby events" },
+        [occKey]: {
+          loading: false,
+          loaded: true,
+          events: [],
+          error: e?.message || "Failed to load nearby events",
+        },
       }));
     }
   }
@@ -599,14 +594,11 @@ export default function ResultsPage() {
     });
   }
 
-  async function shareOccurrence(params: { occ: any; titleLine: string; detailLines: string[] }) {
-    const { occ, titleLine, detailLines } = params;
+  // ✅ CLEAN SHARE: copy a short URL to the current results + anchor to this occurrence
+  async function shareOccurrence(params: { occKey: string; titleLine: string; detailLines: string[] }) {
+    const { occKey, titleLine, detailLines } = params;
 
-    // Encode ONLY this occurrence into the share URL (no storage).
-    const payload = JSON.stringify(occ);
-    const encoded = encodeURIComponent(b64urlEncodeUtf8(payload));
-    const url = `${window.location.origin}/share?o=${encoded}`;
-
+    const url = `${window.location.origin}/results?${qs.toString()}#${occKey}`;
     const text = [titleLine, ...detailLines, "", "Try EventStack:", url].join("\n");
 
     try {
@@ -619,7 +611,7 @@ export default function ResultsPage() {
     }
 
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(url); // plain text only
       showToast("Share link copied to clipboard");
     } catch {
       window.prompt("Copy this link:", url);
@@ -698,7 +690,11 @@ export default function ResultsPage() {
         : null;
 
     const packagesUrl =
-      originIata && /^[A-Z]{3}$/.test(originIata) && (destIata || cityState) && checkInYMD && checkOutYMD
+      originIata &&
+      /^[A-Z]{3}$/.test(originIata) &&
+      (destIata || cityState) &&
+      checkInYMD &&
+      checkOutYMD
         ? buildExpediaFlightHotelPackageUrl({
             fromAirport: originIata,
             destination: destIata || (cityState as string),
@@ -747,7 +743,7 @@ export default function ResultsPage() {
                     })
                   : ["• (No ticketed events found)"];
 
-                shareOccurrence({ occ, titleLine, detailLines });
+                shareOccurrence({ occKey, titleLine, detailLines });
               }}
               title="Share this occurrence"
               className="absolute right-4 top-4 sm:hidden rounded-2xl px-4 py-2.5 text-xs font-black tracking-wide bg-white text-slate-900 shadow-lg shadow-black/25 ring-1 ring-white/30 hover:-translate-y-px hover:shadow-xl"
@@ -785,7 +781,7 @@ export default function ResultsPage() {
                         })
                       : ["• (No ticketed events found)"];
 
-                    shareOccurrence({ occ, titleLine, detailLines });
+                    shareOccurrence({ occKey, titleLine, detailLines });
                   }}
                   title="Share this occurrence"
                   className="hidden sm:inline-flex shrink-0 rounded-2xl px-4 py-2.5 text-xs font-black tracking-wide transition bg-white text-slate-900 shadow-lg shadow-black/25 ring-1 ring-white/30 hover:-translate-y-px hover:shadow-xl"
@@ -855,7 +851,9 @@ export default function ResultsPage() {
             {hasOtherPopular ? (
               <button
                 type="button"
-                onClick={() => toggleOtherPopular(occKey, canFetchNearby, anchor, startYMD, endYMD, Array.from(mainIds))}
+                onClick={() =>
+                  toggleOtherPopular(occKey, canFetchNearby, anchor, startYMD, endYMD, Array.from(mainIds))
+                }
                 className="rounded-full px-6 py-2 text-sm font-extrabold border border-slate-300 bg-white hover:bg-slate-100"
               >
                 {showOtherPopular ? "Hide Popular Events Nearby" : "Show Popular Events Nearby"}
