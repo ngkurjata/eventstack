@@ -717,72 +717,74 @@ export default function ResultsPage() {
               <div className="text-lg font-extrabold">{formatRangePretty(start, end)}</div>
               <div className="text-xl font-extrabold">{cityState || "Location TBD"}</div>
             </div>
+            <div className="mt-3 w-full sm:mt-0 sm:w-auto">
+              <div className="flex w-full items-center justify-between gap-2 sm:justify-end">
+                {includesAll3 && (
+                  <div className="hidden sm:block text-xs font-extrabold px-3 py-2 rounded-xl bg-white/15 border border-white/25">
+                    Includes All 3 Selections
+                  </div>
+                )}
 
-            <div className="mt-3 flex w-full flex-wrap items-center gap-2 sm:mt-0 sm:w-auto sm:justify-end">
-              {includesAll3 && (
-                <div className="hidden sm:block text-xs font-extrabold px-3 py-2 rounded-xl bg-white/15 border border-white/25">
-                  Includes All 3 Selections
+                {/* Share (more prominent) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const titleLine = `${cityState || "Location TBD"} • ${formatRangePretty(start, end)}`;
+                    const top = main.slice(0, 3);
+                    const detailLines = top.length
+                      ? top.map((e: any) => {
+                          const d = getEventLocalDate(e);
+                          const t = getEventLocalTime(e);
+                          const when = [d ? formatEventDateMMMDD(d) : null, t ? formatEventTime(t) : null]
+                            .filter(Boolean)
+                            .join(" ");
+                          const where = eventVenueCityState(e);
+                          return `• ${eventTitle(e)}${when ? ` (${when})` : ""}${where ? ` — ${where}` : ""}`;
+                        })
+                      : ["• (No ticketed events found)"];
 
-                </div>
-              )}
+                    shareOccurrence({ anchorId: occKey, titleLine, detailLines });
+                  }}
+                  title="Share this occurrence"
+                  className="shrink-0 rounded-2xl px-4 py-2.5 text-xs font-black tracking-wide transition bg-white text-slate-900 shadow-lg shadow-black/25 ring-1 ring-white/30 hover:-translate-y-px hover:shadow-xl"
+                >
+                  SHARE
+                </button>
+              </div>
 
-              {/* Share (lightest) */}
-              <button
-                type="button"
-                onClick={() => {
-                  const titleLine = `${cityState || "Location TBD"} • ${formatRangePretty(start, end)}`;
-                  const top = main.slice(0, 3);
-                  const detailLines = top.length
-                    ? top.map((e: any) => {
-                        const d = getEventLocalDate(e);
-                        const t = getEventLocalTime(e);
-                        const when = [d ? formatEventDateMMMDD(d) : null, t ? formatEventTime(t) : null]
-                          .filter(Boolean)
-                          .join(" ");
-                        const where = eventVenueCityState(e);
-                        return `• ${eventTitle(e)}${when ? ` (${when})` : ""}${where ? ` — ${where}` : ""}`;
-                      })
-                    : ["• (No ticketed events found)"];
-
-                  shareOccurrence({ anchorId: occKey, titleLine, detailLines });
-                }}
-                title="Share this occurrence"
-                className="shrink-0 rounded-xl px-3 py-2 text-xs font-extrabold transition border bg-white/30 text-white/90 border-white/25 hover:bg-white/15"
-              >
-                SHARE
-              </button>
-
-              {/* Travel buttons (slightly darker than Share) */}
-              <TravelButton
-                label="Hotels"
-                enabled={!!hotelsUrl}
-                title={hotelsUrl ? "Search hotels on Expedia" : "Missing destination or dates"}
-                onClick={() => hotelsUrl && window.open(hotelsUrl, "_blank")}
-              />
-              <TravelButton
-                label="Flights"
-                enabled={!!flightsUrl}
-                title={
-                  flightsUrl
-                    ? "Search flights on Expedia"
-                    : !originIata
-                    ? "Add ?origin=YYY to your results URL (IATA code) to enable flights"
-                    : "No destination airport found for this occurrence"
-                }
-                onClick={() => flightsUrl && window.open(flightsUrl, "_blank")}
-              />
-              <TravelButton
-                label="Flight + Hotel"
-                enabled={!!packagesUrl}
-                title={
-                  packagesUrl
-                    ? "Search flight + hotel packages on Expedia"
-                    : !originIata
-                    ? "Add ?origin=YYY to your results URL (IATA code) to enable packages"
-                    : "Missing destination or dates"
-                }
-                onClick={() => packagesUrl && window.open(packagesUrl, "_blank")}
-              />
+              <div className="mt-3 flex w-full flex-wrap items-center justify-center gap-2 sm:mt-2 sm:justify-end">
+                {/* Travel buttons */}
+                <TravelButton
+                  label="Hotels"
+                  enabled={!!hotelsUrl}
+                  title={hotelsUrl ? "Search hotels on Expedia" : "Missing destination or dates"}
+                  onClick={() => hotelsUrl && window.open(hotelsUrl, "_blank")}
+                />
+                <TravelButton
+                  label="Flights"
+                  enabled={!!flightsUrl}
+                  title={
+                    flightsUrl
+                      ? "Search flights on Expedia"
+                      : !originIata
+                      ? "Add ?origin=YYY to your results URL (IATA code) to enable flights"
+                      : "No destination airport found for this occurrence"
+                  }
+                  onClick={() => flightsUrl && window.open(flightsUrl, "_blank")}
+                />
+                <TravelButton
+                  label="Flight + Hotel"
+                  enabled={!!packagesUrl}
+                  title={
+                    packagesUrl
+                      ? "Search flight + hotel packages on Expedia"
+                      : !originIata
+                      ? "Add ?origin=YYY to your results URL (IATA code) to enable packages"
+                      : "Missing destination or dates"
+                  }
+                  onClick={() => packagesUrl && window.open(packagesUrl, "_blank")}
+                />
+              </div>
             </div>
           </div>
 
