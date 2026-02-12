@@ -5,13 +5,9 @@ const TM_BASE = "https://app.ticketmaster.com/discovery/v2";
 const TM_ATTRACTIONS = `${TM_BASE}/attractions.json`;
 const TM_KEY = process.env.TICKETMASTER_API_KEY;
 
-async function fetchJson(url) {
-  const res = await fetch(url, { cache: "no-store" });
-  const text = await res.text();
-  let json = null;
-  try { json = JSON.parse(text); } catch {}
-  return { ok: res.ok, status: res.status, json, text };
-}
+// Tune these
+const OPTIONS_TTL_SECONDS = 60 * 60 * 6; // 6 hours (CDN + memory cache)
+const STALE_WHILE_REVALIDATE_SECONDS = 60 * 60 * 24; // 24 hours
 
 function sortByLabel(a, b) {
   return String(a.label).localeCompare(String(b.label));
@@ -81,6 +77,32 @@ function buildTeamOptions() {
     }
   }
   return out;
+}
+
+async function fetchJson(url) {
+  // Use Next fetch caching semantics; this helps in some runtimes,
+  // but the main wins come from our in-memory cache + CDN headers.
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      // IMPORTANT: do NOT use "no-store" here (you currently do) :contentReference[oaicite:1]{index=1}
+      next: { revalidate: OPTIONS_TTL_SECONDS },
+    });
+
+    const text = await res.text();
+    let json = null;
+    try {
+      json = JSON.parse(text);
+    } catch {}
+    return { ok: res.ok, status: res.status, json, text };
+  } catch (e) {
+    return { ok: false, status: 0, json: null, text: String(e?.message || e) };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function findArtistByKeyword(name) {
@@ -156,17 +178,84 @@ async function getMusicArtists(limit = 1200) {
   return Array.from(map.values()).sort(sortByLabel).slice(0, limit);
 }
 
-export async function GET() {
-  try {
-    const teams = buildTeamOptions();
-    const artists = await getMusicArtists(1200);
-    const combined = [...teams, ...artists];
-
-    return NextResponse.json({
-      combined,
-      debug: { teamsCount: teams.length, artistsCount: artists.length, combinedCount: combined.length },
-    });
-  } catch (err) {
-    return NextResponse.json({ combined: [], error: err?.message || "Unknown error" }, { status: 500 });
+/**
+ * In-memory cache (per warm instance). Greatly reduces repeated work
+ * during bursts and repeat visits; CDN cache headers cover the bigger picture.
+ */
+function getCacheBucket() {
+  if (!globalThis.__EVENTSTACK_OPTIONS_CACHE__) {
+    globalThis.__EVENTSTACK_OPTIONS_CACHE__ = {
+      value: null,
+      expiresAt: 0,
+      inflight: null,
+    };
   }
+  return globalThis.__EVENTSTACK_OPTIONS_CACHE__;
+}
+
+async function buildCombinedOptions() {
+  const teams = buildTeamOptions();
+  const artists = await getMusicArtists(1200);
+  const combined = [...teams, ...artists];
+  return {
+    combined,
+    debug: {
+      teamsCount: teams.length,
+      artistsCount: artists.length,
+      combinedCount: combined.length,
+    },
+  };
+}
+
+export async function GET() {
+  const cache = getCacheBucket();
+  const now = Date.now();
+
+  // Serve from memory cache
+  if (cache.value && cache.expiresAt > now) {
+    return NextResponse.json(cache.value, {
+      headers: {
+        "Cache-Control": `public, s-maxage=${OPTIONS_TTL_SECONDS}, stale-while-revalidate=${STALE_WHILE_REVALIDATE_SECONDS}`,
+        "X-Options-Cache": "HIT",
+      },
+    });
+  }
+
+  // Deduplicate concurrent requests
+  if (cache.inflight) {
+    const payload = await cache.inflight;
+    return NextResponse.json(payload, {
+      headers: {
+        "Cache-Control": `public, s-maxage=${OPTIONS_TTL_SECONDS}, stale-while-revalidate=${STALE_WHILE_REVALIDATE_SECONDS}`,
+        "X-Options-Cache": "HIT-INFLIGHT",
+      },
+    });
+  }
+
+  cache.inflight = (async () => {
+    try {
+      const payload = await buildCombinedOptions();
+      cache.value = payload;
+      cache.expiresAt = Date.now() + OPTIONS_TTL_SECONDS * 1000;
+      return payload;
+    } catch (err) {
+      // Do not poison cache on failure
+      return { combined: [], error: err?.message || "Unknown error" };
+    } finally {
+      cache.inflight = null;
+    }
+  })();
+
+  const payload = await cache.inflight;
+
+  // If buildCombinedOptions failed, respond 500; otherwise 200.
+  const status = payload?.error ? 500 : 200;
+
+  return NextResponse.json(payload, {
+    status,
+    headers: {
+      "Cache-Control": `public, s-maxage=${OPTIONS_TTL_SECONDS}, stale-while-revalidate=${STALE_WHILE_REVALIDATE_SECONDS}`,
+      "X-Options-Cache": "MISS",
+    },
+  });
 }
