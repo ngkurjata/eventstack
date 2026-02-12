@@ -6,7 +6,7 @@ const TM_ATTRACTIONS = `${TM_BASE}/attractions.json`;
 const TM_KEY = process.env.TICKETMASTER_API_KEY;
 
 // Tune these
-const OPTIONS_TTL_SECONDS = 60 * 60 * 6; // 6 hours (CDN + memory cache)
+const OPTIONS_TTL_SECONDS = 60 * 60; // 6 hours (CDN + memory cache)
 const STALE_WHILE_REVALIDATE_SECONDS = 60 * 60 * 24; // 24 hours
 
 function sortByLabel(a, b) {
