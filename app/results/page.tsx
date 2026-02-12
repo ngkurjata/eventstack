@@ -381,17 +381,16 @@ function TravelButton({
 }) {
   return (
     <button
-      type="button"
-      title={title}
-      onClick={() => enabled && onClick()}
-      disabled={!enabled}
-      className={cx(
-        "rounded-xl px-3 py-2 text-xs font-extrabold transition border",
-        enabled
-          ? "bg-white/20 text-white border-white/30 hover:bg-white/30"
-          : "bg-white/5 text-white/40 border-white/10 cursor-not-allowed"
-      )}
-    >
+  type="button"
+  title={title}
+  onClick={onClick}
+  className={cx(
+    "rounded-xl px-3 py-2 text-xs font-extrabold transition border",
+    enabled
+      ? "bg-white/20 text-white border-white/30 hover:bg-white/30"
+      : "bg-white/5 text-white/40 border-white/10 cursor-not-allowed"
+  )}
+>
       {label}
     </button>
   );
@@ -405,6 +404,7 @@ export default function ResultsPage() {
   const qs = useMemo(() => stripDeprecatedParams(sp), [sp]);
 
   const originIata = (qs.get("origin") || "").trim().toUpperCase();
+  const hasOriginAirport = /^[A-Z]{3}$/.test(originIata);
 
   const selectedPickCount = useMemo(() => {
     const ids = [qs.get("p1"), qs.get("p2"), qs.get("p3")]
@@ -788,29 +788,49 @@ export default function ResultsPage() {
                   onClick={() => hotelsUrl && window.open(hotelsUrl, "_blank")}
                 />
                 <TravelButton
-                  label="Flights"
-                  enabled={!!flightsUrl}
-                  title={
-                    flightsUrl
-                      ? "Search flights on Expedia"
-                      : !originIata
-                      ? "Add ?origin=YYY to your results URL (IATA code) to enable flights"
-                      : "No destination airport found for this occurrence"
-                  }
-                  onClick={() => flightsUrl && window.open(flightsUrl, "_blank")}
-                />
-                <TravelButton
-                  label="Flight + Hotel"
-                  enabled={!!packagesUrl}
-                  title={
-                    packagesUrl
-                      ? "Search flight + hotel packages on Expedia"
-                      : !originIata
-                      ? "Add ?origin=YYY to your results URL (IATA code) to enable packages"
-                      : "Missing destination or dates"
-                  }
-                  onClick={() => packagesUrl && window.open(packagesUrl, "_blank")}
-                />
+  label="Flights"
+  enabled={!!flightsUrl}
+  title={
+    flightsUrl
+      ? "Search flights on Expedia"
+      : !hasOriginAirport
+      ? "Add your nearest airport on the search page to enable flights"
+      : "No destination airport found for this occurrence"
+  }
+  onClick={() => {
+    if (!hasOriginAirport) {
+      showToast("Add your nearest airport to enable Flights.");
+      return;
+    }
+    if (!flightsUrl) {
+      showToast("No destination airport found for this occurrence.");
+      return;
+    }
+    window.open(flightsUrl, "_blank");
+  }}
+/>
+     <TravelButton
+  label="Flight + Hotel"
+  enabled={!!packagesUrl}
+  title={
+    packagesUrl
+      ? "Search flight + hotel packages on Expedia"
+      : !hasOriginAirport
+      ? "Add your nearest airport on the search page to enable packages"
+      : "Missing destination or dates"
+  }
+  onClick={() => {
+    if (!hasOriginAirport) {
+      showToast("Add your nearest airport to enable Flight + Hotel.");
+      return;
+    }
+    if (!packagesUrl) {
+      showToast("Missing destination or dates for packages.");
+      return;
+    }
+    window.open(packagesUrl, "_blank");
+  }}
+/>
               </div>
             </div>
           </div>

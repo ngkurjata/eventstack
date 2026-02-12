@@ -561,7 +561,7 @@ export default function Page() {
     if (p3) setP3("");
   }, [p3]);
 
-  const canSearch = Boolean(p1 && p2 && originIata);
+const canSearch = Boolean(p1 && p2);
 
   useEffect(() => {
     if (!loading && canSearch) {
@@ -577,10 +577,9 @@ export default function Page() {
       return;
     }
 
-    if (!originIata) {
-      setOriginErr("Please select your nearest airport from the list.");
-      return;
-    }
+    // Airport is optional; flights/buttons will be disabled on results if missing.
+if (!originIata) setOriginErr("");
+
 
     const effectiveDays = PUBLIC_MODE ? clamp(days, 1, PUBLIC_PRESET.maxDays) : days;
     const effectiveRadius = PUBLIC_MODE ? clamp(radiusMiles, 1, PUBLIC_PRESET.maxRadiusMiles) : radiusMiles;
