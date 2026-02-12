@@ -596,36 +596,34 @@ export default function ResultsPage() {
 
     // ✅ CLEAN SHARE: includes prefixed text + link (native share when available; otherwise copy full message)
   async function shareOccurrence(params: { occKey: string; titleLine: string; detailLines: string[] }) {
-    const { occKey, titleLine, detailLines } = params;
+  const { occKey, titleLine, detailLines } = params;
 
-    const url = `${window.location.origin}/results?${qs.toString()}#${occKey}`;
+  const url = `${window.location.origin}/results?${qs.toString()}#${occKey}`;
 
-    // 👇 This is the message that should appear in SMS/WhatsApp/etc (best-effort; some apps ignore it)
-    const prefix = "Check this out!";
-    const body = [prefix, titleLine, ...detailLines, "", url].join("\n");
+  const prefix = "Check this out!";
+  const body = [prefix, titleLine, ...detailLines, "", url].join("\n");
 
-    // Prefer native share sheet when available
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: "EventStack",
-          text: body,
-          url, // still pass url separately for richer previews where supported
-        });
-        return;
-      }
-    } catch {
-      // user cancelled or share failed — fall through to clipboard
+  try {
+    if (navigator.share) {
+      // Key change: share TEXT ONLY (WhatsApp is far more likely to include it)
+      await navigator.share({
+        title: "EventStack",
+        text: body,
+      });
+      return;
     }
-
-    // Fallback: copy the FULL message (not just the URL)
-    try {
-      await navigator.clipboard.writeText(body);
-      showToast("Share text + link copied to clipboard");
-    } catch {
-      window.prompt("Copy and share this:", body);
-    }
+  } catch {
+    // fall through
   }
+
+  try {
+    await navigator.clipboard.writeText(body);
+    showToast("Share text + link copied to clipboard");
+  } catch {
+    window.prompt("Copy and share this:", body);
+  }
+}
+
 
   function renderOccurrenceBlock(occ: any, keySeed: string) {
     const eventsDeduped = dedupeEventsWithinOccurrence(occ.events);
