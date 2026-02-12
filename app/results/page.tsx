@@ -709,10 +709,40 @@ export default function ResultsPage() {
         >
           <div
                         className={cx(
-              "px-5 py-4 flex flex-col sm:flex-row sm:items-start justify-between gap-3",
-              includesAll3 ? "bg-red-600 text-white" : "bg-slate-900 text-white"
-            )}
+  "relative px-5 py-4 flex flex-col sm:flex-row sm:items-start justify-between gap-3",
+  includesAll3 ? "bg-red-600 text-white" : "bg-slate-900 text-white"
+)}
+
           >
+            <button
+              type="button"
+              onClick={() => {
+                const titleLine = `${cityState || "Location TBD"} • ${formatRangePretty(start, end)}`;
+                const top = main.slice(0, 3);
+                const detailLines = top.length
+                  ? top.map((e: any) => {
+                      const d = getEventLocalDate(e);
+                      const t = getEventLocalTime(e);
+                      const when = [d ? formatEventDateMMMDD(d) : null, t ? formatEventTime(t) : null]
+                        .filter(Boolean)
+                        .join(" ");
+                      const where = eventVenueCityState(e);
+                      return `• ${eventTitle(e)}${when ? ` (${when})` : ""}${where ? ` — ${where}` : ""}`;
+                    })
+                  : ["• (No ticketed events found)"];
+
+                shareOccurrence({ anchorId: occKey, titleLine, detailLines });
+              }}
+              title="Share this occurrence"
+              className="absolute right-4 top-4 sm:hidden rounded-2xl px-4 py-2.5 text-xs font-black tracking-wide bg-white text-slate-900 shadow-lg shadow-black/25 ring-1 ring-white/30 hover:-translate-y-px hover:shadow-xl"
+            >
+              SHARE
+            </button>
+
+                        <div className="pr-28 sm:pr-0">
+              <div className="text-lg font-extrabold">{formatRangePretty(start, end)}</div>
+              <div className="text-xl font-extrabold">{cityState || "Location TBD"}</div>
+                        </div>          
                         <div>
               <div className="text-lg font-extrabold">{formatRangePretty(start, end)}</div>
               <div className="text-xl font-extrabold">{cityState || "Location TBD"}</div>
@@ -746,7 +776,7 @@ export default function ResultsPage() {
                     shareOccurrence({ anchorId: occKey, titleLine, detailLines });
                   }}
                   title="Share this occurrence"
-                  className="shrink-0 rounded-2xl px-4 py-2.5 text-xs font-black tracking-wide transition bg-white text-slate-900 shadow-lg shadow-black/25 ring-1 ring-white/30 hover:-translate-y-px hover:shadow-xl"
+                  className="hidden sm:inline-flex shrink-0 rounded-2xl px-4 py-2.5 text-xs font-black tracking-wide transition bg-white text-slate-900 shadow-lg shadow-black/25 ring-1 ring-white/30 hover:-translate-y-px hover:shadow-xl"
                 >
                   SHARE
                 </button>
