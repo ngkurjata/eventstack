@@ -674,8 +674,8 @@ const effectiveRadius = PUBLIC_MODE
   value={daysText}
   onFocus={(e) => {
     // Android-friendly: make it easy to overwrite the prefills
-    requestAnimationFrame(() => e.currentTarget.select());
-  }}
+const el = e.currentTarget as HTMLInputElement | HTMLTextAreaElement | null;
+requestAnimationFrame(() => el?.select());  }}
   onChange={(e) => {
     const next = e.target.value;
 
@@ -714,8 +714,8 @@ const effectiveRadius = PUBLIC_MODE
   pattern="[0-9]*"
   value={radiusText}
   onFocus={(e) => {
-    requestAnimationFrame(() => e.currentTarget.select());
-  }}
+const el = e.currentTarget as HTMLInputElement | HTMLTextAreaElement | null;
+requestAnimationFrame(() => el?.select());  }}
   onChange={(e) => {
     const next = e.target.value;
 

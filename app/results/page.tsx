@@ -274,7 +274,8 @@ function dedupeEventsWithinOccurrence(events: any[]) {
   const seen = new Set<string>();
   for (const e of events || []) {
     const id = eventId(e);
-    const key = id || `${eventSortKey(e)}|${eventVenueKey(e)}|${normalizeTitleForDedup(eventTitle(e))}`;
+    const key =
+      id || `${eventSortKey(e)}|${eventVenueKey(e)}|${normalizeTitleForDedup(eventTitle(e))}`;
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(e);
@@ -287,7 +288,8 @@ function dedupeNearbyPopularEvents(events: any[]) {
   const seen = new Set<string>();
   for (const e of events || []) {
     const id = eventId(e);
-    const key = id || `${eventSortKey(e)}|${eventVenueKey(e)}|${normalizeTitleForDedup(eventTitle(e))}`;
+    const key =
+      id || `${eventSortKey(e)}|${eventVenueKey(e)}|${normalizeTitleForDedup(eventTitle(e))}`;
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(e);
@@ -345,7 +347,8 @@ function resolveBestDestinationIata(opts: {
 
     const matches = airports.filter((a) => {
       if (!a?.iata) return false;
-      if (country && a.country && String(a.country).toUpperCase() !== String(country).toUpperCase()) return false;
+      if (country && a.country && String(a.country).toUpperCase() !== String(country).toUpperCase())
+        return false;
 
       const aCity = String(a.city || "").toLowerCase();
       const aState = normalizeRegionToStateCode(a.region) || "";
@@ -368,6 +371,16 @@ function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
 }
 
+/* -------------------- Share (lightweight) helpers -------------------- */
+
+function b64urlEncodeUtf8(str: string) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = "";
+  bytes.forEach((b) => (bin += String.fromCharCode(b)));
+  const b64 = btoa(bin);
+  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
 function TravelButton({
   label,
   enabled,
@@ -381,16 +394,16 @@ function TravelButton({
 }) {
   return (
     <button
-  type="button"
-  title={title}
-  onClick={onClick}
-  className={cx(
-    "rounded-xl px-3 py-2 text-xs font-extrabold transition border",
-    enabled
-      ? "bg-white/20 text-white border-white/30 hover:bg-white/30"
-      : "bg-white/5 text-white/40 border-white/10 cursor-not-allowed"
-  )}
->
+      type="button"
+      title={title}
+      onClick={onClick}
+      className={cx(
+        "rounded-xl px-3 py-2 text-xs font-extrabold transition border",
+        enabled
+          ? "bg-white/20 text-white border-white/30 hover:bg-white/30"
+          : "bg-white/5 text-white/40 border-white/10 cursor-not-allowed"
+      )}
+    >
       {label}
     </button>
   );
@@ -473,7 +486,9 @@ export default function ResultsPage() {
   const occurrencesSorted = useMemo(() => {
     const enriched = occurrencesRaw.map((occ: any, idx: number) => {
       const eventsDeduped = dedupeEventsWithinOccurrence(occ.events);
-      const main = [...eventsDeduped].filter((e) => !!eventUrl(e)).sort((a, b) => eventSortKey(a) - eventSortKey(b));
+      const main = [...eventsDeduped]
+        .filter((e) => !!eventUrl(e))
+        .sort((a, b) => eventSortKey(a) - eventSortKey(b));
       const mainDates = uniqueSortedDates(main);
       const firstMain = mainDates[0] ?? null;
       const sortKey = firstMain ? Number(String(firstMain).replace(/-/g, "")) : 99999999;
@@ -584,13 +599,15 @@ export default function ResultsPage() {
     });
   }
 
-  async function shareOccurrence(params: { anchorId: string; titleLine: string; detailLines: string[] }) {
-    const { anchorId, titleLine, detailLines } = params;
+  async function shareOccurrence(params: { occ: any; titleLine: string; detailLines: string[] }) {
+    const { occ, titleLine, detailLines } = params;
 
-    const url = `${window.location.origin}${window.location.pathname}${window.location.search}#${encodeURIComponent(
-      anchorId
-    )}`;
-    const text = [titleLine, ...detailLines, "", "Found on EventStack", url].join("\n");
+    // Encode ONLY this occurrence into the share URL (no storage).
+    const payload = JSON.stringify(occ);
+    const encoded = encodeURIComponent(b64urlEncodeUtf8(payload));
+    const url = `${window.location.origin}/share?o=${encoded}`;
+
+    const text = [titleLine, ...detailLines, "", "Try EventStack:", url].join("\n");
 
     try {
       if (navigator.share) {
@@ -603,7 +620,7 @@ export default function ResultsPage() {
 
     try {
       await navigator.clipboard.writeText(url);
-      showToast("Link copied to clipboard");
+      showToast("Share link copied to clipboard");
     } catch {
       window.prompt("Copy this link:", url);
     }
@@ -708,11 +725,10 @@ export default function ResultsPage() {
           )}
         >
           <div
-                        className={cx(
-  "relative px-5 py-4 flex flex-col sm:flex-row sm:items-start justify-between gap-3",
-  includesAll3 ? "bg-red-600 text-white" : "bg-slate-900 text-white"
-)}
-
+            className={cx(
+              "relative px-5 py-4 flex flex-col sm:flex-row sm:items-start justify-between gap-3",
+              includesAll3 ? "bg-red-600 text-white" : "bg-slate-900 text-white"
+            )}
           >
             <button
               type="button"
@@ -731,7 +747,7 @@ export default function ResultsPage() {
                     })
                   : ["• (No ticketed events found)"];
 
-                shareOccurrence({ anchorId: occKey, titleLine, detailLines });
+                shareOccurrence({ occ, titleLine, detailLines });
               }}
               title="Share this occurrence"
               className="absolute right-4 top-4 sm:hidden rounded-2xl px-4 py-2.5 text-xs font-black tracking-wide bg-white text-slate-900 shadow-lg shadow-black/25 ring-1 ring-white/30 hover:-translate-y-px hover:shadow-xl"
@@ -739,11 +755,11 @@ export default function ResultsPage() {
               SHARE
             </button>
 
-                        <div className="pr-28 sm:pr-0">
+            <div className="pr-28 sm:pr-0">
               <div className="text-lg font-extrabold">{formatRangePretty(start, end)}</div>
               <div className="text-xl font-extrabold">{cityState || "Location TBD"}</div>
-                        </div>          
-                        
+            </div>
+
             <div className="mt-3 w-full sm:mt-0 sm:w-auto">
               <div className="flex w-full items-center justify-end gap-2">
                 {includesAll3 && (
@@ -752,7 +768,6 @@ export default function ResultsPage() {
                   </div>
                 )}
 
-                {/* Share (more prominent) */}
                 <button
                   type="button"
                   onClick={() => {
@@ -770,7 +785,7 @@ export default function ResultsPage() {
                         })
                       : ["• (No ticketed events found)"];
 
-                    shareOccurrence({ anchorId: occKey, titleLine, detailLines });
+                    shareOccurrence({ occ, titleLine, detailLines });
                   }}
                   title="Share this occurrence"
                   className="hidden sm:inline-flex shrink-0 rounded-2xl px-4 py-2.5 text-xs font-black tracking-wide transition bg-white text-slate-900 shadow-lg shadow-black/25 ring-1 ring-white/30 hover:-translate-y-px hover:shadow-xl"
@@ -780,57 +795,58 @@ export default function ResultsPage() {
               </div>
 
               <div className="mt-3 flex w-full flex-wrap items-center justify-center gap-2 sm:mt-2 sm:justify-end">
-                {/* Travel buttons */}
                 <TravelButton
                   label="Hotels"
                   enabled={!!hotelsUrl}
                   title={hotelsUrl ? "Search hotels on Expedia" : "Missing destination or dates"}
                   onClick={() => hotelsUrl && window.open(hotelsUrl, "_blank")}
                 />
+
                 <TravelButton
-  label="Flights"
-  enabled={!!flightsUrl}
-  title={
-    flightsUrl
-      ? "Search flights on Expedia"
-      : !hasOriginAirport
-      ? "Add your nearest airport on the search page to enable flights"
-      : "No destination airport found for this occurrence"
-  }
-  onClick={() => {
-    if (!hasOriginAirport) {
-      showToast("Add your nearest airport to enable Flights.");
-      return;
-    }
-    if (!flightsUrl) {
-      showToast("No destination airport found for this occurrence.");
-      return;
-    }
-    window.open(flightsUrl, "_blank");
-  }}
-/>
-     <TravelButton
-  label="Flight + Hotel"
-  enabled={!!packagesUrl}
-  title={
-    packagesUrl
-      ? "Search flight + hotel packages on Expedia"
-      : !hasOriginAirport
-      ? "Add your nearest airport on the search page to enable packages"
-      : "Missing destination or dates"
-  }
-  onClick={() => {
-    if (!hasOriginAirport) {
-      showToast("Add your nearest airport to enable Flight + Hotel.");
-      return;
-    }
-    if (!packagesUrl) {
-      showToast("Missing destination or dates for packages.");
-      return;
-    }
-    window.open(packagesUrl, "_blank");
-  }}
-/>
+                  label="Flights"
+                  enabled={!!flightsUrl}
+                  title={
+                    flightsUrl
+                      ? "Search flights on Expedia"
+                      : !hasOriginAirport
+                      ? "Add your nearest airport on the search page to enable flights"
+                      : "No destination airport found for this occurrence"
+                  }
+                  onClick={() => {
+                    if (!hasOriginAirport) {
+                      showToast("Add your nearest airport to enable Flights.");
+                      return;
+                    }
+                    if (!flightsUrl) {
+                      showToast("No destination airport found for this occurrence.");
+                      return;
+                    }
+                    window.open(flightsUrl, "_blank");
+                  }}
+                />
+
+                <TravelButton
+                  label="Flight + Hotel"
+                  enabled={!!packagesUrl}
+                  title={
+                    packagesUrl
+                      ? "Search flight + hotel packages on Expedia"
+                      : !hasOriginAirport
+                      ? "Add your nearest airport on the search page to enable packages"
+                      : "Missing destination or dates"
+                  }
+                  onClick={() => {
+                    if (!hasOriginAirport) {
+                      showToast("Add your nearest airport to enable Flight + Hotel.");
+                      return;
+                    }
+                    if (!packagesUrl) {
+                      showToast("Missing destination or dates for packages.");
+                      return;
+                    }
+                    window.open(packagesUrl, "_blank");
+                  }}
+                />
               </div>
             </div>
           </div>
@@ -839,9 +855,7 @@ export default function ResultsPage() {
             {hasOtherPopular ? (
               <button
                 type="button"
-                onClick={() =>
-                  toggleOtherPopular(occKey, canFetchNearby, anchor, startYMD, endYMD, Array.from(mainIds))
-                }
+                onClick={() => toggleOtherPopular(occKey, canFetchNearby, anchor, startYMD, endYMD, Array.from(mainIds))}
                 className="rounded-full px-6 py-2 text-sm font-extrabold border border-slate-300 bg-white hover:bg-slate-100"
               >
                 {showOtherPopular ? "Hide Popular Events Nearby" : "Show Popular Events Nearby"}
@@ -937,20 +951,17 @@ export default function ResultsPage() {
       )}
 
       <div className="max-w-5xl mx-auto px-4 pt-6 pb-3 flex items-center justify-between">
-  <div className="text-sm text-slate-600 font-extrabold">
-    Occurrences: {occCount}
-  </div>
+        <div className="text-sm text-slate-600 font-extrabold">Occurrences: {occCount}</div>
 
-  <button
-    type="button"
-    onClick={() => router.push(`/?${qs.toString()}`)}
-    className="rounded-xl px-4 py-2 text-xs font-extrabold transition border bg-slate-900 text-white hover:bg-slate-800"
-    title="Go back and revise your search"
-  >
-    Revise Search
-  </button>
-</div>
-
+        <button
+          type="button"
+          onClick={() => router.push(`/?${qs.toString()}`)}
+          className="rounded-xl px-4 py-2 text-xs font-extrabold transition border bg-slate-900 text-white hover:bg-slate-800"
+          title="Go back and revise your search"
+        >
+          Revise Search
+        </button>
+      </div>
 
       <div className="pb-10">
         {hasSearched && !loading && !errMsg && occurrencesSorted.length === 0 && (
