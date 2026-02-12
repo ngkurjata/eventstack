@@ -8,12 +8,14 @@ export const config = {
 };
 
 export function middleware(req: NextRequest) {
-  const pinOk = req.cookies.get("eventstack_pin_ok")?.value === "1";
-  if (pinOk) return NextResponse.next();
+  const ok = req.cookies.get("eventstack_pin_ok")?.value === "1";
+  if (ok) return NextResponse.next();
 
   const url = req.nextUrl.clone();
   url.pathname = "/pin";
-  // keep where they were trying to go
-  url.searchParams.set("next", req.nextUrl.pathname + req.nextUrl.search);
+  url.searchParams.set(
+    "next",
+    req.nextUrl.pathname + req.nextUrl.search
+  );
   return NextResponse.redirect(url);
 }
