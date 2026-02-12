@@ -594,27 +594,36 @@ export default function ResultsPage() {
     });
   }
 
-  // ✅ CLEAN SHARE: copy a short URL to the current results + anchor to this occurrence
+    // ✅ CLEAN SHARE: includes prefixed text + link (native share when available; otherwise copy full message)
   async function shareOccurrence(params: { occKey: string; titleLine: string; detailLines: string[] }) {
     const { occKey, titleLine, detailLines } = params;
 
     const url = `${window.location.origin}/results?${qs.toString()}#${occKey}`;
-    const text = [titleLine, ...detailLines, "", "Try EventStack:", url].join("\n");
 
+    // 👇 This is the message that should appear in SMS/WhatsApp/etc (best-effort; some apps ignore it)
+    const prefix = "Check this out!";
+    const body = [prefix, titleLine, ...detailLines, "", url].join("\n");
+
+    // Prefer native share sheet when available
     try {
       if (navigator.share) {
-        await navigator.share({ title: "EventStack", text, url });
+        await navigator.share({
+          title: "EventStack",
+          text: body,
+          url, // still pass url separately for richer previews where supported
+        });
         return;
       }
     } catch {
-      // fall through
+      // user cancelled or share failed — fall through to clipboard
     }
 
+    // Fallback: copy the FULL message (not just the URL)
     try {
-      await navigator.clipboard.writeText(url); // plain text only
-      showToast("Share link copied to clipboard");
+      await navigator.clipboard.writeText(body);
+      showToast("Share text + link copied to clipboard");
     } catch {
-      window.prompt("Copy this link:", url);
+      window.prompt("Copy and share this:", body);
     }
   }
 
