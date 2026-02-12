@@ -138,7 +138,7 @@ export function AirportPicker(props: {
       />
 
       {/* Always show helper text */}
-      <div style={{ marginTop: 8, fontSize: 12, opacity: 0.75 }}>
+      <div style={{ marginTop: 8, fontSize: 12, opacity: 1 }}>
         Required (autofills Expedia)
       </div>
 
