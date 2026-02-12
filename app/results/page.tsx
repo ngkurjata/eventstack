@@ -594,40 +594,108 @@ export default function ResultsPage() {
     });
   }
 
-    // ✅ CLEAN SHARE: includes prefixed text + link (native share when available; otherwise copy full message)
+// ✅ CLEAN SHARE: with emojis etc
   
-function isProbablyMobile() {
-  if (typeof navigator === "undefined") return false;
-  const ua = navigator.userAgent || "";
-  return /Android|iPhone|iPad|iPod/i.test(ua);
-}
+  function isMobileUA() {
+    const ua = (navigator.userAgent || "").toLowerCase();
+    return /android|iphone|ipad|ipod/.test(ua);
+  }
 
-async function shareOccurrence(params: { occKey: string; titleLine: string; detailLines: string[] }) {
-  const { occKey, titleLine, detailLines } = params;
+  function isWindowsUA() {
+    const ua = (navigator.userAgent || "").toLowerCase();
+    return ua.includes("windows");
+  }
 
-  const url = `${window.location.origin}/results?${qs.toString()}#${occKey}`;
-  const prefix = "Check this out!";
-  const body = [prefix, titleLine, ...detailLines, "", url].join("\n");
+  function pickCheckmarkGlyph() {
+    // ✅ looks best on mobile; ✓ is more consistently rendered on desktop/Windows apps
+    if (isMobileUA()) return "✅";
+    if (isWindowsUA()) return "✓";
+    return "✅";
+  }
 
-  // ✅ Use native share only on mobile (where it shows WhatsApp/SMS/etc.)
-  if (isProbablyMobile() && navigator.share) {
+  function pickDisplayNameFromParam(p: string | null): string | null {
+    const s = (p || "").trim();
+    if (!s) return null;
+
+    // qs.get already decodes %xx; normalize "+" just in case
+    const decoded = s.replace(/\+/g, " ");
+    const parts = decoded.split(":").map((x) => x.trim()).filter(Boolean);
+    return parts.length ? parts[parts.length - 1] : null;
+  }
+
+  function formatShortRange(start: string, end: string) {
+    const s = parseYMDToUTC(start);
+    const e = parseYMDToUTC(end);
+    if (!s || !e) return formatRangePretty(start, end);
+
+    const sm = fmtUTC(s, { month: "short" });
+    const em = fmtUTC(e, { month: "short" });
+    const sd = fmtUTC(s, { day: "numeric" });
+    const ed = fmtUTC(e, { day: "numeric" });
+    const sy = fmtUTC(s, { year: "numeric" });
+    const ey = fmtUTC(e, { year: "numeric" });
+
+    if (start === end) return `${sm} ${sd}, ${sy}`;
+    if (sy === ey) {
+      if (sm === em) return `${sm} ${sd} - ${ed}, ${sy}`;
+      return `${sm} ${sd} - ${em} ${ed}, ${sy}`;
+    }
+    return `${sm} ${sd}, ${sy} - ${em} ${ed}, ${ey}`;
+  }
+
+  async function shareOccurrence(params: {
+    occKey: string;
+    cityState: string | null;
+    startYMD: string;
+    endYMD: string;
+  }) {
+    const { occKey, cityState, startYMD, endYMD } = params;
+
+    const url = `${window.location.origin}/results?${qs.toString()}#${occKey}`;
+
+    // Pull clean names from p1/p2/p3, e.g. "Edmonton Oilers", "Chris Isaak"
+    const pickNames = [qs.get("p1"), qs.get("p2"), qs.get("p3")]
+      .map(pickDisplayNameFromParam)
+      .filter(Boolean) as string[];
+
+    const mark = pickCheckmarkGlyph();
+    const loc = cityState || "Location TBD";
+    const range = formatShortRange(startYMD, endYMD);
+
+    const body = [
+      "Hear me out ...",
+      "",
+      ...pickNames.map((n) => `${mark} ${n}`),
+      "",
+      loc,
+      range,
+      "",
+      "... we should totally go! right!?",
+      "",
+      url,
+    ].join("\n");
+
+    // ✅ Use share sheet ONLY on mobile (better targets + emoji behavior)
+    if (isMobileUA() && navigator.share) {
+      try {
+        await navigator.share({ title: "EventStack", text: body });
+        return;
+      } catch {
+        // cancelled/failed -> fall back
+      }
+    }
+
+    // Desktop (and general fallback): copy exact message (preserves emoji best)
     try {
-      // text-only is more likely to carry message in WhatsApp
-      await navigator.share({ title: "EventStack", text: body });
-      return;
+      await navigator.clipboard.writeText(body);
+      showToast("Share message copied to clipboard");
     } catch {
-      // user cancelled or share failed -> fall back
+      window.prompt("Copy and share this:", body);
     }
   }
 
-  // ✅ Desktop-friendly fallback: copy full message + link
-  try {
-    await navigator.clipboard.writeText(body);
-    showToast("Share text + link copied to clipboard");
-  } catch {
-    window.prompt("Copy and share this:", body);
-  }
-}
+
+// SHARE OCCURENCE ENDS HERE
 
   function renderOccurrenceBlock(occ: any, keySeed: string) {
     const eventsDeduped = dedupeEventsWithinOccurrence(occ.events);
@@ -740,22 +808,13 @@ async function shareOccurrence(params: { occKey: string; titleLine: string; deta
             <button
               type="button"
               onClick={() => {
-                const titleLine = `${cityState || "Location TBD"} • ${formatRangePretty(start, end)}`;
-                const top = main.slice(0, 3);
-                const detailLines = top.length
-                  ? top.map((e: any) => {
-                      const d = getEventLocalDate(e);
-                      const t = getEventLocalTime(e);
-                      const when = [d ? formatEventDateMMMDD(d) : null, t ? formatEventTime(t) : null]
-                        .filter(Boolean)
-                        .join(" ");
-                      const where = eventVenueCityState(e);
-                      return `• ${eventTitle(e)}${when ? ` (${when})` : ""}${where ? ` — ${where}` : ""}`;
-                    })
-                  : ["• (No ticketed events found)"];
-
-                shareOccurrence({ occKey, titleLine, detailLines });
-              }}
+  shareOccurrence({
+    occKey,
+    cityState,
+    startYMD: start,
+    endYMD: end,
+  });
+}}
               title="Share this occurrence"
               className="absolute right-4 top-4 sm:hidden rounded-2xl px-4 py-2.5 text-xs font-black tracking-wide bg-white text-slate-900 shadow-lg shadow-black/25 ring-1 ring-white/30 hover:-translate-y-px hover:shadow-xl"
             >
@@ -778,22 +837,14 @@ async function shareOccurrence(params: { occKey: string; titleLine: string; deta
                 <button
                   type="button"
                   onClick={() => {
-                    const titleLine = `${cityState || "Location TBD"} • ${formatRangePretty(start, end)}`;
-                    const top = main.slice(0, 3);
-                    const detailLines = top.length
-                      ? top.map((e: any) => {
-                          const d = getEventLocalDate(e);
-                          const t = getEventLocalTime(e);
-                          const when = [d ? formatEventDateMMMDD(d) : null, t ? formatEventTime(t) : null]
-                            .filter(Boolean)
-                            .join(" ");
-                          const where = eventVenueCityState(e);
-                          return `• ${eventTitle(e)}${when ? ` (${when})` : ""}${where ? ` — ${where}` : ""}`;
-                        })
-                      : ["• (No ticketed events found)"];
+  shareOccurrence({
+    occKey,
+    cityState,
+    startYMD: start,
+    endYMD: end,
+  });
+}}
 
-                    shareOccurrence({ occKey, titleLine, detailLines });
-                  }}
                   title="Share this occurrence"
                   className="hidden sm:inline-flex shrink-0 rounded-2xl px-4 py-2.5 text-xs font-black tracking-wide transition bg-white text-slate-900 shadow-lg shadow-black/25 ring-1 ring-white/30 hover:-translate-y-px hover:shadow-xl"
                 >
