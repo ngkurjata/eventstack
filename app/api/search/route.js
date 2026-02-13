@@ -597,7 +597,10 @@ if (!occurrences || occurrences.length === 0) {
       }
 
       if (!events || events.length === 0) {
-        const kw = pick.type === "team" ? pick.name : (await fetchAttractionNameById(apiKey, id)) || "";
+const kw =
+  pick.type === "team"
+    ? String(pick.name || "").trim()
+    : (id ? (await fetchAttractionNameById(apiKey, id)) : null) || "";
         events = await fallbackEventsByKeyword(apiKey, pick.type, kw);
       }
 
@@ -609,19 +612,38 @@ if (!occurrences || occurrences.length === 0) {
     const s1 = await getSchedule(p1);
     const s2 = await getSchedule(p2);
 
-    return NextResponse.json({
+    // Labels for UI (teams already have a name; artists need lookup best-effort)
+const label1 =
+  p1.type === "team"
+    ? String(p1.name || "").trim() || "Pick 1"
+    : (id1 ? (await fetchAttractionNameById(apiKey, id1)) : null) || "Pick 1";
+
+const label2 =
+  p2.type === "team"
+    ? String(p2.name || "").trim() || "Pick 2"
+    : (id2 ? (await fetchAttractionNameById(apiKey, id2)) : null) || "Pick 2";
+
+return NextResponse.json({
   count: 0,
   occurrences: [],
-  fallback: { ... },
+  fallback: {
+    mode: "NO_OVERLAP_SCHEDULES",
+    schedules: [
+      { label: label1, events: s1 },
+      { label: label2, events: s2 },
+    ],
+  },
   debug: debugMode
     ? {
         note: "NO_OVERLAP_SCHEDULES fallback returned (merged schedules).",
         p1,
         p2,
+        labels: { label1, label2 },
         counts: { s1: s1.length, s2: s2.length },
       }
     : undefined,
 });
+
 
   }
 }
