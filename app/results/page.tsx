@@ -437,40 +437,29 @@ function MergedSchedules({ schedules }: { schedules: Array<{ label: string; even
 
   return (
     <div className="p-4 sm:p-6 space-y-3">
-      {merged.map(({ e, which, label }) => {
+      {merged.map(({ e, which }) => {
         const d = getEventLocalDate(e);
         const t = getEventLocalTime(e);
         const venueLabel = eventVenueCityState(e);
 
-        const badgeClass =
-          which === 0
-            ? "bg-blue-50 text-blue-800 border-blue-200"
-            : "bg-emerald-50 text-emerald-800 border-emerald-200";
+        // Match occurrence rows: shade by schedule so Pick 2 is visually distinct
+        const rowBg = which === 1 ? "bg-slate-200" : "bg-slate-100";
+        const titleColor = which === 1 ? "text-slate-700" : "text-slate-900";
 
         return (
           <div
             key={eventId(e) || `${eventSortKey(e)}-${normalizeTitleForDedup(eventTitle(e))}-${which}`}
-            className="rounded-2xl border border-slate-200 bg-white p-4 flex items-center justify-between gap-4"
+            className={cx("rounded-2xl border border-slate-200 p-4 flex items-center justify-between gap-4", rowBg)}
           >
             <div className="min-w-0">
-              <div className="flex items-center gap-2 min-w-0">
-                <span
-                  className={cx(
-                    "shrink-0 inline-flex items-center px-2 py-1 rounded-full border text-xs font-extrabold",
-                    badgeClass
-                  )}
-                >
-                  {label}
-                </span>
-                <div className="font-extrabold text-slate-900 truncate">{eventTitle(e)}</div>
-              </div>
+              <div className={cx("font-extrabold truncate", titleColor)}>{eventTitle(e)}</div>
 
-              <div className="mt-2 text-xs text-slate-600 flex flex-wrap items-center gap-2">
+              <div className="mt-1 text-xs text-slate-600">
                 {(() => {
                   const dateStr = formatEventDateMMMDDYYYY(d);
                   const timeStr = formatEventTimeLower(t);
                   const parts = [dateStr, timeStr, venueLabel].filter(Boolean);
-                  return parts.length ? <span className="truncate">{parts.join(" • ")}</span> : null;
+                  return parts.length ? <div className="truncate">{parts.join(" • ")}</div> : null;
                 })()}
               </div>
             </div>
@@ -493,6 +482,7 @@ function MergedSchedules({ schedules }: { schedules: Array<{ label: string; even
     </div>
   );
 }
+
 
 /* ==================== Share pick parsing + lookup (Step 1/2/3) ==================== */
 
