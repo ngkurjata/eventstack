@@ -1051,7 +1051,7 @@ const fallbackSchedules = data?.fallback?.schedules || null;
                   onClick={() =>
                     toggleOtherPopular(occKey, canFetchNearby, anchor, startYMD, endYMD, Array.from(mainIds))
                   }
-                  className="rounded-full px-6 py-2 text-sm font-extrabold border border-slate-300 bg-white hover:bg-slate-100"
+className="rounded-full px-6 py-2 text-sm font-extrabold border border-slate-300 bg-white text-slate-900 hover:bg-slate-100 active:bg-slate-200"
                 >
                   {showOtherPopular ? "Hide Popular Events Nearby" : "Show Popular Events Nearby"}
                 </button>
