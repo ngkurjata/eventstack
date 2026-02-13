@@ -73,6 +73,8 @@ function buildGroupedListForQuery(
     const matches = opts.filter((o) => o.label.toLowerCase().includes(q)).slice(0, 25);
 
     if (matches.length) {
+      // We will *not* render group headers anymore (redundant), but we keep this
+      // structure in case you want to bring them back later.
       items.push({ type: "group", group });
       for (const option of matches) items.push({ type: "item", group, option });
     }
@@ -247,12 +249,21 @@ function Combobox({
 
   return (
     <div ref={wrapRef} className="w-full">
+      {/* Header row: move "Required" here (right side), not as help text */}
       <div className="mb-2 flex items-end justify-between gap-3">
         <div className="flex items-baseline gap-2">
           <div className="text-sm font-semibold text-slate-900">{label}</div>
-          {!required ? <div className="text-xs font-semibold text-slate-500">(optional)</div> : null}
         </div>
-        {help ? <div className="hidden text-xs text-slate-500 sm:block">{help}</div> : null}
+
+        <div className="flex items-center gap-3">
+          {required ? (
+            <div className="text-xs font-extrabold text-slate-600">Required</div>
+          ) : (
+            <div className="text-xs font-semibold text-slate-500">(optional)</div>
+          )}
+          {/* Keep help (if provided) but don't use it for Required anymore */}
+          {help ? <div className="hidden text-xs text-slate-500 sm:block">{help}</div> : null}
+        </div>
       </div>
 
       <div className="relative">
@@ -267,7 +278,9 @@ function Combobox({
               : "bg-white text-slate-900 border-slate-200 placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100",
           ].join(" ")}
           value={showLoading ? "Loading ..." : inputValue}
-          placeholder={showLoading ? "Loading ..." : required ? "Type to search…" : "Type to search (or leave blank)…"}
+          placeholder={
+            showLoading ? "Loading ..." : required ? "Type to search…" : "Type to search (or leave blank)…"
+          }
           onFocus={() => {
             if (showLoading) return;
             setActiveIdx(-1);
@@ -320,23 +333,14 @@ function Combobox({
                 <div className="px-3 py-3 text-sm text-slate-500">No matches.</div>
               ) : (
                 menuItems.map((it, idx) => {
-                  if (it.type === "group") {
-                    return (
-                      <div
-                        key={`g-${it.group}-${idx}`}
-                        className="sticky top-0 z-10 mt-1 rounded-xl bg-slate-50 px-3 py-2 text-xs font-extrabold tracking-wide text-slate-700"
-                      >
-                        {it.group}
-                      </div>
-                    );
-                  }
+                  // ✅ CHANGE 1: remove sticky group headers (NHL/NBA/ARTISTS etc.)
+                  if (it.type === "group") return null;
 
                   const isActive = idx === activeIdx;
 
                   return (
                     <div
                       key={it.option.id}
-                      // ✅ FIX: force readable text on inactive rows (Android was rendering this too faint)
                       className={[
                         "mt-1 flex cursor-pointer items-center justify-between gap-3 rounded-xl px-3 py-2.5",
                         isActive
@@ -354,6 +358,8 @@ function Combobox({
                           {it.option.label}
                         </div>
                       </div>
+
+                      {/* keep the right-side league label (useful even without headers) */}
                       <div
                         className={[
                           "shrink-0 text-xs font-bold",
@@ -384,12 +390,10 @@ export default function Page() {
   const [loadError, setLoadError] = useState("");
   const [combined, setCombined] = useState<CombinedOption[]>([]);
 
-  const [daysText, setDaysText] = useState<string>(
-  String(PUBLIC_MODE ? PUBLIC_PRESET.maxDays : 3)
-);
-const [radiusText, setRadiusText] = useState<string>(
-  String(PUBLIC_MODE ? PUBLIC_PRESET.maxRadiusMiles : 100)
-);
+  const [daysText, setDaysText] = useState<string>(String(PUBLIC_MODE ? PUBLIC_PRESET.maxDays : 3));
+  const [radiusText, setRadiusText] = useState<string>(
+    String(PUBLIC_MODE ? PUBLIC_PRESET.maxRadiusMiles : 100)
+  );
   const [p1, setP1] = useState("");
   const [p2, setP2] = useState("");
   const [p3, setP3] = useState("");
@@ -528,14 +532,14 @@ const [radiusText, setRadiusText] = useState<string>(
       p1,
       p2,
       p3: PUBLIC_MODE ? "" : p3,
-days: (() => {
-  const parsed = safeParseInt(daysText, PUBLIC_MODE ? PUBLIC_PRESET.maxDays : 3);
-  return PUBLIC_MODE ? clamp(parsed, 1, PUBLIC_PRESET.maxDays) : parsed;
-})(),
-radiusMiles: (() => {
-  const parsed = safeParseInt(radiusText, PUBLIC_MODE ? PUBLIC_PRESET.maxRadiusMiles : 100);
-  return PUBLIC_MODE ? clamp(parsed, 1, PUBLIC_PRESET.maxRadiusMiles) : clamp(parsed, 1, 2000);
-})(),
+      days: (() => {
+        const parsed = safeParseInt(daysText, PUBLIC_MODE ? PUBLIC_PRESET.maxDays : 3);
+        return PUBLIC_MODE ? clamp(parsed, 1, PUBLIC_PRESET.maxDays) : parsed;
+      })(),
+      radiusMiles: (() => {
+        const parsed = safeParseInt(radiusText, PUBLIC_MODE ? PUBLIC_PRESET.maxRadiusMiles : 100);
+        return PUBLIC_MODE ? clamp(parsed, 1, PUBLIC_PRESET.maxRadiusMiles) : clamp(parsed, 1, 2000);
+      })(),
       origin: originIata,
     };
 
@@ -553,14 +557,15 @@ radiusMiles: (() => {
 
     const next = qs.toString() ? `/?${qs.toString()}` : "/";
     window.history.replaceState(null, "", next);
-}, [p1, p2, p3, daysText, radiusText, originIata]);
+  }, [p1, p2, p3, daysText, radiusText, originIata]);
 
   useEffect(() => {
     if (!PUBLIC_MODE) return;
     if (p3) setP3("");
   }, [p3]);
 
-const canSearch = Boolean(p1 && p2);
+  const canSearch = Boolean(p1 && p2);
+  const needsBothPicks = Boolean((p1 && !p2) || (!p1 && p2));
 
   useEffect(() => {
     if (!loading && canSearch) {
@@ -577,15 +582,16 @@ const canSearch = Boolean(p1 && p2);
     }
 
     // Airport is optional; flights/buttons will be disabled on results if missing.
-if (!originIata) setOriginErr("");
+    if (!originIata) setOriginErr("");
 
-
-const parsedDays = safeParseInt(daysText, PUBLIC_MODE ? PUBLIC_PRESET.maxDays : 3);
-const effectiveDays = PUBLIC_MODE ? clamp(parsedDays, 1, PUBLIC_PRESET.maxDays) : clamp(parsedDays, 1, 30);
-const parsedRadius = safeParseInt(radiusText, PUBLIC_MODE ? PUBLIC_PRESET.maxRadiusMiles : 100);
-const effectiveRadius = PUBLIC_MODE
-  ? clamp(parsedRadius, 1, PUBLIC_PRESET.maxRadiusMiles)
-  : clamp(parsedRadius, 1, 2000);
+    const parsedDays = safeParseInt(daysText, PUBLIC_MODE ? PUBLIC_PRESET.maxDays : 3);
+    const effectiveDays = PUBLIC_MODE
+      ? clamp(parsedDays, 1, PUBLIC_PRESET.maxDays)
+      : clamp(parsedDays, 1, 30);
+    const parsedRadius = safeParseInt(radiusText, PUBLIC_MODE ? PUBLIC_PRESET.maxRadiusMiles : 100);
+    const effectiveRadius = PUBLIC_MODE
+      ? clamp(parsedRadius, 1, PUBLIC_PRESET.maxRadiusMiles)
+      : clamp(parsedRadius, 1, 2000);
     const effectiveP3 = PUBLIC_MODE ? "" : p3;
 
     const params = new URLSearchParams();
@@ -628,7 +634,8 @@ const effectiveRadius = PUBLIC_MODE
                 groups={groups}
                 valueId={p1}
                 setValueId={setP1}
-                help="Required"
+                // no longer used for "Required" (we show Required in the header row)
+                help={undefined}
                 disabled={loading}
               />
               <Combobox
@@ -639,7 +646,7 @@ const effectiveRadius = PUBLIC_MODE
                 groups={groups}
                 valueId={p2}
                 setValueId={setP2}
-                help="Required"
+                help={undefined}
                 disabled={loading}
               />
             </div>
@@ -667,35 +674,33 @@ const effectiveRadius = PUBLIC_MODE
               <label className="block">
                 <div className="mb-2 text-sm font-semibold text-slate-900">Max trip length (# of Days)</div>
                 <input
-  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-[15px] text-slate-900 shadow-sm outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-  type="text"
-  inputMode="numeric"
-  pattern="[0-9]*"
-  value={daysText}
-  onFocus={(e) => {
-    // Android-friendly: make it easy to overwrite the prefills
-const el = e.currentTarget as HTMLInputElement | HTMLTextAreaElement | null;
-requestAnimationFrame(() => el?.select());  }}
-  onChange={(e) => {
-    const next = e.target.value;
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-[15px] text-slate-900 shadow-sm outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={daysText}
+                  onFocus={(e) => {
+                    const el = e.currentTarget as HTMLInputElement | HTMLTextAreaElement | null;
+                    requestAnimationFrame(() => el?.select());
+                  }}
+                  onChange={(e) => {
+                    const next = e.target.value;
 
-    // allow clearing while typing
-    if (next === "") {
-      setDaysText("");
-      return;
-    }
+                    if (next === "") {
+                      setDaysText("");
+                      return;
+                    }
 
-    // digits only
-    if (/^\d+$/.test(next)) {
-      setDaysText(next);
-    }
-  }}
-  onBlur={() => {
-    const parsed = safeParseInt(daysText, PUBLIC_MODE ? PUBLIC_PRESET.maxDays : 3);
-    const clamped = PUBLIC_MODE ? clamp(parsed, 1, PUBLIC_PRESET.maxDays) : clamp(parsed, 1, 30);
-    setDaysText(String(clamped));
-  }}
-/>
+                    if (/^\d+$/.test(next)) {
+                      setDaysText(next);
+                    }
+                  }}
+                  onBlur={() => {
+                    const parsed = safeParseInt(daysText, PUBLIC_MODE ? PUBLIC_PRESET.maxDays : 3);
+                    const clamped = PUBLIC_MODE ? clamp(parsed, 1, PUBLIC_PRESET.maxDays) : clamp(parsed, 1, 30);
+                    setDaysText(String(clamped));
+                  }}
+                />
                 <div className="mt-2 text-xs text-slate-500">
                   {PUBLIC_MODE
                     ? `Cannot be greater than ${PUBLIC_PRESET.maxDays} days.`
@@ -708,39 +713,35 @@ requestAnimationFrame(() => el?.select());  }}
                   Max distance between events (# of Miles)
                 </div>
                 <input
-  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-[15px] text-slate-900 shadow-sm outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-  type="text"
-  inputMode="numeric"
-  pattern="[0-9]*"
-  value={radiusText}
-  onFocus={(e) => {
-const el = e.currentTarget as HTMLInputElement | HTMLTextAreaElement | null;
-requestAnimationFrame(() => el?.select());  }}
-  onChange={(e) => {
-    const next = e.target.value;
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-[15px] text-slate-900 shadow-sm outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={radiusText}
+                  onFocus={(e) => {
+                    const el = e.currentTarget as HTMLInputElement | HTMLTextAreaElement | null;
+                    requestAnimationFrame(() => el?.select());
+                  }}
+                  onChange={(e) => {
+                    const next = e.target.value;
 
-    // allow clearing while typing
-    if (next === "") {
-      setRadiusText("");
-      return;
-    }
+                    if (next === "") {
+                      setRadiusText("");
+                      return;
+                    }
 
-    // digits only
-    if (/^\d+$/.test(next)) {
-      setRadiusText(next);
-    }
-  }}
-  onBlur={() => {
-    const parsed = safeParseInt(
-      radiusText,
-      PUBLIC_MODE ? PUBLIC_PRESET.maxRadiusMiles : 100
-    );
-    const clamped = PUBLIC_MODE
-      ? clamp(parsed, 1, PUBLIC_PRESET.maxRadiusMiles)
-      : clamp(parsed, 1, 2000);
-    setRadiusText(String(clamped));
-  }}
-/>
+                    if (/^\d+$/.test(next)) {
+                      setRadiusText(next);
+                    }
+                  }}
+                  onBlur={() => {
+                    const parsed = safeParseInt(radiusText, PUBLIC_MODE ? PUBLIC_PRESET.maxRadiusMiles : 100);
+                    const clamped = PUBLIC_MODE
+                      ? clamp(parsed, 1, PUBLIC_PRESET.maxRadiusMiles)
+                      : clamp(parsed, 1, 2000);
+                    setRadiusText(String(clamped));
+                  }}
+                />
                 <div className="mt-2 text-xs text-slate-500">
                   {PUBLIC_MODE
                     ? `Cannot be greater than ${PUBLIC_PRESET.maxRadiusMiles} miles.`
@@ -771,6 +772,13 @@ requestAnimationFrame(() => el?.select());  }}
               type="button"
               onClick={onSearch}
               disabled={!canSearch || loading}
+              title={
+                needsBothPicks
+                  ? "Both Favorite #1 and Favorite #2 are required before Search will work."
+                  : !canSearch
+                  ? "Pick Favorite #1 and Favorite #2 to enable Search."
+                  : "Search for overlap occurrences"
+              }
               className={[
                 "rounded-2xl px-5 py-3 text-sm font-extrabold shadow-sm transition",
                 searchPulse ? "animate-pulse" : "",
@@ -788,7 +796,9 @@ requestAnimationFrame(() => el?.select());  }}
           The next page will show you when and where your favorites cross paths (if at all).
         </footer>
 
-        {loadError ? <div className="mt-6 text-center text-xs text-rose-700">{loadError}</div> : null}
+        {loadError ? (
+          <div className="mt-6 text-center text-xs text-rose-700">{loadError}</div>
+        ) : null}
       </div>
     </main>
   );
