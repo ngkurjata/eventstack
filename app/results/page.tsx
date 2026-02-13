@@ -157,11 +157,12 @@ function buildExpediaFlightHotelPackageUrl(opts: {
 const getEventLocalDate = (e: any) => e?.dates?.start?.localDate ?? null;
 const getEventLocalTime = (e: any) => e?.dates?.start?.localTime ?? null;
 
-function formatEventDateMMMDD(d: string | null) {
+function formatEventDateMMMDDYYYY(d: string | null) {
   const dt = d ? parseYMDToUTC(d) : null;
   if (!dt) return "";
   const mm = fmtUTC(dt, { month: "short" });
   const dd = fmtUTC(dt, { day: "2-digit" });
+  const yyyy = fmtUTC(dt, { year: "numeric" });
   return `${mm} ${dd}`;
 }
 
@@ -176,6 +177,28 @@ function formatEventTime(t: string | null) {
   if (hh === 0) hh = 12;
   return `${hh}:${mm} ${ampm}`;
 }
+
+function formatEventDateMMMDDYY(d: string | null) {
+  const dt = d ? parseYMDToUTC(d) : null;
+  if (!dt) return "";
+  const mm = fmtUTC(dt, { month: "short" });
+  const dd = fmtUTC(dt, { day: "2-digit" });
+  const yy = fmtUTC(dt, { year: "2-digit" });
+  return `${mm}-${dd}-${yy}`; // e.g., Feb-28-26
+}
+
+function formatEventTimeLower(t: string | null) {
+  if (!t) return "";
+  const m = /^(\d{2}):(\d{2})/.exec(t);
+  if (!m) return t;
+  let hh = +m[1];
+  const mm = m[2];
+  const ampm = hh >= 12 ? "pm" : "am";
+  hh = hh % 12;
+  if (hh === 0) hh = 12;
+  return `${hh}:${mm}${ampm}`; // e.g., 8:00pm
+}
+
 
 const eventId = (e: any) => e?.id ?? null;
 const eventTitle = (e: any) => e?.name ?? "";
@@ -444,18 +467,16 @@ function MergedSchedules({ schedules }: { schedules: Array<{ label: string; even
               </div>
 
               <div className="mt-2 text-xs text-slate-600 flex flex-wrap items-center gap-2">
-                {d && (
-                  <span className="inline-flex items-center px-2 py-1 rounded-full bg-slate-50 border border-slate-200 font-extrabold">
-                    {formatEventDateMMMDD(d)}
-                  </span>
-                )}
-                {t && (
-                  <span className="inline-flex items-center px-2 py-1 rounded-full bg-slate-50 border border-slate-200 font-extrabold">
-                    {formatEventTime(t)}
-                  </span>
-                )}
-                {venueLabel && <span className="truncate">{venueLabel}</span>}
-              </div>
+  {(() => {
+    const dateStr = formatEventDateMMMDDYYYY(d);
+    const timeStr = formatEventTimeLower(t);
+    const parts = [dateStr, timeStr, venueLabel].filter(Boolean);
+    return parts.length ? (
+      <span className="truncate">{parts.join(" • ")}</span>
+    ) : null;
+  })()}
+</div>
+
             </div>
 
             {eventUrl(e) ? (
@@ -1123,19 +1144,17 @@ export default function ResultsPage() {
                         <span className="ml-2 text-xs font-extrabold text-slate-400">Popular Nearby</span>
                       )}
                     </div>
-                    <div className="mt-1 text-xs text-slate-600 flex flex-wrap items-center gap-2">
-                      {d && (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full bg-white border border-slate-200 font-extrabold">
-                          {formatEventDateMMMDD(d)}
-                        </span>
-                      )}
-                      {t && (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full bg-white border border-slate-200 font-extrabold">
-                          {formatEventTime(t)}
-                        </span>
-                      )}
-                      {venueLabel && <span className="truncate">{venueLabel}</span>}
-                    </div>
+                    <div className="mt-1 text-xs text-slate-600">
+  {(() => {
+    const dateStr = formatEventDateMMMDDYYYY(d);
+    const timeStr = formatEventTimeLower(t);
+    const parts = [dateStr, timeStr, venueLabel].filter(Boolean);
+    return parts.length ? (
+      <div className="truncate">{parts.join(" • ")}</div>
+    ) : null;
+  })()}
+</div>
+
                   </div>
 
                   {eventUrl(e) ? (
