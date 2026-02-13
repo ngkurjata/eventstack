@@ -278,7 +278,8 @@ function dedupeEventsWithinOccurrence(events: any[]) {
   const seen = new Set<string>();
   for (const e of events || []) {
     const id = eventId(e);
-    const key = id || `${eventSortKey(e)}|${eventVenueKey(e)}|${normalizeTitleForDedup(eventTitle(e))}`;
+    const key =
+      id || `${eventSortKey(e)}|${eventVenueKey(e)}|${normalizeTitleForDedup(eventTitle(e))}`;
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(e);
@@ -291,7 +292,8 @@ function dedupeNearbyPopularEvents(events: any[]) {
   const seen = new Set<string>();
   for (const e of events || []) {
     const id = eventId(e);
-    const key = id || `${eventSortKey(e)}|${eventVenueKey(e)}|${normalizeTitleForDedup(eventTitle(e))}`;
+    const key =
+      id || `${eventSortKey(e)}|${eventVenueKey(e)}|${normalizeTitleForDedup(eventTitle(e))}`;
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(e);
@@ -401,11 +403,7 @@ function TravelButton({
   );
 }
 
-function MergedSchedules({
-  schedules,
-}: {
-  schedules: Array<{ label: string; events: any[] }>;
-}) {
+function MergedSchedules({ schedules }: { schedules: Array<{ label: string; events: any[] }> }) {
   const merged = useMemo(() => {
     const out: Array<{ e: any; which: number; label: string }> = [];
     schedules.forEach((s, idx) => {
@@ -477,6 +475,57 @@ function MergedSchedules({
       })}
     </div>
   );
+}
+
+/* ==================== Share pick parsing + lookup (Step 1/2/3) ==================== */
+
+function parsePickParam(p: string | null): { kind: string; label?: string; id?: string } | null {
+  const s = (p || "").trim();
+  if (!s) return null;
+
+  const decoded = s.replace(/\+/g, " ");
+  const parts = decoded
+    .split(":")
+    .map((x) => x.trim())
+    .filter(Boolean);
+
+  if (!parts.length) return null;
+
+  const kind = parts[0].toLowerCase();
+
+  // team:NHL:Edmonton Oilers
+  if (kind === "team") {
+    const label = parts.slice(2).join(":") || parts[1];
+    return { kind, label };
+  }
+
+  // artist:K8vZ9171uzf or artist:Chris Isaak:K8vZ9171uzf
+  if (kind === "artist") {
+    if (parts.length >= 3) {
+      return { kind, label: parts.slice(1, -1).join(":"), id: parts[parts.length - 1] };
+    }
+    return { kind, id: parts[1] };
+  }
+
+  // genre:Rock, raw:Something, etc.
+  return { kind, label: parts[parts.length - 1] };
+}
+
+function lookupAttractionNameById(events: any[], attractionId: string): string | null {
+  if (!attractionId) return null;
+
+  for (const e of events || []) {
+    const atts = e?._embedded?.attractions;
+    if (!Array.isArray(atts)) continue;
+
+    const hit = atts.find((a: any) => String(a?.id || "") === attractionId);
+    if (hit?.name) {
+      const nm = String(hit.name).trim();
+      if (nm) return nm;
+    }
+  }
+
+  return null;
 }
 
 /* ==================== PAGE ==================== */
@@ -553,8 +602,8 @@ export default function ResultsPage() {
 
   const occurrencesRaw = useMemo(() => data?.occurrences || [], [data]);
 
-const fallbackMode = data?.fallback?.mode || null;
-const fallbackSchedules = data?.fallback?.schedules || null;
+  const fallbackMode = data?.fallback?.mode || null;
+  const fallbackSchedules = data?.fallback?.schedules || null;
 
   const occurrencesSorted = useMemo(() => {
     const enriched = occurrencesRaw.map((occ: any, idx: number) => {
@@ -569,11 +618,7 @@ const fallbackSchedules = data?.fallback?.schedules || null;
       const coverage = occurrenceCoverageCountFromMainEvents(main);
 
       const entityOnly = occ?.meta?.mode === "ENTITY_ONLY";
-      const entitySortKey = entityOnly
-        ? firstMain
-          ? Number(String(firstMain).replace(/-/g, ""))
-          : 0
-        : sortKey;
+      const entitySortKey = entityOnly ? (firstMain ? Number(String(firstMain).replace(/-/g, "")) : 0) : sortKey;
 
       return {
         ...occ,
@@ -685,7 +730,7 @@ const fallbackSchedules = data?.fallback?.schedules || null;
     });
   }
 
-  /* -------------------- Share helpers (Step 1/2/3) -------------------- */
+  /* -------------------- Share helpers -------------------- */
 
   function isMobileUA() {
     const ua = (navigator.userAgent || "").toLowerCase();
@@ -701,25 +746,6 @@ const fallbackSchedules = data?.fallback?.schedules || null;
     if (isMobileUA()) return "✅";
     if (isWindowsUA()) return "✓";
     return "✅";
-  }
-
-  function pickDisplayNameFromParam(p: string | null): string | null {
-    const s = (p || "").trim();
-    if (!s) return null;
-
-    const decoded = s.replace(/\+/g, " ");
-    const parts = decoded
-      .split(":")
-      .map((x) => x.trim())
-      .filter(Boolean);
-
-    if (!parts.length) return null;
-
-    const last = parts[parts.length - 1];
-
-    if (/^K[0-9A-Za-z]{8,}$/.test(last)) return null;
-
-    return last;
   }
 
   function formatShortRange(start: string, end: string) {
@@ -748,14 +774,30 @@ const fallbackSchedules = data?.fallback?.schedules || null;
     startYMD: string;
     endYMD: string;
     fallbackTitles: string[];
+    eventsForLookup: any[]; // Step 2: allow resolving artist IDs to names
   }) {
-    const { occKey, cityState, startYMD, endYMD, fallbackTitles } = params;
+    const { occKey, cityState, startYMD, endYMD, fallbackTitles, eventsForLookup } = params;
 
     const url = `${window.location.origin}/results?${qs.toString()}#${occKey}`;
 
-    let pickNames = [qs.get("p1"), qs.get("p2"), qs.get("p3")]
-      .map(pickDisplayNameFromParam)
-      .filter(Boolean) as string[];
+    // Step 1/3: parse params and resolve artist IDs from occurrence events
+    const raw = [qs.get("p1"), qs.get("p2"), qs.get("p3")];
+    let pickNames: string[] = [];
+
+    for (const r of raw) {
+      const parsed = parsePickParam(r);
+      if (!parsed) continue;
+
+      if (parsed.label) {
+        pickNames.push(parsed.label);
+        continue;
+      }
+
+      if (parsed.kind === "artist" && parsed.id) {
+        const resolved = lookupAttractionNameById(eventsForLookup, parsed.id);
+        if (resolved) pickNames.push(resolved);
+      }
+    }
 
     if (pickNames.length === 0 && Array.isArray(fallbackTitles) && fallbackTitles.length) {
       pickNames = fallbackTitles.slice(0, 3);
@@ -802,7 +844,6 @@ const fallbackSchedules = data?.fallback?.schedules || null;
 
     const allEvents = [...eventsDeduped, ...popularDeduped];
 
-    // Prefer meta dates (ENTITY_ONLY uses meta.startYMD/endYMD from API) then fallback
     const startMeta = occ?.meta?.startYMD || null;
     const endMeta = occ?.meta?.endYMD || null;
 
@@ -895,10 +936,12 @@ const fallbackSchedules = data?.fallback?.schedules || null;
           })
         : null;
 
-    // ENTITY_ONLY should never show "Popular Nearby" controls
     const merged = (
       !isEntityOnly && showOtherPopular
-        ? [...main.map((e) => ({ e, pop: false })), ...basePopular.map((e: any) => ({ e, pop: true }))]
+        ? [
+            ...main.map((e) => ({ e, pop: false })),
+            ...basePopular.map((e: any) => ({ e, pop: true })),
+          ]
         : [...main.map((e) => ({ e, pop: false }))]
     ).sort((a, b) => eventSortKey(a.e) - eventSortKey(b.e));
 
@@ -919,7 +962,6 @@ const fallbackSchedules = data?.fallback?.schedules || null;
               includesAll3 ? "bg-red-600 text-white" : "bg-slate-900 text-white"
             )}
           >
-            {/* SHARE button (hide in ENTITY_ONLY) */}
             {!isEntityOnly && (
               <button
                 type="button"
@@ -930,6 +972,7 @@ const fallbackSchedules = data?.fallback?.schedules || null;
                     startYMD: start,
                     endYMD: end,
                     fallbackTitles: main.map((e: any) => eventTitle(e)),
+                    eventsForLookup: allEvents, // Step 3: pass occurrence events for lookup
                   });
                 }}
                 title="Share this occurrence"
@@ -961,7 +1004,6 @@ const fallbackSchedules = data?.fallback?.schedules || null;
                   </div>
                 )}
 
-                {/* Desktop SHARE (hide in ENTITY_ONLY) */}
                 {!isEntityOnly && (
                   <button
                     type="button"
@@ -972,6 +1014,7 @@ const fallbackSchedules = data?.fallback?.schedules || null;
                         startYMD: start,
                         endYMD: end,
                         fallbackTitles: main.map((e: any) => eventTitle(e)),
+                        eventsForLookup: allEvents, // Step 3: pass occurrence events for lookup
                       });
                     }}
                     title="Share this occurrence"
@@ -982,7 +1025,6 @@ const fallbackSchedules = data?.fallback?.schedules || null;
                 )}
               </div>
 
-              {/* Travel buttons (hide in ENTITY_ONLY) */}
               {!isEntityOnly && (
                 <div className="mt-3 flex w-full flex-wrap items-center justify-center gap-2 sm:mt-2 sm:justify-end">
                   <TravelButton
@@ -1042,7 +1084,6 @@ const fallbackSchedules = data?.fallback?.schedules || null;
             </div>
           </div>
 
-          {/* Popular Nearby toggle row (hide in ENTITY_ONLY) */}
           {!isEntityOnly && (
             <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 flex justify-center">
               {hasOtherPopular ? (
@@ -1051,7 +1092,7 @@ const fallbackSchedules = data?.fallback?.schedules || null;
                   onClick={() =>
                     toggleOtherPopular(occKey, canFetchNearby, anchor, startYMD, endYMD, Array.from(mainIds))
                   }
-className="rounded-full px-6 py-2 text-sm font-extrabold border border-slate-300 bg-white text-slate-900 hover:bg-slate-100 active:bg-slate-200"
+                  className="rounded-full px-6 py-2 text-sm font-extrabold border border-slate-300 bg-white text-slate-900 hover:bg-slate-100 active:bg-slate-200"
                 >
                   {showOtherPopular ? "Hide Popular Events Nearby" : "Show Popular Events Nearby"}
                 </button>
@@ -1113,8 +1154,7 @@ className="rounded-full px-6 py-2 text-sm font-extrabold border border-slate-300
               );
             })}
 
-            {/* If ENTITY_ONLY somehow returns no events, show a clearer message */}
-            {isEntityOnly && merged.length === 0 && (
+            {occ?.meta?.mode === "ENTITY_ONLY" && merged.length === 0 && (
               <div className="text-sm text-slate-600 font-extrabold">
                 No upcoming ticketed events found for this entity.
               </div>
@@ -1169,37 +1209,36 @@ className="rounded-full px-6 py-2 text-sm font-extrabold border border-slate-300
       </div>
 
       <div className="pb-10">
-        {/* Fallback merged schedules when there is no overlap */}
-{hasSearched &&
-  !loading &&
-  !errMsg &&
-  occurrencesSorted.length === 0 &&
-  fallbackMode === "NO_OVERLAP_SCHEDULES" &&
-  Array.isArray(fallbackSchedules) && (
-    <div className="max-w-5xl mx-auto px-4 py-8">
-      <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <div className="px-5 py-4 bg-slate-900 text-white">
-          <div className="text-lg font-extrabold">No overlap found</div>
-          <div className="text-sm text-white/80 font-bold">
-            Here are both schedules merged in date order:
-          </div>
-        </div>
+        {hasSearched &&
+          !loading &&
+          !errMsg &&
+          occurrencesSorted.length === 0 &&
+          fallbackMode === "NO_OVERLAP_SCHEDULES" &&
+          Array.isArray(fallbackSchedules) && (
+            <div className="max-w-5xl mx-auto px-4 py-8">
+              <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div className="px-5 py-4 bg-slate-900 text-white">
+                  <div className="text-lg font-extrabold">No overlap found</div>
+                  <div className="text-sm text-white/80 font-bold">
+                    Here are both schedules merged in date order:
+                  </div>
+                </div>
 
-        <MergedSchedules schedules={fallbackSchedules} />
-      </div>
-    </div>
-  )}
+                <MergedSchedules schedules={fallbackSchedules} />
+              </div>
+            </div>
+          )}
 
-{/* Default message when there is no overlap and no fallback payload */}
-{hasSearched &&
-  !loading &&
-  !errMsg &&
-  occurrencesSorted.length === 0 &&
-  !(fallbackMode === "NO_OVERLAP_SCHEDULES" && Array.isArray(fallbackSchedules)) && (
-    <div className="max-w-5xl mx-auto px-4 py-10 text-slate-700 font-extrabold">
-      Your selected teams/artists don't cross paths within the provided number of days and radius. Keep searching!
-    </div>
-  )}
+        {hasSearched &&
+          !loading &&
+          !errMsg &&
+          occurrencesSorted.length === 0 &&
+          !(fallbackMode === "NO_OVERLAP_SCHEDULES" && Array.isArray(fallbackSchedules)) && (
+            <div className="max-w-5xl mx-auto px-4 py-10 text-slate-700 font-extrabold">
+              Your selected teams/artists don't cross paths within the provided number of days and radius. Keep
+              searching!
+            </div>
+          )}
 
         {occurrencesSorted.map((occ: any, idx: number) => renderOccurrenceBlock(occ, `occ-${idx}`))}
       </div>
