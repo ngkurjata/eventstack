@@ -82,9 +82,11 @@ function parsePickOrRaw(pick) {
     return null;
   }
 
-  // artist:ATTRACTIONID
+  // artist:ATTRACTIONID(:NAME optional)
   if (kind === "artist") {
-    if (parts.length >= 2) return { type: "artist", attractionId: parts[1], name: "" };
+    if (parts.length >= 2) {
+      return { type: "artist", attractionId: parts[1], name: parts.slice(2).join(":") || "" };
+    }
     return null;
   }
 
@@ -97,6 +99,81 @@ function parsePickOrRaw(pick) {
   return { type: "raw", name: raw };
 }
 
+function isEntityPick(p) {
+  return p && (p.type === "team" || p.type === "artist");
+}
+
+function normalizeEntityName(s) {
+  return String(s || "")
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function entityDisplayName(p) {
+  if (!p) return "";
+  if (p.type === "team") return p.name || "";
+  // artist may have optional name (see parsePickOrRaw)
+  return p.name || "";
+}
+
+async function ensureAttractionId(apiKey, pick) {
+  if (!pick || !isEntityPick(pick)) return pick;
+
+  // Artists already have attractionId in your encoding
+  if (pick.type === "artist") return pick;
+
+  // Teams: if attractionId missing, resolve it via attractions search
+  if (pick.type === "team") {
+    if (!pick.attractionId && pick.name) {
+      const best = await resolveBestAttraction(apiKey, "Sports", pick.name, "US,CA");
+      if (best?.id) pick.attractionId = best.id;
+    }
+    return pick;
+  }
+
+  return pick;
+}
+
+function hasTicketLink(e) {
+  const url = String(e?.url || "").trim();
+  return Boolean(url);
+}
+
+async function fetchAllUpcomingEventsForAttraction(apiKey, attractionId, maxPages = 20) {
+  const all = [];
+
+  for (let page = 0; page < maxPages; page++) {
+    const params = new URLSearchParams();
+    params.set("apikey", apiKey);
+    params.set("countryCode", "US,CA");
+    params.set("size", "200");
+    params.set("sort", "date,asc");
+    params.set("attractionId", attractionId);
+
+    // Upcoming only (this makes “full schedule” behave as expected)
+    params.set("startDateTime", new Date().toISOString());
+
+    params.set("page", String(page));
+
+    const url = `${TM_EVENTS}?${params.toString()}`;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    const events = data?._embedded?.events || [];
+    all.push(...events);
+
+    const totalPages = data?.page?.totalPages ?? 0;
+    if (page + 1 >= totalPages) break;
+    if (events.length === 0) break;
+  }
+
+  // Your app expects only ticketed events
+  return all.filter(hasTicketLink);
+}
+
 function eventMatchesGenreBucket(event, bucket) {
   const keywords = GENRE_EXPANSION[bucket];
   if (!keywords) return false;
@@ -107,11 +184,6 @@ function eventMatchesGenreBucket(event, bucket) {
     const sg = (c.subGenre?.name || "").toLowerCase();
     return keywords.some((k) => g.includes(k) || sg.includes(k));
   });
-}
-
-function hasTicketLink(e) {
-  const url = String(e?.url || "").trim();
-  return Boolean(url);
 }
 
 function pickKey(p) {
@@ -364,6 +436,64 @@ export async function GET(req) {
       });
     }
 
+    // ✅ SAME-ENTITY SHORT-CIRCUIT (Box 1 and Box 2 are the same team/artist)
+    const rawP1 = searchParams.get("p1");
+    const rawP2 = searchParams.get("p2");
+
+    const pick1 = parsePickOrRaw(rawP1);
+    const pick2 = parsePickOrRaw(rawP2);
+
+    if (isEntityPick(pick1) && isEntityPick(pick2)) {
+      await ensureAttractionId(apiKey, pick1);
+      await ensureAttractionId(apiKey, pick2);
+
+      const id1 = String(pick1.attractionId || "").trim();
+      const id2 = String(pick2.attractionId || "").trim();
+      const sameById = id1 && id2 && id1 === id2;
+
+      const n1 = normalizeEntityName(entityDisplayName(pick1) || rawP1);
+      const n2 = normalizeEntityName(entityDisplayName(pick2) || rawP2);
+      const sameByName = !sameById && n1 && n2 && n1 === n2;
+
+      // If same by name but we couldn't resolve an attractionId, fall back to normal flow
+      if (sameById || (sameByName && (id1 || id2))) {
+        const useId = id1 || id2;
+
+        const events = (await fetchAllUpcomingEventsForAttraction(apiKey, useId)).map((e) => ({
+          ...e,
+          __pick: pick1, // keeps your UI/meta consistent
+        }));
+
+        const dates = uniqueSortedDates(events);
+        const startYMD = dates[0] || null;
+        const endYMD = dates[dates.length - 1] || null;
+        const anchor = getAnchorLatLon(events);
+
+        return NextResponse.json({
+          count: 1,
+          occurrences: [
+            {
+              events,
+              popular: [],
+              meta: {
+                anchor,
+                startYMD,
+                endYMD,
+                mode: "ENTITY_ONLY",
+                attractionId: useId,
+              },
+            },
+          ],
+          debug: {
+            note: "ENTITY_ONLY: p1 and p2 matched; ignoring days, radius, origin/airports.",
+            match: sameById ? "attractionId" : "name",
+            p1: pick1,
+            p2: pick2,
+          },
+        });
+      }
+    }
+
     // Resolve and fetch per pick
     const debugResolutions = [];
     const allEvents = [];
@@ -393,8 +523,7 @@ export async function GET(req) {
 
       const events = await fetchEventsByParams(params);
 
-      const filtered =
-        pick.type === "genre" ? events.filter((e) => eventMatchesGenreBucket(e, pick.bucket)) : events;
+      const filtered = pick.type === "genre" ? events.filter((e) => eventMatchesGenreBucket(e, pick.bucket)) : events;
 
       allEvents.push(
         ...filtered
