@@ -199,7 +199,6 @@ function formatEventTimeLower(t: string | null) {
   return `${hh}:${mm}${ampm}`; // e.g., 8:00pm
 }
 
-
 const eventId = (e: any) => e?.id ?? null;
 const eventTitle = (e: any) => e?.name ?? "";
 const eventUrl = (e: any) => e?.url ?? null;
@@ -467,16 +466,13 @@ function MergedSchedules({ schedules }: { schedules: Array<{ label: string; even
               </div>
 
               <div className="mt-2 text-xs text-slate-600 flex flex-wrap items-center gap-2">
-  {(() => {
-    const dateStr = formatEventDateMMMDDYYYY(d);
-    const timeStr = formatEventTimeLower(t);
-    const parts = [dateStr, timeStr, venueLabel].filter(Boolean);
-    return parts.length ? (
-      <span className="truncate">{parts.join(" • ")}</span>
-    ) : null;
-  })()}
-</div>
-
+                {(() => {
+                  const dateStr = formatEventDateMMMDDYYYY(d);
+                  const timeStr = formatEventTimeLower(t);
+                  const parts = [dateStr, timeStr, venueLabel].filter(Boolean);
+                  return parts.length ? <span className="truncate">{parts.join(" • ")}</span> : null;
+                })()}
+              </div>
             </div>
 
             {eventUrl(e) ? (
@@ -554,7 +550,12 @@ function lookupAttractionNameById(events: any[], attractionId: string): string |
 export default function ResultsPage() {
   const router = useRouter();
   const sp = useSearchParams();
+
+  // Keep URLSearchParams for your existing code (back button, share link, etc.)
   const qs = useMemo(() => stripDeprecatedParams(sp), [sp]);
+
+  // ✅ Critical: stable string snapshot for effect deps + initial hydration timing
+  const qsString = useMemo(() => qs.toString(), [qs]);
 
   const originIata = (qs.get("origin") || "").trim().toUpperCase();
   const hasOriginAirport = /^[A-Z]{3}$/.test(originIata);
@@ -564,7 +565,7 @@ export default function ResultsPage() {
       .map((x) => (x || "").trim())
       .filter(Boolean);
     return ids.length;
-  }, [qs]);
+  }, [qsString]); // depends on query content, not object identity
 
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -593,7 +594,7 @@ export default function ResultsPage() {
   const radiusMiles = useMemo(() => {
     const n = Number(qs.get("radiusMiles") || 100);
     return Number.isFinite(n) ? n : 100;
-  }, [qs]);
+  }, [qsString]);
 
   useEffect(() => {
     let cancelled = false;
@@ -613,13 +614,30 @@ export default function ResultsPage() {
     };
   }, []);
 
+  // ✅ FIX: don't fetch until querystring is present, and abort stale/empty calls
   useEffect(() => {
+    // On the very first render in a fresh browser context, this can be ""
+    if (!qsString) return;
+
+    const ac = new AbortController();
+
     setLoading(true);
-    fetch(`/api/search?${qs.toString()}`, { cache: "no-store" })
+    fetch(`/api/search?${qsString}`, { cache: "no-store", signal: ac.signal })
       .then((r) => r.json())
-      .then(setData)
-      .finally(() => setLoading(false));
-  }, [qs]);
+      .then((json) => {
+        if (ac.signal.aborted) return;
+        setData(json);
+      })
+      .catch((e: any) => {
+        if (e?.name === "AbortError") return;
+        setData({ error: e?.message || "Search failed" });
+      })
+      .finally(() => {
+        if (!ac.signal.aborted) setLoading(false);
+      });
+
+    return () => ac.abort();
+  }, [qsString]);
 
   const occurrencesRaw = useMemo(() => data?.occurrences || [], [data]);
 
@@ -666,7 +684,7 @@ export default function ResultsPage() {
     const p2 = (qs.get("p2") || "").trim();
     const p3 = (qs.get("p3") || "").trim();
     return !!(p1 || p2 || p3);
-  }, [qs]);
+  }, [qsString]);
 
   const errMsg = data?.error || null;
 
@@ -795,13 +813,12 @@ export default function ResultsPage() {
     startYMD: string;
     endYMD: string;
     fallbackTitles: string[];
-    eventsForLookup: any[]; // Step 2: allow resolving artist IDs to names
+    eventsForLookup: any[];
   }) {
     const { occKey, cityState, startYMD, endYMD, fallbackTitles, eventsForLookup } = params;
 
-    const url = `${window.location.origin}/results?${qs.toString()}#${occKey}`;
+    const url = `${window.location.origin}/results?${qsString}#${occKey}`;
 
-    // Step 1/3: parse params and resolve artist IDs from occurrence events
     const raw = [qs.get("p1"), qs.get("p2"), qs.get("p3")];
     let pickNames: string[] = [];
 
@@ -841,9 +858,9 @@ export default function ResultsPage() {
       url,
     ].join("\n");
 
-    if (isMobileUA() && navigator.share) {
+    if (isMobileUA() && (navigator as any).share) {
       try {
-        await navigator.share({ title: "EventStack", text: body });
+        await (navigator as any).share({ title: "EventStack", text: body });
         return;
       } catch {}
     }
@@ -993,7 +1010,7 @@ export default function ResultsPage() {
                     startYMD: start,
                     endYMD: end,
                     fallbackTitles: main.map((e: any) => eventTitle(e)),
-                    eventsForLookup: allEvents, // Step 3: pass occurrence events for lookup
+                    eventsForLookup: allEvents,
                   });
                 }}
                 title="Share this occurrence"
@@ -1035,7 +1052,7 @@ export default function ResultsPage() {
                         startYMD: start,
                         endYMD: end,
                         fallbackTitles: main.map((e: any) => eventTitle(e)),
-                        eventsForLookup: allEvents, // Step 3: pass occurrence events for lookup
+                        eventsForLookup: allEvents,
                       });
                     }}
                     title="Share this occurrence"
@@ -1145,16 +1162,13 @@ export default function ResultsPage() {
                       )}
                     </div>
                     <div className="mt-1 text-xs text-slate-600">
-  {(() => {
-    const dateStr = formatEventDateMMMDDYYYY(d);
-    const timeStr = formatEventTimeLower(t);
-    const parts = [dateStr, timeStr, venueLabel].filter(Boolean);
-    return parts.length ? (
-      <div className="truncate">{parts.join(" • ")}</div>
-    ) : null;
-  })()}
-</div>
-
+                      {(() => {
+                        const dateStr = formatEventDateMMMDDYYYY(d);
+                        const timeStr = formatEventTimeLower(t);
+                        const parts = [dateStr, timeStr, venueLabel].filter(Boolean);
+                        return parts.length ? <div className="truncate">{parts.join(" • ")}</div> : null;
+                      })()}
+                    </div>
                   </div>
 
                   {eventUrl(e) ? (
@@ -1219,7 +1233,7 @@ export default function ResultsPage() {
 
         <button
           type="button"
-          onClick={() => router.push(`/?${qs.toString()}`)}
+          onClick={() => router.push(`/?${qsString}`)}
           className="rounded-xl px-4 py-2 text-xs font-extrabold transition border bg-slate-900 text-white hover:bg-slate-800"
           title="Go back and revise your search"
         >
