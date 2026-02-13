@@ -63,6 +63,20 @@ async function resolveBestAttraction(apiKey, segmentName, keyword, countryCode =
   return candidates[0] || null;
 }
 
+// Optional: lookup name by attractionId (improves ENTITY_ONLY header for artists)
+async function fetchAttractionNameById(apiKey, attractionId) {
+  try {
+    const url = `${TM_ATTRACTIONS}/${encodeURIComponent(attractionId)}.json?apikey=${encodeURIComponent(apiKey)}`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const name = String(data?.name || "").trim();
+    return name || null;
+  } catch {
+    return null;
+  }
+}
+
 function parsePickOrRaw(pick) {
   const raw = String(pick || "").trim();
   if (!raw) return null;
@@ -82,11 +96,9 @@ function parsePickOrRaw(pick) {
     return null;
   }
 
-  // artist:ATTRACTIONID(:NAME optional)
+  // artist:ATTRACTIONID
   if (kind === "artist") {
-    if (parts.length >= 2) {
-      return { type: "artist", attractionId: parts[1], name: parts.slice(2).join(":") || "" };
-    }
+    if (parts.length >= 2) return { type: "artist", attractionId: parts[1], name: "" };
     return null;
   }
 
@@ -103,26 +115,13 @@ function isEntityPick(p) {
   return p && (p.type === "team" || p.type === "artist");
 }
 
-function normalizeEntityName(s) {
-  return String(s || "")
-    .toLowerCase()
-    .replace(/&/g, "and")
-    .replace(/[^a-z0-9\s]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function entityDisplayName(p) {
-  if (!p) return "";
-  if (p.type === "team") return p.name || "";
-  return p.name || "";
-}
-
 async function ensureAttractionId(apiKey, pick) {
   if (!pick || !isEntityPick(pick)) return pick;
 
+  // Artists already have attractionId in your encoding
   if (pick.type === "artist") return pick;
 
+  // Teams: if attractionId missing, resolve it via attractions search
   if (pick.type === "team") {
     if (!pick.attractionId && pick.name) {
       const best = await resolveBestAttraction(apiKey, "Sports", pick.name, "US,CA");
@@ -139,63 +138,40 @@ function hasTicketLink(e) {
   return Boolean(url);
 }
 
-async function fetchAllUpcomingEventsForAttraction(apiKey, attractionId, maxPages = 20) {
+async function fetchEventsByParams(params) {
+  const url = `${TM_EVENTS}?${params.toString()}`;
+  const res = await fetch(url);
+  const data = await res.json();
+  return data?._embedded?.events || [];
+}
+
+// ✅ For ENTITY_ONLY: fetch *all* events for attractionId (no startDateTime filter)
+async function fetchAllEventsForAttraction(apiKey, attractionId, opts = {}) {
+  const {
+    maxPages = 25,
+    countryCode = "US,CA",
+    includePast = true, // keep true to avoid returning zero due to strict "upcoming only"
+  } = opts;
+
   const all = [];
 
   for (let page = 0; page < maxPages; page++) {
     const params = new URLSearchParams();
     params.set("apikey", apiKey);
-    params.set("countryCode", "US,CA");
     params.set("size", "200");
     params.set("sort", "date,asc");
     params.set("attractionId", attractionId);
-
-    // Upcoming only
-    params.set("startDateTime", new Date().toISOString());
-
+    if (countryCode) params.set("countryCode", countryCode);
     params.set("page", String(page));
 
-    const url = `${TM_EVENTS}?${params.toString()}`;
-    const res = await fetch(url);
-    const data = await res.json();
+    // If you *really* want upcoming-only later, set includePast=false and re-enable this:
+    // if (!includePast) params.set("startDateTime", new Date().toISOString());
 
-    const events = data?._embedded?.events || [];
+    const events = await fetchEventsByParams(params);
     all.push(...events);
 
-    const totalPages = data?.page?.totalPages ?? 0;
-    if (page + 1 >= totalPages) break;
-    if (events.length === 0) break;
-  }
-
-  return all.filter(hasTicketLink);
-}
-
-async function fetchAllUpcomingEventsByKeyword(apiKey, keyword, maxPages = 20) {
-  const all = [];
-
-  for (let page = 0; page < maxPages; page++) {
-    const params = new URLSearchParams();
-    params.set("apikey", apiKey);
-    params.set("countryCode", "US,CA");
-    params.set("size", "200");
-    params.set("sort", "date,asc");
-    params.set("keyword", keyword);
-
-    // Upcoming only
-    params.set("startDateTime", new Date().toISOString());
-
-    params.set("page", String(page));
-
-    const url = `${TM_EVENTS}?${params.toString()}`;
-    const res = await fetch(url);
-    const data = await res.json();
-
-    const events = data?._embedded?.events || [];
-    all.push(...events);
-
-    const totalPages = data?.page?.totalPages ?? 0;
-    if (page + 1 >= totalPages) break;
-    if (events.length === 0) break;
+    // We don’t always get stable page metadata; break when the page returns no events.
+    if (!events || events.length === 0) break;
   }
 
   return all.filter(hasTicketLink);
@@ -263,6 +239,7 @@ function diffDaysSigned(aLocalDate, bLocalDate) {
   const a = parseLocalDateToUTC(aLocalDate);
   const b = parseLocalDateToUTC(bLocalDate);
   if (!a || !b) return null;
+
   const ms = b.getTime() - a.getTime();
   const days = ms / (1000 * 60 * 60 * 24);
   return Math.round(days);
@@ -288,13 +265,6 @@ function haversineMiles(lat1, lon1, lat2, lon2) {
 
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
-}
-
-async function fetchEventsByParams(params) {
-  const url = `${TM_EVENTS}?${params.toString()}`;
-  const res = await fetch(url);
-  const data = await res.json();
-  return data?._embedded?.events || [];
 }
 
 function uniqueSortedDates(events) {
@@ -413,6 +383,24 @@ function envKeyDebug(key) {
   return { present: Boolean(key), length: len, head, tail };
 }
 
+// Keyword fallback for ENTITY_ONLY if attractionId returns 0 events
+async function fallbackEventsByKeyword(apiKey, pickType, keyword) {
+  if (!keyword) return [];
+  const params = new URLSearchParams();
+  params.set("apikey", apiKey);
+  params.set("size", "200");
+  params.set("countryCode", "US,CA");
+  params.set("sort", "date,asc");
+  params.set("keyword", keyword);
+
+  // Nudge the API toward the right segment
+  if (pickType === "team") params.set("segmentName", "Sports");
+  if (pickType === "artist") params.set("segmentName", "Music");
+
+  const events = await fetchEventsByParams(params);
+  return (events || []).filter(hasTicketLink);
+}
+
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
@@ -435,9 +423,89 @@ export async function GET(req) {
 
     const radiusMiles = Number(searchParams.get("radiusMiles") || 100);
     const origin = (searchParams.get("origin") || "").trim();
+    const countryCode = "US,CA";
 
+    // Dropdown 4 removed: only read p1/p2/p3
     const rawPickStrings = ["p1", "p2", "p3"].map((k) => searchParams.get(k)).filter(Boolean);
     const picks = rawPickStrings.map(parsePickOrRaw).filter(Boolean);
+
+    /* ==========================================================
+       ✅ ENTITY_ONLY SHORT-CIRCUIT:
+       If p1 and p2 are the same team/artist, ignore days/radius/airports
+       and return ONE occurrence containing the full schedule.
+       ========================================================== */
+
+    const rawP1 = searchParams.get("p1");
+    const rawP2 = searchParams.get("p2");
+    const pick1 = parsePickOrRaw(rawP1);
+    const pick2 = parsePickOrRaw(rawP2);
+
+    if (isEntityPick(pick1) && isEntityPick(pick2)) {
+      await ensureAttractionId(apiKey, pick1);
+      await ensureAttractionId(apiKey, pick2);
+
+      const id1 = String(pick1.attractionId || "").trim();
+      const id2 = String(pick2.attractionId || "").trim();
+
+      if (id1 && id2 && id1 === id2) {
+        // best-effort entity name for header (teams have name; artists often don't)
+        let entityName =
+          (pick1.type === "team" ? String(pick1.name || "").trim() : "") || null;
+
+        if (!entityName && pick1.type === "artist") {
+          entityName = (await fetchAttractionNameById(apiKey, id1)) || null;
+        }
+
+        // 1) Try attractionId schedule (no startDateTime filter)
+        let events = await fetchAllEventsForAttraction(apiKey, id1, { countryCode, includePast: true });
+
+        // 2) Fallback to keyword if attractionId returns nothing
+        if (!events || events.length === 0) {
+          const kw = entityName || (pick1.type === "team" ? pick1.name : "");
+          events = await fallbackEventsByKeyword(apiKey, pick1.type, kw);
+        }
+
+        // Ensure ticketed + attach __pick
+        const eventsForUi = (events || [])
+          .filter(hasTicketLink)
+          .map((e) => ({ ...e, __pick: pick1 }));
+
+        const dates = uniqueSortedDates(eventsForUi);
+        const startYMD = dates[0] || null;
+        const endYMD = dates[dates.length - 1] || null;
+        const anchor = getAnchorLatLon(eventsForUi);
+
+        return NextResponse.json({
+          count: 1,
+          occurrences: [
+            {
+              events: eventsForUi,
+              popular: [],
+              meta: {
+                anchor,
+                startYMD,
+                endYMD,
+                mode: "ENTITY_ONLY",
+                attractionId: id1,
+                entityName: entityName || "Selected entity",
+              },
+            },
+          ],
+          debug: debugMode
+            ? {
+                note:
+                  "ENTITY_ONLY: p1 and p2 resolved to the same attractionId; ignoring days, radius, origin/airports.",
+                p1: pick1,
+                p2: pick2,
+                entityName: entityName || null,
+                counts: { events: eventsForUi.length },
+              }
+            : undefined,
+        });
+      }
+    }
+
+    /* ==================== Normal behavior ==================== */
 
     if (picks.length < 2) {
       return NextResponse.json({
@@ -447,84 +515,6 @@ export async function GET(req) {
       });
     }
 
-    // ✅ ENTITY-ONLY: if p1 and p2 represent the same entity name, ignore days/radius/origin and return full schedule
-    const rawP1 = String(searchParams.get("p1") || "");
-    const rawP2 = String(searchParams.get("p2") || "");
-
-    const pick1 = parsePickOrRaw(rawP1);
-    const pick2 = parsePickOrRaw(rawP2);
-
-    const name1 = normalizeEntityName(entityDisplayName(pick1) || rawP1);
-    const name2 = normalizeEntityName(entityDisplayName(pick2) || rawP2);
-
-    const sameName = Boolean(name1 && name2 && name1 === name2);
-
-    if (sameName) {
-      // Try to resolve to an attractionId (Music first, then Sports)
-      const display = (entityDisplayName(pick1) || entityDisplayName(pick2) || rawP1 || rawP2 || "").trim();
-
-      let attractionId = "";
-
-      // If user passed an explicit artist/team with an id, use it
-      if (isEntityPick(pick1)) await ensureAttractionId(apiKey, pick1);
-      if (isEntityPick(pick2)) await ensureAttractionId(apiKey, pick2);
-
-      const id1 = String(pick1?.attractionId || "").trim();
-      const id2 = String(pick2?.attractionId || "").trim();
-      attractionId = id1 || id2;
-
-      // If still no id, try to resolve as Music, then Sports
-      if (!attractionId && display) {
-        const bestMusic = await resolveBestAttraction(apiKey, "Music", display, "US,CA");
-        if (bestMusic?.id) attractionId = bestMusic.id;
-        else {
-          const bestSports = await resolveBestAttraction(apiKey, "Sports", display, "US,CA");
-          if (bestSports?.id) attractionId = bestSports.id;
-        }
-      }
-
-      // Fetch schedule by attractionId if we have one; otherwise fallback to keyword schedule
-      let events = [];
-      if (attractionId) {
-        events = await fetchAllUpcomingEventsForAttraction(apiKey, attractionId);
-      }
-      if (!events.length && display) {
-        events = await fetchAllUpcomingEventsByKeyword(apiKey, display);
-      }
-
-      const eventsForUi = events.map((e) => ({ ...e, __pick: pick1 || { type: "raw", name: display } }));
-
-      const dates = uniqueSortedDates(eventsForUi);
-      const startYMD = dates[0] || null;
-      const endYMD = dates[dates.length - 1] || null;
-      const anchor = getAnchorLatLon(eventsForUi);
-
-      return NextResponse.json({
-        count: 1,
-        occurrences: [
-          {
-            events: eventsForUi,
-            popular: [],
-            meta: {
-              anchor,
-              startYMD,
-              endYMD,
-              mode: "ENTITY_ONLY",
-              entityName: display || null,
-              attractionId: attractionId || null,
-            },
-          },
-        ],
-        debug: {
-          note: "ENTITY_ONLY: p1 and p2 matched; ignoring days, radius, origin/airports.",
-          entityName: display,
-          attractionId: attractionId || null,
-          eventsCount: eventsForUi.length,
-        },
-      });
-    }
-
-    // Normal flow
     const debugResolutions = [];
     const allEvents = [];
 
@@ -532,11 +522,11 @@ export async function GET(req) {
       const params = new URLSearchParams();
       params.set("apikey", apiKey);
       params.set("size", "200");
-      params.set("countryCode", "US,CA");
+      params.set("countryCode", countryCode);
 
       if (pick.type === "team") {
         if (!pick.attractionId && pick.name) {
-          const best = await resolveBestAttraction(apiKey, "Sports", pick.name, "US,CA");
+          const best = await resolveBestAttraction(apiKey, "Sports", pick.name, countryCode);
           if (best?.id) pick.attractionId = best.id;
           debugResolutions.push({ pick, resolved: best || null });
         }
@@ -552,7 +542,8 @@ export async function GET(req) {
 
       const events = await fetchEventsByParams(params);
 
-      const filtered = pick.type === "genre" ? events.filter((e) => eventMatchesGenreBucket(e, pick.bucket)) : events;
+      const filtered =
+        pick.type === "genre" ? events.filter((e) => eventMatchesGenreBucket(e, pick.bucket)) : events;
 
       allEvents.push(
         ...filtered
@@ -574,11 +565,7 @@ export async function GET(req) {
       return {
         events: occ,
         popular: [],
-        meta: {
-          anchor,
-          startYMD,
-          endYMD,
-        },
+        meta: { anchor, startYMD, endYMD },
       };
     });
 
