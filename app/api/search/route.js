@@ -470,6 +470,15 @@ export async function GET(req) {
           .filter(hasTicketLink)
           .map((e) => ({ ...e, __pick: pick1 }));
 
+// If we still don't have a name (common for artist picks), pull it from the events payload
+if (!entityName && Array.isArray(eventsForUi) && eventsForUi.length) {
+  const first = eventsForUi[0];
+  const atts = first?._embedded?.attractions || [];
+  const match = atts.find((a) => String(a?.id || "").trim() === String(id1).trim());
+  const nm = String(match?.name || atts[0]?.name || "").trim();
+  if (nm) entityName = nm;
+}
+
         const dates = uniqueSortedDates(eventsForUi);
         const startYMD = dates[0] || null;
         const endYMD = dates[dates.length - 1] || null;
