@@ -483,11 +483,18 @@ export default function ResultsPage() {
       const sortKey = firstMain ? Number(String(firstMain).replace(/-/g, "")) : 99999999;
       const coverage = occurrenceCoverageCountFromMainEvents(main);
 
+      const entityOnly = occ?.meta?.mode === "ENTITY_ONLY";
+      const entitySortKey = entityOnly
+        ? firstMain
+          ? Number(String(firstMain).replace(/-/g, ""))
+          : 0
+        : sortKey;
+
       return {
         ...occ,
         __idx: idx,
         __coverage: coverage,
-        __earliestMainKey: sortKey,
+        __earliestMainKey: entitySortKey,
       };
     });
 
@@ -606,13 +613,11 @@ export default function ResultsPage() {
   }
 
   function pickCheckmarkGlyph() {
-    // ✅ looks best on mobile; ✓ is more consistently rendered on desktop/Windows apps
     if (isMobileUA()) return "✅";
     if (isWindowsUA()) return "✓";
     return "✅";
   }
 
-  // STEP 1: reject Ticketmaster-style IDs like K8vZ9171uzf
   function pickDisplayNameFromParam(p: string | null): string | null {
     const s = (p || "").trim();
     if (!s) return null;
@@ -627,7 +632,6 @@ export default function ResultsPage() {
 
     const last = parts[parts.length - 1];
 
-    // Ticketmaster-ish IDs often look like: K8vZ9171uzf / K8vZ91718W0
     if (/^K[0-9A-Za-z]{8,}$/.test(last)) return null;
 
     return last;
@@ -653,7 +657,6 @@ export default function ResultsPage() {
     return `${sm} ${sd}, ${sy} - ${em} ${ed}, ${ey}`;
   }
 
-  // STEP 2: accept fallbackTitles, use them when params don't contain readable names
   async function shareOccurrence(params: {
     occKey: string;
     cityState: string | null;
@@ -669,7 +672,6 @@ export default function ResultsPage() {
       .map(pickDisplayNameFromParam)
       .filter(Boolean) as string[];
 
-    // If no readable names were found (artist param is only an ID), fallback to event titles.
     if (pickNames.length === 0 && Array.isArray(fallbackTitles) && fallbackTitles.length) {
       pickNames = fallbackTitles.slice(0, 3);
     }
@@ -691,17 +693,13 @@ export default function ResultsPage() {
       url,
     ].join("\n");
 
-    // ✅ Use share sheet ONLY on mobile (better targets + emoji behavior)
     if (isMobileUA() && navigator.share) {
       try {
         await navigator.share({ title: "EventStack", text: body });
         return;
-      } catch {
-        // cancelled/failed -> fall back
-      }
+      } catch {}
     }
 
-    // Desktop (and general fallback): copy exact message (preserves emoji best)
     try {
       await navigator.clipboard.writeText(body);
       showToast("Share message copied to clipboard");
@@ -711,11 +709,22 @@ export default function ResultsPage() {
   }
 
   function renderOccurrenceBlock(occ: any, keySeed: string) {
+    const isEntityOnly = occ?.meta?.mode === "ENTITY_ONLY";
+    const entityName = (occ?.meta?.entityName || "").trim() || null;
+
     const eventsDeduped = dedupeEventsWithinOccurrence(occ.events);
     const popularDeduped = dedupeNearbyPopularEvents(occ.popular);
 
     const allEvents = [...eventsDeduped, ...popularDeduped];
-    const { start, end } = getOccurrenceDateRange(eventsDeduped);
+
+    // Prefer meta dates (ENTITY_ONLY uses meta.startYMD/endYMD from API) then fallback
+    const startMeta = occ?.meta?.startYMD || null;
+    const endMeta = occ?.meta?.endYMD || null;
+
+    const { start: startFallback, end: endFallback } = getOccurrenceDateRange(eventsDeduped);
+
+    const start = (startMeta || startFallback) as string;
+    const end = (endMeta || endFallback) as string;
 
     const cityState = getMostCommonCityState(allEvents);
     const country = getMostCommonCountryCode(allEvents);
@@ -738,8 +747,8 @@ export default function ResultsPage() {
         ? { lat: Number(metaAnchor.lat), lng: Number(metaAnchor.lon) }
         : getAnchorLatLonFromEvents(eventsDeduped);
 
-    const startYMD: string | null = occ?.meta?.startYMD || firstMain;
-    const endYMD: string | null = occ?.meta?.endYMD || lastMain;
+    const startYMD: string | null = (occ?.meta?.startYMD || firstMain) ?? null;
+    const endYMD: string | null = (occ?.meta?.endYMD || lastMain) ?? null;
 
     const cacheEntry = popularCacheByOcc[occKey];
     const cachedPopular = Array.isArray(cacheEntry?.events) ? cacheEntry!.events : [];
@@ -760,7 +769,7 @@ export default function ResultsPage() {
     const checkOutYMD = lastMain ? addDaysUTC(lastMain, +1) : null;
 
     const hotelsUrl =
-      cityState && checkInYMD && checkOutYMD
+      !isEntityOnly && cityState && checkInYMD && checkOutYMD
         ? buildExpediaHotelSearchUrl({ destinationLabel: cityState, checkInYMD, checkOutYMD })
         : null;
 
@@ -772,7 +781,12 @@ export default function ResultsPage() {
     });
 
     const flightsUrl =
-      originIata && /^[A-Z]{3}$/.test(originIata) && destIata && checkInYMD && checkOutYMD
+      !isEntityOnly &&
+      originIata &&
+      /^[A-Z]{3}$/.test(originIata) &&
+      destIata &&
+      checkInYMD &&
+      checkOutYMD
         ? buildExpediaFlightsOnlyUrl({
             fromIata: originIata,
             toIata: destIata,
@@ -782,6 +796,7 @@ export default function ResultsPage() {
         : null;
 
     const packagesUrl =
+      !isEntityOnly &&
       originIata &&
       /^[A-Z]{3}$/.test(originIata) &&
       (destIata || cityState) &&
@@ -795,45 +810,62 @@ export default function ResultsPage() {
           })
         : null;
 
+    // ENTITY_ONLY should never show "Popular Nearby" controls
     const merged = (
-      showOtherPopular
+      !isEntityOnly && showOtherPopular
         ? [...main.map((e) => ({ e, pop: false })), ...basePopular.map((e: any) => ({ e, pop: true }))]
         : [...main.map((e) => ({ e, pop: false }))]
     ).sort((a, b) => eventSortKey(a.e) - eventSortKey(b.e));
 
     const coverage = occ.__coverage ?? occurrenceCoverageCountFromMainEvents(main);
-    const includesAll3 = selectedPickCount === 3 && coverage === 3;
+    const includesAll3 = !isEntityOnly && selectedPickCount === 3 && coverage === 3;
 
     return (
       <section id={occKey} key={occKey} className="w-full max-w-5xl mx-auto mb-8">
-        <div className={cx("rounded-3xl overflow-hidden border shadow-sm bg-white", includesAll3 ? "border-red-500/60" : "border-slate-200")}>
+        <div
+          className={cx(
+            "rounded-3xl overflow-hidden border shadow-sm bg-white",
+            includesAll3 ? "border-red-500/60" : "border-slate-200"
+          )}
+        >
           <div
             className={cx(
               "relative px-5 py-4 flex flex-col sm:flex-row sm:items-start justify-between gap-3",
               includesAll3 ? "bg-red-600 text-white" : "bg-slate-900 text-white"
             )}
           >
-            <button
-              type="button"
-              onClick={() => {
-                // STEP 3: pass fallbackTitles so we never show K8vZ... IDs
-                shareOccurrence({
-                  occKey,
-                  cityState,
-                  startYMD: start,
-                  endYMD: end,
-                  fallbackTitles: main.map((e: any) => eventTitle(e)),
-                });
-              }}
-              title="Share this occurrence"
-              className="absolute right-4 top-4 sm:hidden rounded-2xl px-4 py-2.5 text-xs font-black tracking-wide bg-white text-slate-900 shadow-lg shadow-black/25 ring-1 ring-white/30 hover:-translate-y-px hover:shadow-xl"
-            >
-              SHARE
-            </button>
+            {/* SHARE button (hide in ENTITY_ONLY) */}
+            {!isEntityOnly && (
+              <button
+                type="button"
+                onClick={() => {
+                  shareOccurrence({
+                    occKey,
+                    cityState,
+                    startYMD: start,
+                    endYMD: end,
+                    fallbackTitles: main.map((e: any) => eventTitle(e)),
+                  });
+                }}
+                title="Share this occurrence"
+                className="absolute right-4 top-4 sm:hidden rounded-2xl px-4 py-2.5 text-xs font-black tracking-wide bg-white text-slate-900 shadow-lg shadow-black/25 ring-1 ring-white/30 hover:-translate-y-px hover:shadow-xl"
+              >
+                SHARE
+              </button>
+            )}
 
             <div className="pr-28 sm:pr-0">
-              <div className="text-lg font-extrabold">{formatRangePretty(start, end)}</div>
-              <div className="text-xl font-extrabold">{cityState || "Location TBD"}</div>
+              {isEntityOnly ? (
+                <>
+                  <div className="text-xs font-extrabold text-white/80">Full schedule</div>
+                  <div className="text-xl font-extrabold">{entityName || "Selected entity"}</div>
+                </>
+              ) : (
+                <>
+                  <div className="text-lg font-extrabold">{formatRangePretty(start, end)}</div>
+                  <div className="text-xl font-extrabold">{cityState || "Location TBD"}</div>
+                </>
+              )}
             </div>
 
             <div className="mt-3 w-full sm:mt-0 sm:w-auto">
@@ -844,97 +876,105 @@ export default function ResultsPage() {
                   </div>
                 )}
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    // STEP 3: pass fallbackTitles so we never show K8vZ... IDs
-                    shareOccurrence({
-                      occKey,
-                      cityState,
-                      startYMD: start,
-                      endYMD: end,
-                      fallbackTitles: main.map((e: any) => eventTitle(e)),
-                    });
-                  }}
-                  title="Share this occurrence"
-                  className="hidden sm:inline-flex shrink-0 rounded-2xl px-4 py-2.5 text-xs font-black tracking-wide transition bg-white text-slate-900 shadow-lg shadow-black/25 ring-1 ring-white/30 hover:-translate-y-px hover:shadow-xl"
-                >
-                  SHARE
-                </button>
+                {/* Desktop SHARE (hide in ENTITY_ONLY) */}
+                {!isEntityOnly && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      shareOccurrence({
+                        occKey,
+                        cityState,
+                        startYMD: start,
+                        endYMD: end,
+                        fallbackTitles: main.map((e: any) => eventTitle(e)),
+                      });
+                    }}
+                    title="Share this occurrence"
+                    className="hidden sm:inline-flex shrink-0 rounded-2xl px-4 py-2.5 text-xs font-black tracking-wide transition bg-white text-slate-900 shadow-lg shadow-black/25 ring-1 ring-white/30 hover:-translate-y-px hover:shadow-xl"
+                  >
+                    SHARE
+                  </button>
+                )}
               </div>
 
-              <div className="mt-3 flex w-full flex-wrap items-center justify-center gap-2 sm:mt-2 sm:justify-end">
-                <TravelButton
-                  label="Hotels"
-                  enabled={!!hotelsUrl}
-                  title={hotelsUrl ? "Search hotels on Expedia" : "Missing destination or dates"}
-                  onClick={() => hotelsUrl && window.open(hotelsUrl, "_blank")}
-                />
+              {/* Travel buttons (hide in ENTITY_ONLY) */}
+              {!isEntityOnly && (
+                <div className="mt-3 flex w-full flex-wrap items-center justify-center gap-2 sm:mt-2 sm:justify-end">
+                  <TravelButton
+                    label="Hotels"
+                    enabled={!!hotelsUrl}
+                    title={hotelsUrl ? "Search hotels on Expedia" : "Missing destination or dates"}
+                    onClick={() => hotelsUrl && window.open(hotelsUrl, "_blank")}
+                  />
 
-                <TravelButton
-                  label="Flights"
-                  enabled={!!flightsUrl}
-                  title={
-                    flightsUrl
-                      ? "Search flights on Expedia"
-                      : !hasOriginAirport
-                      ? "Add your nearest airport on the search page to enable flights"
-                      : "No destination airport found for this occurrence"
-                  }
-                  onClick={() => {
-                    if (!hasOriginAirport) {
-                      showToast("Add your nearest airport to enable Flights.");
-                      return;
+                  <TravelButton
+                    label="Flights"
+                    enabled={!!flightsUrl}
+                    title={
+                      flightsUrl
+                        ? "Search flights on Expedia"
+                        : !hasOriginAirport
+                        ? "Add your nearest airport on the search page to enable flights"
+                        : "No destination airport found for this occurrence"
                     }
-                    if (!flightsUrl) {
-                      showToast("No destination airport found for this occurrence.");
-                      return;
-                    }
-                    window.open(flightsUrl, "_blank");
-                  }}
-                />
+                    onClick={() => {
+                      if (!hasOriginAirport) {
+                        showToast("Add your nearest airport to enable Flights.");
+                        return;
+                      }
+                      if (!flightsUrl) {
+                        showToast("No destination airport found for this occurrence.");
+                        return;
+                      }
+                      window.open(flightsUrl, "_blank");
+                    }}
+                  />
 
-                <TravelButton
-                  label="Flight + Hotel"
-                  enabled={!!packagesUrl}
-                  title={
-                    packagesUrl
-                      ? "Search flight + hotel packages on Expedia"
-                      : !hasOriginAirport
-                      ? "Add your nearest airport on the search page to enable packages"
-                      : "Missing destination or dates"
-                  }
-                  onClick={() => {
-                    if (!hasOriginAirport) {
-                      showToast("Add your nearest airport to enable Flight + Hotel.");
-                      return;
+                  <TravelButton
+                    label="Flight + Hotel"
+                    enabled={!!packagesUrl}
+                    title={
+                      packagesUrl
+                        ? "Search flight + hotel packages on Expedia"
+                        : !hasOriginAirport
+                        ? "Add your nearest airport on the search page to enable packages"
+                        : "Missing destination or dates"
                     }
-                    if (!packagesUrl) {
-                      showToast("Missing destination or dates for packages.");
-                      return;
-                    }
-                    window.open(packagesUrl, "_blank");
-                  }}
-                />
-              </div>
+                    onClick={() => {
+                      if (!hasOriginAirport) {
+                        showToast("Add your nearest airport to enable Flight + Hotel.");
+                        return;
+                      }
+                      if (!packagesUrl) {
+                        showToast("Missing destination or dates for packages.");
+                        return;
+                      }
+                      window.open(packagesUrl, "_blank");
+                    }}
+                  />
+                </div>
+              )}
             </div>
           </div>
 
-          <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 flex justify-center">
-            {hasOtherPopular ? (
-              <button
-                type="button"
-                onClick={() =>
-                  toggleOtherPopular(occKey, canFetchNearby, anchor, startYMD, endYMD, Array.from(mainIds))
-                }
-                className="rounded-full px-6 py-2 text-sm font-extrabold border border-slate-300 bg-white hover:bg-slate-100"
-              >
-                {showOtherPopular ? "Hide Popular Events Nearby" : "Show Popular Events Nearby"}
-              </button>
-            ) : (
-              <div className="text-xs text-slate-500">No additional nearby events available.</div>
-            )}
-          </div>
+          {/* Popular Nearby toggle row (hide in ENTITY_ONLY) */}
+          {!isEntityOnly && (
+            <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 flex justify-center">
+              {hasOtherPopular ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    toggleOtherPopular(occKey, canFetchNearby, anchor, startYMD, endYMD, Array.from(mainIds))
+                  }
+                  className="rounded-full px-6 py-2 text-sm font-extrabold border border-slate-300 bg-white hover:bg-slate-100"
+                >
+                  {showOtherPopular ? "Hide Popular Events Nearby" : "Show Popular Events Nearby"}
+                </button>
+              ) : (
+                <div className="text-xs text-slate-500">No additional nearby events available.</div>
+              )}
+            </div>
+          )}
 
           <div className="p-4 sm:p-6 space-y-3">
             {merged.map(({ e, pop }: any) => {
@@ -953,7 +993,9 @@ export default function ResultsPage() {
                   <div className="min-w-0">
                     <div className={cx("font-extrabold", pop ? "text-slate-500" : "text-slate-900")}>
                       {eventTitle(e)}
-                      {pop && <span className="ml-2 text-xs font-extrabold text-slate-400">Popular Nearby</span>}
+                      {!isEntityOnly && pop && (
+                        <span className="ml-2 text-xs font-extrabold text-slate-400">Popular Nearby</span>
+                      )}
                     </div>
                     <div className="mt-1 text-xs text-slate-600 flex flex-wrap items-center gap-2">
                       {d && (
@@ -985,6 +1027,13 @@ export default function ResultsPage() {
                 </div>
               );
             })}
+
+            {/* If ENTITY_ONLY somehow returns no events, show a clearer message */}
+            {isEntityOnly && merged.length === 0 && (
+              <div className="text-sm text-slate-600 font-extrabold">
+                No upcoming ticketed events found for this entity.
+              </div>
+            )}
           </div>
         </div>
       </section>

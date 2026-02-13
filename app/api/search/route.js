@@ -115,17 +115,14 @@ function normalizeEntityName(s) {
 function entityDisplayName(p) {
   if (!p) return "";
   if (p.type === "team") return p.name || "";
-  // artist may have optional name (see parsePickOrRaw)
   return p.name || "";
 }
 
 async function ensureAttractionId(apiKey, pick) {
   if (!pick || !isEntityPick(pick)) return pick;
 
-  // Artists already have attractionId in your encoding
   if (pick.type === "artist") return pick;
 
-  // Teams: if attractionId missing, resolve it via attractions search
   if (pick.type === "team") {
     if (!pick.attractionId && pick.name) {
       const best = await resolveBestAttraction(apiKey, "Sports", pick.name, "US,CA");
@@ -153,7 +150,7 @@ async function fetchAllUpcomingEventsForAttraction(apiKey, attractionId, maxPage
     params.set("sort", "date,asc");
     params.set("attractionId", attractionId);
 
-    // Upcoming only (this makes “full schedule” behave as expected)
+    // Upcoming only
     params.set("startDateTime", new Date().toISOString());
 
     params.set("page", String(page));
@@ -170,7 +167,37 @@ async function fetchAllUpcomingEventsForAttraction(apiKey, attractionId, maxPage
     if (events.length === 0) break;
   }
 
-  // Your app expects only ticketed events
+  return all.filter(hasTicketLink);
+}
+
+async function fetchAllUpcomingEventsByKeyword(apiKey, keyword, maxPages = 20) {
+  const all = [];
+
+  for (let page = 0; page < maxPages; page++) {
+    const params = new URLSearchParams();
+    params.set("apikey", apiKey);
+    params.set("countryCode", "US,CA");
+    params.set("size", "200");
+    params.set("sort", "date,asc");
+    params.set("keyword", keyword);
+
+    // Upcoming only
+    params.set("startDateTime", new Date().toISOString());
+
+    params.set("page", String(page));
+
+    const url = `${TM_EVENTS}?${params.toString()}`;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    const events = data?._embedded?.events || [];
+    all.push(...events);
+
+    const totalPages = data?.page?.totalPages ?? 0;
+    if (page + 1 >= totalPages) break;
+    if (events.length === 0) break;
+  }
+
   return all.filter(hasTicketLink);
 }
 
@@ -204,11 +231,9 @@ function eventMetaForOccurrenceKey(e) {
   const lon = lonStr != null ? Number(lonStr) : null;
 
   const hasCoords = Number.isFinite(lat) && Number.isFinite(lon);
-
   return { date, lat: hasCoords ? lat : null, lon: hasCoords ? lon : null };
 }
 
-// Robust de-dupe key: prefer Ticketmaster id; otherwise fall back to a composite signature
 function dedupeKeyForEvent(e) {
   const id = e?.id ? String(e.id).trim() : "";
   if (id) return `id:${id}`;
@@ -223,7 +248,6 @@ function dedupeKeyForEvent(e) {
   const city = String(venue?.city?.name || "").trim().toLowerCase();
 
   const place = venueId ? `vid:${venueId}` : `v:${venueName}|c:${city}`;
-
   return `cmp:${name}|${localDate}|${localTime}|${place}`;
 }
 
@@ -239,7 +263,6 @@ function diffDaysSigned(aLocalDate, bLocalDate) {
   const a = parseLocalDateToUTC(aLocalDate);
   const b = parseLocalDateToUTC(bLocalDate);
   if (!a || !b) return null;
-
   const ms = b.getTime() - a.getTime();
   const days = ms / (1000 * 60 * 60 * 24);
   return Math.round(days);
@@ -323,7 +346,6 @@ function buildOccurrencesByRadiusAndDays(allEvents, maxMiles, effectiveDays) {
     const a = metas[i];
     if (!a.key) continue;
 
-    // Start occurrence with anchor event
     const occEvents = new Map();
     occEvents.set(a.key, a.e);
 
@@ -341,7 +363,6 @@ function buildOccurrencesByRadiusAndDays(allEvents, maxMiles, effectiveDays) {
       if (miles <= maxMiles) occEvents.set(b.key, b.e);
     }
 
-    // Require at least 2 distinct picks in the occurrence
     const picksSet = new Set();
     for (const ev of occEvents.values()) picksSet.add(pickKey(ev.__pick));
     if (picksSet.size < 2) continue;
@@ -361,16 +382,11 @@ function buildOccurrencesByRadiusAndDays(allEvents, maxMiles, effectiveDays) {
 
   const occurrences = Array.from(occurrencesMap.values());
 
-  // ✅ sort: prioritize occurrences that satisfy MORE of the user's picks.
   occurrences.sort((A, B) => {
     const aCoverage = occurrencePickCoverageCount(A);
     const bCoverage = occurrencePickCoverageCount(B);
     if (aCoverage !== bCoverage) return bCoverage - aCoverage;
-
-    // Secondary: bigger occurrences first
     if (A.length !== B.length) return B.length - A.length;
-
-    // Tertiary: earlier occurrences first
     const aDate = occurrenceEarliestDate(A);
     const bDate = occurrenceEarliestDate(B);
     return aDate.localeCompare(bDate);
@@ -380,7 +396,6 @@ function buildOccurrencesByRadiusAndDays(allEvents, maxMiles, effectiveDays) {
 }
 
 function getAnchorLatLon(occ) {
-  // Pick first event with coords as anchor
   for (const e of occ) {
     const venue = e?._embedded?.venues?.[0];
     const lat = venue?.location?.latitude != null ? Number(venue.location.latitude) : null;
@@ -390,7 +405,6 @@ function getAnchorLatLon(occ) {
   return null;
 }
 
-// Safer env diagnostics (don’t log the full key)
 function envKeyDebug(key) {
   const s = String(key || "");
   const len = s.length;
@@ -406,12 +420,10 @@ export async function GET(req) {
 
     const apiKey = process.env.TICKETMASTER_API_KEY;
 
-    // Always log safe diagnostics to Vercel function logs
     const keyDbg = envKeyDebug(apiKey);
     console.log("ENV TICKETMASTER_API_KEY:", keyDbg);
 
     if (!apiKey) {
-      // Optionally include safe env diagnostics in response when debug=1
       return NextResponse.json(
         { error: "Missing API key", debug: debugMode ? { env: { TICKETMASTER_API_KEY: keyDbg } } : undefined },
         { status: 500 }
@@ -424,7 +436,6 @@ export async function GET(req) {
     const radiusMiles = Number(searchParams.get("radiusMiles") || 100);
     const origin = (searchParams.get("origin") || "").trim();
 
-    // Dropdown 4 removed: only read p1/p2/p3
     const rawPickStrings = ["p1", "p2", "p3"].map((k) => searchParams.get(k)).filter(Boolean);
     const picks = rawPickStrings.map(parsePickOrRaw).filter(Boolean);
 
@@ -436,65 +447,84 @@ export async function GET(req) {
       });
     }
 
-    // ✅ SAME-ENTITY SHORT-CIRCUIT (Box 1 and Box 2 are the same team/artist)
-    const rawP1 = searchParams.get("p1");
-    const rawP2 = searchParams.get("p2");
+    // ✅ ENTITY-ONLY: if p1 and p2 represent the same entity name, ignore days/radius/origin and return full schedule
+    const rawP1 = String(searchParams.get("p1") || "");
+    const rawP2 = String(searchParams.get("p2") || "");
 
     const pick1 = parsePickOrRaw(rawP1);
     const pick2 = parsePickOrRaw(rawP2);
 
-    if (isEntityPick(pick1) && isEntityPick(pick2)) {
-      await ensureAttractionId(apiKey, pick1);
-      await ensureAttractionId(apiKey, pick2);
+    const name1 = normalizeEntityName(entityDisplayName(pick1) || rawP1);
+    const name2 = normalizeEntityName(entityDisplayName(pick2) || rawP2);
 
-      const id1 = String(pick1.attractionId || "").trim();
-      const id2 = String(pick2.attractionId || "").trim();
-      const sameById = id1 && id2 && id1 === id2;
+    const sameName = Boolean(name1 && name2 && name1 === name2);
 
-      const n1 = normalizeEntityName(entityDisplayName(pick1) || rawP1);
-      const n2 = normalizeEntityName(entityDisplayName(pick2) || rawP2);
-      const sameByName = !sameById && n1 && n2 && n1 === n2;
+    if (sameName) {
+      // Try to resolve to an attractionId (Music first, then Sports)
+      const display = (entityDisplayName(pick1) || entityDisplayName(pick2) || rawP1 || rawP2 || "").trim();
 
-      // If same by name but we couldn't resolve an attractionId, fall back to normal flow
-      if (sameById || (sameByName && (id1 || id2))) {
-        const useId = id1 || id2;
+      let attractionId = "";
 
-        const events = (await fetchAllUpcomingEventsForAttraction(apiKey, useId)).map((e) => ({
-          ...e,
-          __pick: pick1, // keeps your UI/meta consistent
-        }));
+      // If user passed an explicit artist/team with an id, use it
+      if (isEntityPick(pick1)) await ensureAttractionId(apiKey, pick1);
+      if (isEntityPick(pick2)) await ensureAttractionId(apiKey, pick2);
 
-        const dates = uniqueSortedDates(events);
-        const startYMD = dates[0] || null;
-        const endYMD = dates[dates.length - 1] || null;
-        const anchor = getAnchorLatLon(events);
+      const id1 = String(pick1?.attractionId || "").trim();
+      const id2 = String(pick2?.attractionId || "").trim();
+      attractionId = id1 || id2;
 
-        return NextResponse.json({
-          count: 1,
-          occurrences: [
-            {
-              events,
-              popular: [],
-              meta: {
-                anchor,
-                startYMD,
-                endYMD,
-                mode: "ENTITY_ONLY",
-                attractionId: useId,
-              },
-            },
-          ],
-          debug: {
-            note: "ENTITY_ONLY: p1 and p2 matched; ignoring days, radius, origin/airports.",
-            match: sameById ? "attractionId" : "name",
-            p1: pick1,
-            p2: pick2,
-          },
-        });
+      // If still no id, try to resolve as Music, then Sports
+      if (!attractionId && display) {
+        const bestMusic = await resolveBestAttraction(apiKey, "Music", display, "US,CA");
+        if (bestMusic?.id) attractionId = bestMusic.id;
+        else {
+          const bestSports = await resolveBestAttraction(apiKey, "Sports", display, "US,CA");
+          if (bestSports?.id) attractionId = bestSports.id;
+        }
       }
+
+      // Fetch schedule by attractionId if we have one; otherwise fallback to keyword schedule
+      let events = [];
+      if (attractionId) {
+        events = await fetchAllUpcomingEventsForAttraction(apiKey, attractionId);
+      }
+      if (!events.length && display) {
+        events = await fetchAllUpcomingEventsByKeyword(apiKey, display);
+      }
+
+      const eventsForUi = events.map((e) => ({ ...e, __pick: pick1 || { type: "raw", name: display } }));
+
+      const dates = uniqueSortedDates(eventsForUi);
+      const startYMD = dates[0] || null;
+      const endYMD = dates[dates.length - 1] || null;
+      const anchor = getAnchorLatLon(eventsForUi);
+
+      return NextResponse.json({
+        count: 1,
+        occurrences: [
+          {
+            events: eventsForUi,
+            popular: [],
+            meta: {
+              anchor,
+              startYMD,
+              endYMD,
+              mode: "ENTITY_ONLY",
+              entityName: display || null,
+              attractionId: attractionId || null,
+            },
+          },
+        ],
+        debug: {
+          note: "ENTITY_ONLY: p1 and p2 matched; ignoring days, radius, origin/airports.",
+          entityName: display,
+          attractionId: attractionId || null,
+          eventsCount: eventsForUi.length,
+        },
+      });
     }
 
-    // Resolve and fetch per pick
+    // Normal flow
     const debugResolutions = [];
     const allEvents = [];
 
@@ -515,7 +545,6 @@ export async function GET(req) {
       } else if (pick.type === "artist") {
         if (pick.attractionId) params.set("attractionId", pick.attractionId);
       } else if (pick.type === "genre") {
-        // keep broad; filter after fetch
         params.set("segmentName", "Music");
       } else {
         params.set("keyword", pick.name || "");
@@ -537,9 +566,6 @@ export async function GET(req) {
 
     const occurrences = buildOccurrencesByRadiusAndDays(allEvents, radiusMiles, effectiveDays);
 
-    // ✅ IMPORTANT CHANGE:
-    // NO popular-nearby fetching here anymore.
-    // We only compute minimal meta so the UI can call /api/nearby ON DEMAND.
     const occurrencesForUi = occurrences.map((occ) => {
       const dates = uniqueSortedDates(occ);
       const startYMD = dates[0] || null;
@@ -547,9 +573,9 @@ export async function GET(req) {
       const anchor = getAnchorLatLon(occ);
       return {
         events: occ,
-        popular: [], // <-- UI will fill this when the button is clicked
+        popular: [],
         meta: {
-          anchor, // {lat, lon} or null
+          anchor,
           startYMD,
           endYMD,
         },
@@ -586,7 +612,6 @@ export async function GET(req) {
       },
     };
 
-    // Only attach env debug when explicitly requested
     if (debugMode) {
       payload.debug.env = { TICKETMASTER_API_KEY: keyDbg };
     }
