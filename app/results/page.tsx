@@ -9,6 +9,10 @@ type ApiResponse = {
   occurrences?: any[];
   error?: string;
   debug?: any;
+  fallback?: {
+    mode?: string;
+    schedules?: Array<{ label: string; events: any[] }>;
+  };
 };
 
 type Airport = {
@@ -397,6 +401,84 @@ function TravelButton({
   );
 }
 
+function MergedSchedules({
+  schedules,
+}: {
+  schedules: Array<{ label: string; events: any[] }>;
+}) {
+  const merged = useMemo(() => {
+    const out: Array<{ e: any; which: number; label: string }> = [];
+    schedules.forEach((s, idx) => {
+      (s.events || []).forEach((e) => out.push({ e, which: idx, label: s.label }));
+    });
+    out.sort((a, b) => eventSortKey(a.e) - eventSortKey(b.e));
+    return out;
+  }, [schedules]);
+
+  return (
+    <div className="p-4 sm:p-6 space-y-3">
+      {merged.map(({ e, which, label }) => {
+        const d = getEventLocalDate(e);
+        const t = getEventLocalTime(e);
+        const venueLabel = eventVenueCityState(e);
+
+        const badgeClass =
+          which === 0
+            ? "bg-blue-50 text-blue-800 border-blue-200"
+            : "bg-emerald-50 text-emerald-800 border-emerald-200";
+
+        return (
+          <div
+            key={eventId(e) || `${eventSortKey(e)}-${normalizeTitleForDedup(eventTitle(e))}-${which}`}
+            className="rounded-2xl border border-slate-200 bg-white p-4 flex items-center justify-between gap-4"
+          >
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <span
+                  className={cx(
+                    "shrink-0 inline-flex items-center px-2 py-1 rounded-full border text-xs font-extrabold",
+                    badgeClass
+                  )}
+                >
+                  {label}
+                </span>
+                <div className="font-extrabold text-slate-900 truncate">{eventTitle(e)}</div>
+              </div>
+
+              <div className="mt-2 text-xs text-slate-600 flex flex-wrap items-center gap-2">
+                {d && (
+                  <span className="inline-flex items-center px-2 py-1 rounded-full bg-slate-50 border border-slate-200 font-extrabold">
+                    {formatEventDateMMMDD(d)}
+                  </span>
+                )}
+                {t && (
+                  <span className="inline-flex items-center px-2 py-1 rounded-full bg-slate-50 border border-slate-200 font-extrabold">
+                    {formatEventTime(t)}
+                  </span>
+                )}
+                {venueLabel && <span className="truncate">{venueLabel}</span>}
+              </div>
+            </div>
+
+            {eventUrl(e) ? (
+              <a
+                href={eventUrl(e)}
+                target="_blank"
+                rel="noreferrer"
+                className="shrink-0 rounded-full px-4 py-2 text-xs font-extrabold bg-slate-900 text-white hover:bg-slate-800"
+              >
+                Tickets
+              </a>
+            ) : (
+              <span className="shrink-0 text-xs text-slate-400">No tickets</span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 /* ==================== PAGE ==================== */
 
 export default function ResultsPage() {
@@ -470,6 +552,9 @@ export default function ResultsPage() {
   }, [qs]);
 
   const occurrencesRaw = useMemo(() => data?.occurrences || [], [data]);
+
+const fallbackMode = data?.fallback?.mode || null;
+const fallbackSchedules = data?.fallback?.schedules || null;
 
   const occurrencesSorted = useMemo(() => {
     const enriched = occurrencesRaw.map((occ: any, idx: number) => {
@@ -1084,11 +1169,37 @@ export default function ResultsPage() {
       </div>
 
       <div className="pb-10">
-        {hasSearched && !loading && !errMsg && occurrencesSorted.length === 0 && (
-          <div className="max-w-5xl mx-auto px-4 py-10 text-slate-700 font-extrabold">
-            Your selected teams/artists don't cross paths within the provided number of days and radius. Keep searching!
+        {/* Fallback merged schedules when there is no overlap */}
+{hasSearched &&
+  !loading &&
+  !errMsg &&
+  occurrencesSorted.length === 0 &&
+  fallbackMode === "NO_OVERLAP_SCHEDULES" &&
+  Array.isArray(fallbackSchedules) && (
+    <div className="max-w-5xl mx-auto px-4 py-8">
+      <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div className="px-5 py-4 bg-slate-900 text-white">
+          <div className="text-lg font-extrabold">No overlap found</div>
+          <div className="text-sm text-white/80 font-bold">
+            Here are both schedules merged in date order:
           </div>
-        )}
+        </div>
+
+        <MergedSchedules schedules={fallbackSchedules} />
+      </div>
+    </div>
+  )}
+
+{/* Default message when there is no overlap and no fallback payload */}
+{hasSearched &&
+  !loading &&
+  !errMsg &&
+  occurrencesSorted.length === 0 &&
+  !(fallbackMode === "NO_OVERLAP_SCHEDULES" && Array.isArray(fallbackSchedules)) && (
+    <div className="max-w-5xl mx-auto px-4 py-10 text-slate-700 font-extrabold">
+      Your selected teams/artists don't cross paths within the provided number of days and radius. Keep searching!
+    </div>
+  )}
 
         {occurrencesSorted.map((occ: any, idx: number) => renderOccurrenceBlock(occ, `occ-${idx}`))}
       </div>

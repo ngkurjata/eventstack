@@ -174,7 +174,16 @@ async function fetchAllEventsForAttraction(apiKey, attractionId, opts = {}) {
     if (!events || events.length === 0) break;
   }
 
-  return all.filter(hasTicketLink);
+const seen = new Set();
+const deduped = [];
+for (const e of all) {
+  const id = String(e?.id || "").trim();
+  const key = id || JSON.stringify([e?.name, e?.dates?.start?.localDate, e?._embedded?.venues?.[0]?.id || ""]);
+  if (seen.has(key)) continue;
+  seen.add(key);
+  if (hasTicketLink(e)) deduped.push(e);
+}
+return deduped;
 }
 
 function eventMatchesGenreBucket(event, bucket) {
@@ -565,6 +574,57 @@ if (!entityName && Array.isArray(eventsForUi) && eventsForUi.length) {
     }
 
     const occurrences = buildOccurrencesByRadiusAndDays(allEvents, radiusMiles, effectiveDays);
+
+if (!occurrences || occurrences.length === 0) {
+  const p1 = parsePickOrRaw(searchParams.get("p1"));
+  const p2 = parsePickOrRaw(searchParams.get("p2"));
+
+  // Only do fallback for team/artist pairs (your “entity” definition)
+  if (isEntityPick(p1) && isEntityPick(p2)) {
+    await ensureAttractionId(apiKey, p1);
+    await ensureAttractionId(apiKey, p2);
+
+    const id1 = String(p1.attractionId || "").trim();
+    const id2 = String(p2.attractionId || "").trim();
+
+    // Fetch each schedule (prefer attractionId; fallback keyword if needed)
+    async function getSchedule(pick) {
+      const id = String(pick.attractionId || "").trim();
+
+      let events = [];
+      if (id) {
+        events = await fetchAllEventsForAttraction(apiKey, id, { countryCode: "US,CA", includePast: true });
+      }
+
+      if (!events || events.length === 0) {
+        const kw = pick.type === "team" ? pick.name : (await fetchAttractionNameById(apiKey, id)) || "";
+        events = await fallbackEventsByKeyword(apiKey, pick.type, kw);
+      }
+
+      return (events || [])
+        .filter(hasTicketLink)
+        .map((e) => ({ ...e, __pick: pick }));
+    }
+
+    const s1 = await getSchedule(p1);
+    const s2 = await getSchedule(p2);
+
+    return NextResponse.json({
+  count: 0,
+  occurrences: [],
+  fallback: { ... },
+  debug: debugMode
+    ? {
+        note: "NO_OVERLAP_SCHEDULES fallback returned (merged schedules).",
+        p1,
+        p2,
+        counts: { s1: s1.length, s2: s2.length },
+      }
+    : undefined,
+});
+
+  }
+}
 
     const occurrencesForUi = occurrences.map((occ) => {
       const dates = uniqueSortedDates(occ);
