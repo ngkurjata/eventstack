@@ -449,7 +449,10 @@ function MergedSchedules({ schedules }: { schedules: Array<{ label: string; even
         return (
           <div
             key={eventId(e) || `${eventSortKey(e)}-${normalizeTitleForDedup(eventTitle(e))}-${which}`}
-            className={cx("rounded-2xl border border-slate-200 p-4 flex items-center justify-between gap-4", rowBg)}
+            className={cx(
+              "rounded-2xl border border-slate-200 p-4 flex items-center justify-between gap-4",
+              rowBg
+            )}
           >
             <div className="min-w-0">
               <div className={cx("font-extrabold truncate", titleColor)}>{eventTitle(e)}</div>
@@ -482,7 +485,6 @@ function MergedSchedules({ schedules }: { schedules: Array<{ label: string; even
     </div>
   );
 }
-
 
 /* ==================== Share pick parsing + lookup (Step 1/2/3) ==================== */
 
@@ -579,7 +581,9 @@ export default function ResultsPage() {
     error?: string;
   };
 
-  const [popularCacheByOcc, setPopularCacheByOcc] = useState<Record<string, PopularCacheEntry>>({});
+  const [popularCacheByOcc, setPopularCacheByOcc] = useState<Record<string, PopularCacheEntry>>(
+    {}
+  );
 
   const radiusMiles = useMemo(() => {
     const n = Number(qs.get("radiusMiles") || 100);
@@ -647,7 +651,11 @@ export default function ResultsPage() {
       const coverage = occurrenceCoverageCountFromMainEvents(main);
 
       const entityOnly = occ?.meta?.mode === "ENTITY_ONLY";
-      const entitySortKey = entityOnly ? (firstMain ? Number(String(firstMain).replace(/-/g, "")) : 0) : sortKey;
+      const entitySortKey = entityOnly
+        ? firstMain
+          ? Number(String(firstMain).replace(/-/g, ""))
+          : 0
+        : sortKey;
 
       return {
         ...occ,
@@ -1118,7 +1126,14 @@ export default function ResultsPage() {
                 <button
                   type="button"
                   onClick={() =>
-                    toggleOtherPopular(occKey, canFetchNearby, anchor, startYMD, endYMD, Array.from(mainIds))
+                    toggleOtherPopular(
+                      occKey,
+                      canFetchNearby,
+                      anchor,
+                      startYMD,
+                      endYMD,
+                      Array.from(mainIds)
+                    )
                   }
                   className="rounded-full px-6 py-2 text-sm font-extrabold border border-slate-300 bg-white text-slate-900 hover:bg-slate-100 active:bg-slate-200"
                 >
@@ -1136,22 +1151,29 @@ export default function ResultsPage() {
               const t = getEventLocalTime(e);
               const venueLabel = eventVenueCityState(e);
 
+              // Step 2: darken Popular Nearby rows on mobile (more distinguishable)
+              const popRowBg = "bg-slate-200";
+              const popTitle = "text-slate-600";
+              const popMeta = "text-slate-600";
+
               return (
                 <div
                   key={eventId(e) || `${eventSortKey(e)}-${normalizeTitleForDedup(eventTitle(e))}`}
                   className={cx(
                     "rounded-2xl border p-4 flex items-center justify-between gap-4",
-                    pop ? "border-slate-200 bg-white" : "border-slate-200 bg-slate-100"
+                    pop ? `border-slate-200 ${popRowBg}` : "border-slate-200 bg-slate-100"
                   )}
                 >
                   <div className="min-w-0">
-                    <div className={cx("font-extrabold", pop ? "text-slate-500" : "text-slate-900")}>
+                    <div className={cx("font-extrabold", pop ? popTitle : "text-slate-900")}>
                       {eventTitle(e)}
                       {!isEntityOnly && pop && (
-                        <span className="ml-2 text-xs font-extrabold text-slate-400">Popular Nearby</span>
+                        <span className="ml-2 text-xs font-extrabold text-slate-500">
+                          Popular Nearby
+                        </span>
                       )}
                     </div>
-                    <div className="mt-1 text-xs text-slate-600">
+                    <div className={cx("mt-1 text-xs", pop ? popMeta : "text-slate-600")}>
                       {(() => {
                         const dateStr = formatEventDateMMMDDYYYY(d);
                         const timeStr = formatEventTimeLower(t);
@@ -1252,14 +1274,19 @@ export default function ResultsPage() {
             </div>
           )}
 
+        {/* Step 1: 0-occurrences fallback looks like the same mobile card aesthetic */}
         {hasSearched &&
           !loading &&
           !errMsg &&
           occurrencesSorted.length === 0 &&
           !(fallbackMode === "NO_OVERLAP_SCHEDULES" && Array.isArray(fallbackSchedules)) && (
-            <div className="max-w-5xl mx-auto px-4 py-10 text-slate-700 font-extrabold">
-              Your selected teams/artists don't cross paths within the provided number of days and radius. Keep
-              searching!
+            <div className="max-w-xl mx-auto px-4 py-6">
+              <div className="rounded-2xl bg-white shadow-md p-6 text-center">
+                <h2 className="text-lg font-semibold text-slate-800">No Results Found</h2>
+                <p className="mt-2 text-sm text-slate-500">
+                  Try adjusting your days, radius, or selections.
+                </p>
+              </div>
             </div>
           )}
 
