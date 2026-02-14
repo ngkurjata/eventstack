@@ -73,6 +73,7 @@ function buildGroupedListForQuery(
     const matches = opts.filter((o) => o.label.toLowerCase().includes(q)).slice(0, 25);
 
     if (matches.length) {
+      // kept for future ability to show headers, but we don't render them
       items.push({ type: "group", group });
       for (const option of matches) items.push({ type: "item", group, option });
     }
@@ -101,7 +102,7 @@ function useOutsideClick<T extends HTMLElement>(
 
 function Combobox({
   label,
-  required,
+  required, // kept for future; not rendered as "Required"
   optionsAll,
   grouped,
   groups,
@@ -125,6 +126,7 @@ function Combobox({
 
   const [open, setOpen] = useState(false);
 
+  // query drives filtering; inputValue is what user sees/edits
   const [query, setQuery] = useState("");
   const [inputValue, setInputValue] = useState("");
   const [activeIdx, setActiveIdx] = useState<number>(-1);
@@ -135,6 +137,7 @@ function Combobox({
     return buildGroupedListForQuery(query, grouped, groups);
   }, [query, grouped, groups]);
 
+  // When selection changes or menu closes, reflect selected label in input.
   useEffect(() => {
     if (!open) {
       setInputValue(selectedLabel);
@@ -143,6 +146,7 @@ function Combobox({
     }
   }, [selectedLabel, open]);
 
+  // If we become disabled, close menu and reset query/active.
   useEffect(() => {
     if (disabled) {
       setOpen(false);
@@ -178,6 +182,7 @@ function Combobox({
     if (disabled) return;
 
     if (!open && (e.key === "ArrowDown" || e.key === "Enter")) {
+      // Only allow opening the menu via keyboard if user has typed at least 1 character.
       if (inputValue.trim().length > 0) {
         setQuery(inputValue);
         setOpen(true);
@@ -191,6 +196,7 @@ function Combobox({
       return;
     }
 
+    // Tab commits highlighted option (if any) and lets the browser move focus naturally
     if (e.key === "Tab") {
       const it = menuItems[activeIdx];
       if (it && it.type === "item") {
@@ -242,6 +248,7 @@ function Combobox({
 
   return (
     <div ref={wrapRef} className="w-full">
+      {/* Header row: label left, help right */}
       <div className="mb-2 flex items-end justify-between gap-3">
         <div className="flex items-baseline gap-2">
           <div className="text-sm font-semibold text-slate-900">{label}</div>
@@ -315,6 +322,7 @@ function Combobox({
                 <div className="px-3 py-3 text-sm text-slate-500">No matches.</div>
               ) : (
                 menuItems.map((it, idx) => {
+                  // Remove group headers (NHL/NBA/ARTISTS etc.)
                   if (it.type === "group") return null;
 
                   const isActive = idx === activeIdx;
@@ -340,6 +348,7 @@ function Combobox({
                         </div>
                       </div>
 
+                      {/* keep the right-side league label */}
                       <div
                         className={[
                           "shrink-0 text-xs font-bold",
@@ -362,13 +371,12 @@ function Combobox({
   );
 }
 
-// ---- Date helpers (client-side only) ----
+/* ==================== Date helpers (client-side only) ==================== */
+
 function isYMD(s: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(s || ""));
 }
 
-// If user enters inverted range, swap so backend gets sane range.
-// (UI still shows what user entered; we only normalize when building query)
 function normalizeDateRange(start: string, end: string) {
   const s = (start || "").trim();
   const e = (end || "").trim();
@@ -389,9 +397,9 @@ export default function Page() {
     String(PUBLIC_MODE ? PUBLIC_PRESET.maxRadiusMiles : 100)
   );
 
-  // ✅ NEW: optional date range
-  const [startDate, setStartDate] = useState<string>(""); // YYYY-MM-DD
-  const [endDate, setEndDate] = useState<string>(""); // YYYY-MM-DD
+  // ✅ NEW: optional date range (YYYY-MM-DD)
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
 
   const [p1, setP1] = useState("");
   const [p2, setP2] = useState("");
@@ -500,7 +508,6 @@ export default function Page() {
       setRadiusText(String(clamped.radiusMiles));
       setOriginIata(clamped.origin.trim().toUpperCase());
 
-      // ✅ NEW: accept date strings if valid-ish
       setStartDate(isYMD(clamped.startDate) ? clamped.startDate : "");
       setEndDate(isYMD(clamped.endDate) ? clamped.endDate : "");
     };
@@ -554,13 +561,9 @@ export default function Page() {
       })(),
       radiusMiles: (() => {
         const parsed = safeParseInt(radiusText, PUBLIC_MODE ? PUBLIC_PRESET.maxRadiusMiles : 100);
-        return PUBLIC_MODE
-          ? clamp(parsed, 1, PUBLIC_PRESET.maxRadiusMiles)
-          : clamp(parsed, 1, 2000);
+        return PUBLIC_MODE ? clamp(parsed, 1, PUBLIC_PRESET.maxRadiusMiles) : clamp(parsed, 1, 2000);
       })(),
       origin: originIata,
-
-      // ✅ NEW: persist dates
       startDate: isYMD(startDate) ? startDate : "",
       endDate: isYMD(endDate) ? endDate : "",
     };
@@ -577,7 +580,7 @@ export default function Page() {
     qs.set("radiusMiles", String(effective.radiusMiles));
     if (effective.origin) qs.set("origin", effective.origin);
 
-    // ✅ NEW: push optional dates into URL
+    // ✅ NEW: optional dates into URL
     if (effective.startDate) qs.set("startDate", effective.startDate);
     if (effective.endDate) qs.set("endDate", effective.endDate);
 
@@ -590,8 +593,11 @@ export default function Page() {
     if (p3) setP3("");
   }, [p3]);
 
-  const canSearch = Boolean(p1 && p2);
-  const needsBothPicks = Boolean((p1 && !p2) || (!p1 && p2));
+  // ✅ CHANGE: allow search if either p1 OR p2 is filled
+  const canSearch = Boolean(p1 || p2);
+
+  // Tooltip text: now we only require at least one pick
+  const needsAnyPick = !canSearch;
 
   useEffect(() => {
     if (!loading && canSearch) {
@@ -602,17 +608,17 @@ export default function Page() {
   }, [loading, canSearch]);
 
   function onSearch() {
-    if (!p1 || !p2) {
-      alert("Pick at least Favorite Team/Artist #1 and #2.");
+    // ✅ CHANGE: only block if both empty
+    if (!p1 && !p2) {
+      alert("Pick at least one Favorite (either #1 or #2).");
       return;
     }
 
+    // Airport is optional; flights/buttons will be disabled on results if missing.
     if (!originIata) setOriginErr("");
 
     const parsedDays = safeParseInt(daysText, PUBLIC_MODE ? PUBLIC_PRESET.maxDays : 3);
-    const effectiveDays = PUBLIC_MODE
-      ? clamp(parsedDays, 1, PUBLIC_PRESET.maxDays)
-      : clamp(parsedDays, 1, 30);
+    const effectiveDays = PUBLIC_MODE ? clamp(parsedDays, 1, PUBLIC_PRESET.maxDays) : clamp(parsedDays, 1, 30);
 
     const parsedRadius = safeParseInt(radiusText, PUBLIC_MODE ? PUBLIC_PRESET.maxRadiusMiles : 100);
     const effectiveRadius = PUBLIC_MODE
@@ -624,8 +630,14 @@ export default function Page() {
     const { start: startNorm, end: endNorm } = normalizeDateRange(startDate, endDate);
 
     const params = new URLSearchParams();
-    params.set("p1", p1);
-    params.set("p2", p2);
+
+    // ✅ Keep sending whatever user provided; backend mirrors if one is blank.
+    if (p1) params.set("p1", p1);
+    if (p2) params.set("p2", p2);
+
+    // If user only filled #2, we still send p2 only; backend mirrors.
+    // (Leaving as-is gives a clean UX and keeps URLs honest.)
+
     if (effectiveP3) params.set("p3", effectiveP3);
     params.set("days", String(effectiveDays));
     params.set("radiusMiles", String(effectiveRadius));
@@ -653,13 +665,13 @@ export default function Page() {
         <div className="space-y-6">
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="mb-4 flex items-end justify-between gap-3">
-              <div className="text-lg font-extrabold text-slate-900">Pick 2 of your favorites</div>
+              <div className="text-lg font-extrabold text-slate-900">Pick up to 2 of your favorites</div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <Combobox
                 label="Favorite Team/Artist #1"
-                required
+                required={false}
                 optionsAll={combined}
                 grouped={grouped}
                 groups={groups}
@@ -670,7 +682,7 @@ export default function Page() {
               />
               <Combobox
                 label="Favorite Team/Artist #2"
-                required
+                required={false}
                 optionsAll={combined}
                 grouped={grouped}
                 groups={groups}
@@ -700,7 +712,7 @@ export default function Page() {
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="text-lg font-extrabold text-slate-900">Trip constraints</div>
 
-            {/* ✅ NEW: Optional date range */}
+            {/* Optional date range */}
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <label className="block">
                 <div className="mb-2 text-sm font-semibold text-slate-900">Start date (optional)</div>
@@ -711,7 +723,7 @@ export default function Page() {
                   onChange={(e) => setStartDate(e.target.value)}
                 />
                 <div className="mt-2 text-xs text-slate-500">
-                  If set, results will only include events on/after this date.
+                  If set, results include events on/after this date.
                 </div>
               </label>
 
@@ -724,7 +736,7 @@ export default function Page() {
                   onChange={(e) => setEndDate(e.target.value)}
                 />
                 <div className="mt-2 text-xs text-slate-500">
-                  If set, results will only include events on/before this date.
+                  If set, results include events on/before this date.
                 </div>
               </label>
             </div>
@@ -754,9 +766,7 @@ export default function Page() {
                   }}
                   onBlur={() => {
                     const parsed = safeParseInt(daysText, PUBLIC_MODE ? PUBLIC_PRESET.maxDays : 3);
-                    const clamped = PUBLIC_MODE
-                      ? clamp(parsed, 1, PUBLIC_PRESET.maxDays)
-                      : clamp(parsed, 1, 30);
+                    const clamped = PUBLIC_MODE ? clamp(parsed, 1, PUBLIC_PRESET.maxDays) : clamp(parsed, 1, 30);
                     setDaysText(String(clamped));
                   }}
                 />
@@ -790,10 +800,7 @@ export default function Page() {
                     if (/^\d+$/.test(next)) setRadiusText(next);
                   }}
                   onBlur={() => {
-                    const parsed = safeParseInt(
-                      radiusText,
-                      PUBLIC_MODE ? PUBLIC_PRESET.maxRadiusMiles : 100
-                    );
+                    const parsed = safeParseInt(radiusText, PUBLIC_MODE ? PUBLIC_PRESET.maxRadiusMiles : 100);
                     const clamped = PUBLIC_MODE
                       ? clamp(parsed, 1, PUBLIC_PRESET.maxRadiusMiles)
                       : clamp(parsed, 1, 2000);
@@ -831,11 +838,9 @@ export default function Page() {
               onClick={onSearch}
               disabled={!canSearch || loading}
               title={
-                needsBothPicks
-                  ? "Both Favorite #1 and Favorite #2 are required before Search will work."
-                  : !canSearch
-                  ? "Pick Favorite #1 and Favorite #2 to enable Search."
-                  : "Search for overlap occurrences"
+                needsAnyPick
+                  ? "Pick at least one Favorite (#1 or #2) to enable Search."
+                  : "Search for occurrences"
               }
               className={[
                 "rounded-2xl px-5 py-3 text-sm font-extrabold shadow-sm transition",
