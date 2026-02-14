@@ -1286,18 +1286,17 @@ export default function ResultsPage() {
         </div>
       )}
 
-      <div className="max-w-5xl mx-auto px-4 pt-6 pb-3 flex items-center justify-between">
-        <div className="text-sm text-slate-600 font-extrabold">Occurrences: {occCount}</div>
+      <div className="max-w-5xl mx-auto px-4 pt-6 pb-3 flex items-center justify-end">
+  <button
+    type="button"
+    onClick={() => router.push(`/?${qsString}`)}
+    className="rounded-xl px-4 py-2 text-xs font-extrabold transition border bg-slate-900 text-white hover:bg-slate-800"
+    title="Go back and revise your search"
+  >
+    Revise Search
+  </button>
+</div>
 
-        <button
-          type="button"
-          onClick={() => router.push(`/?${qsString}`)}
-          className="rounded-xl px-4 py-2 text-xs font-extrabold transition border bg-slate-900 text-white hover:bg-slate-800"
-          title="Go back and revise your search"
-        >
-          Revise Search
-        </button>
-      </div>
 
       <div className="pb-10">
         {hasSearched &&
