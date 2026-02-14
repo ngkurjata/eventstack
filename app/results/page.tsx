@@ -537,6 +537,36 @@ function lookupAttractionNameById(events: any[], attractionId: string): string |
   return null;
 }
 
+/* ==================== NEW: same-pick detection for P1 vs P2 ==================== */
+
+function normPickLabel(s: string) {
+  return String(s || "")
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/[\u2019']/g, "")
+    .replace(/[^a-z0-9 ]+/g, "");
+}
+
+function samePick(p1Raw: string | null, p2Raw: string | null) {
+  const a = parsePickParam(p1Raw);
+  const b = parsePickParam(p2Raw);
+  if (!a || !b) return false;
+
+  if (a.kind !== b.kind) return false;
+
+  // Strongest match: shared IDs (artists)
+  if (a.id && b.id) return String(a.id).trim() === String(b.id).trim();
+
+  // Fallback: compare normalized labels
+  const al = a.label ? normPickLabel(a.label) : "";
+  const bl = b.label ? normPickLabel(b.label) : "";
+  if (al && bl) return al === bl;
+
+  // If one side has neither id nor label, assume not safely comparable
+  return false;
+}
+
 /* ==================== PAGE ==================== */
 
 export default function ResultsPage() {
@@ -637,6 +667,20 @@ export default function ResultsPage() {
 
   const fallbackMode = data?.fallback?.mode || null;
   const fallbackSchedules = data?.fallback?.schedules || null;
+
+  // ✅ NEW: if P1 == P2, show only one schedule in NO_OVERLAP_SCHEDULES mode
+  const fallbackSchedulesToRender = useMemo(() => {
+    if (!Array.isArray(fallbackSchedules)) return null;
+
+    const p1 = qs.get("p1");
+    const p2 = qs.get("p2");
+    const same = samePick(p1, p2);
+
+    if (!same) return fallbackSchedules;
+
+    // If they are the same pick, just show the first schedule (P1) to avoid duplicate overlap display.
+    return fallbackSchedules.slice(0, 1);
+  }, [qsString, fallbackSchedules]);
 
   const occurrencesSorted = useMemo(() => {
     const enriched = occurrencesRaw.map((occ: any, idx: number) => {
@@ -1178,7 +1222,9 @@ export default function ResultsPage() {
                         const dateStr = formatEventDateMMMDDYYYY(d);
                         const timeStr = formatEventTimeLower(t);
                         const parts = [dateStr, timeStr, venueLabel].filter(Boolean);
-                        return parts.length ? <div className="truncate">{parts.join(" • ")}</div> : null;
+                        return parts.length ? (
+                          <div className="truncate">{parts.join(" • ")}</div>
+                        ) : null;
                       })()}
                     </div>
                   </div>
@@ -1259,17 +1305,19 @@ export default function ResultsPage() {
           !errMsg &&
           occurrencesSorted.length === 0 &&
           fallbackMode === "NO_OVERLAP_SCHEDULES" &&
-          Array.isArray(fallbackSchedules) && (
+          Array.isArray(fallbackSchedulesToRender) && (
             <div className="max-w-5xl mx-auto px-4 py-8">
               <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
                 <div className="px-5 py-4 bg-slate-900 text-white">
                   <div className="text-lg font-extrabold">No overlap found</div>
                   <div className="text-sm text-white/80 font-bold">
-                    Here are both schedules merged in date order:
+                    {fallbackSchedulesToRender.length > 1
+                      ? "Here are both schedules merged in date order:"
+                      : "Here is the schedule (same selection was chosen for P1 and P2):"}
                   </div>
                 </div>
 
-                <MergedSchedules schedules={fallbackSchedules} />
+                <MergedSchedules schedules={fallbackSchedulesToRender} />
               </div>
             </div>
           )}
@@ -1279,7 +1327,7 @@ export default function ResultsPage() {
           !loading &&
           !errMsg &&
           occurrencesSorted.length === 0 &&
-          !(fallbackMode === "NO_OVERLAP_SCHEDULES" && Array.isArray(fallbackSchedules)) && (
+          !(fallbackMode === "NO_OVERLAP_SCHEDULES" && Array.isArray(fallbackSchedulesToRender)) && (
             <div className="max-w-xl mx-auto px-4 py-6">
               <div className="rounded-2xl bg-white shadow-md p-6 text-center">
                 <h2 className="text-lg font-semibold text-slate-800">No Results Found</h2>
