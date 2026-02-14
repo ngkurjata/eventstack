@@ -557,8 +557,16 @@ export default function Page() {
     if (p3) setP3("");
   }, [p3]);
 
-  const canSearch = Boolean(p1 && p2);
-  const needsBothPicks = Boolean((p1 && !p2) || (!p1 && p2));
+  // ✅ NEW: allow search if *either* P1 or P2 is filled (or P3 in non-public mode)
+  const canSearch = useMemo(() => {
+    const hasP1 = !!String(p1 || "").trim();
+    const hasP2 = !!String(p2 || "").trim();
+    const hasP3 = !PUBLIC_MODE && !!String(p3 || "").trim();
+    return hasP1 || hasP2 || hasP3;
+  }, [p1, p2, p3]);
+
+  // ✅ NEW: tooltip copy (optional) when only one pick is present
+  const needsAtLeastOnePick = useMemo(() => !canSearch, [canSearch]);
 
   useEffect(() => {
     if (!loading && canSearch) {
@@ -569,10 +577,24 @@ export default function Page() {
   }, [loading, canSearch]);
 
   function onSearch() {
-    if (!p1 || !p2) {
-      alert("Pick at least Favorite Team/Artist #1 and #2.");
+    const p1Raw = (p1 || "").trim();
+    const p2Raw = (p2 || "").trim();
+
+    // ✅ NEW: require at least one (P1 or P2 or P3)
+    if (!p1Raw && !p2Raw && (PUBLIC_MODE || !String(p3 || "").trim())) {
+      alert("Pick at least one favorite to search.");
       return;
     }
+
+    // ✅ NEW: normalize so “one pick” becomes P1=P2
+    let p1q = p1Raw;
+    let p2q = p2Raw;
+    if (!p1q && p2q) p1q = p2q;
+    if (p1q && !p2q) p2q = p1q;
+
+    // keep state in sync (optional but nice UX)
+    if (p1q !== p1Raw) setP1(p1q);
+    if (p2q !== p2Raw) setP2(p2q);
 
     // Airport is optional; flights/buttons will be disabled on results if missing.
     if (!originIata) setOriginErr("");
@@ -590,12 +612,12 @@ export default function Page() {
     const effectiveP3 = PUBLIC_MODE ? "" : p3;
 
     const params = new URLSearchParams();
-    params.set("p1", p1);
-    params.set("p2", p2);
+    if (p1q) params.set("p1", p1q);
+    if (p2q) params.set("p2", p2q);
     if (effectiveP3) params.set("p3", effectiveP3);
     params.set("days", String(effectiveDays));
     params.set("radiusMiles", String(effectiveRadius));
-    params.set("origin", originIata);
+    if (originIata) params.set("origin", originIata);
 
     router.push(`/results?${params.toString()}`);
   }
@@ -615,7 +637,7 @@ export default function Page() {
         <div className="space-y-6">
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="mb-4 flex items-end justify-between gap-3">
-              <div className="text-lg font-extrabold text-slate-900">Pick 2 of your favorites</div>
+              <div className="text-lg font-extrabold text-slate-900">Pick your favorites</div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -764,10 +786,10 @@ export default function Page() {
               onClick={onSearch}
               disabled={!canSearch || loading}
               title={
-                needsBothPicks
-                  ? "Both Favorite #1 and Favorite #2 are required before Search will work."
-                  : !canSearch
-                  ? "Pick Favorite #1 and Favorite #2 to enable Search."
+                loading
+                  ? "Loading options…"
+                  : needsAtLeastOnePick
+                  ? "Pick at least one favorite to enable Search."
                   : "Search for overlap occurrences"
               }
               className={[
