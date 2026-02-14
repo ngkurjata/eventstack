@@ -33,6 +33,23 @@ function stripDeprecatedParams(sp: ReturnType<typeof useSearchParams>) {
   return qs;
 }
 
+/**
+ * Normalize P1/P2 per your desired logic:
+ * - If P1 blank and P2 present => set P1=P2
+ * - If P2 blank and P1 present => set P2=P1
+ * - If both present or both blank => no change
+ */
+function normalizePairParams(qs: URLSearchParams) {
+  const out = new URLSearchParams(qs.toString());
+  const p1 = (out.get("p1") || "").trim();
+  const p2 = (out.get("p2") || "").trim();
+
+  if (!p1 && p2) out.set("p1", p2);
+  if (p1 && !p2) out.set("p2", p1);
+
+  return out;
+}
+
 /* -------------------- Date helpers -------------------- */
 
 function parseYMDToUTC(ymd: string): Date | null {
@@ -164,27 +181,6 @@ function formatEventDateMMMDDYYYY(d: string | null) {
   const dd = fmtUTC(dt, { day: "2-digit" });
   const yyyy = fmtUTC(dt, { year: "numeric" });
   return `${mm} ${dd}`;
-}
-
-function formatEventTime(t: string | null) {
-  if (!t) return "";
-  const m = /^(\d{2}):(\d{2})/.exec(t);
-  if (!m) return t;
-  let hh = +m[1];
-  const mm = m[2];
-  const ampm = hh >= 12 ? "PM" : "AM";
-  hh = hh % 12;
-  if (hh === 0) hh = 12;
-  return `${hh}:${mm} ${ampm}`;
-}
-
-function formatEventDateMMMDDYY(d: string | null) {
-  const dt = d ? parseYMDToUTC(d) : null;
-  if (!dt) return "";
-  const mm = fmtUTC(dt, { month: "short" });
-  const dd = fmtUTC(dt, { day: "2-digit" });
-  const yy = fmtUTC(dt, { year: "2-digit" });
-  return `${mm}-${dd}-${yy}`; // e.g., Feb-28-26
 }
 
 function formatEventTimeLower(t: string | null) {
@@ -425,7 +421,11 @@ function TravelButton({
   );
 }
 
-function MergedSchedules({ schedules }: { schedules: Array<{ label: string; events: any[] }> }) {
+function MergedSchedules({
+  schedules,
+}: {
+  schedules: Array<{ label: string; events: any[] }>;
+}) {
   const merged = useMemo(() => {
     const out: Array<{ e: any; which: number; label: string }> = [];
     schedules.forEach((s, idx) => {
@@ -442,7 +442,6 @@ function MergedSchedules({ schedules }: { schedules: Array<{ label: string; even
         const t = getEventLocalTime(e);
         const venueLabel = eventVenueCityState(e);
 
-        // Match occurrence rows: shade by schedule so Pick 2 is visually distinct
         const rowBg = which === 1 ? "bg-slate-200" : "bg-slate-100";
         const titleColor = which === 1 ? "text-slate-700" : "text-slate-900";
 
@@ -486,7 +485,7 @@ function MergedSchedules({ schedules }: { schedules: Array<{ label: string; even
   );
 }
 
-/* ==================== Share pick parsing + lookup (Step 1/2/3) ==================== */
+/* ==================== Share pick parsing + lookup ==================== */
 
 function parsePickParam(p: string | null): { kind: string; label?: string; id?: string } | null {
   const s = (p || "").trim();
@@ -516,7 +515,6 @@ function parsePickParam(p: string | null): { kind: string; label?: string; id?: 
     return { kind, id: parts[1] };
   }
 
-  // genre:Rock, raw:Something, etc.
   return { kind, label: parts[parts.length - 1] };
 }
 
@@ -537,7 +535,7 @@ function lookupAttractionNameById(events: any[], attractionId: string): string |
   return null;
 }
 
-/* ==================== NEW: same-pick detection for P1 vs P2 ==================== */
+/* ==================== Same-pick detection (P1 vs P2) ==================== */
 
 function normPickLabel(s: string) {
   return String(s || "")
@@ -552,18 +550,14 @@ function samePick(p1Raw: string | null, p2Raw: string | null) {
   const a = parsePickParam(p1Raw);
   const b = parsePickParam(p2Raw);
   if (!a || !b) return false;
-
   if (a.kind !== b.kind) return false;
 
-  // Strongest match: shared IDs (artists)
   if (a.id && b.id) return String(a.id).trim() === String(b.id).trim();
 
-  // Fallback: compare normalized labels
   const al = a.label ? normPickLabel(a.label) : "";
   const bl = b.label ? normPickLabel(b.label) : "";
   if (al && bl) return al === bl;
 
-  // If one side has neither id nor label, assume not safely comparable
   return false;
 }
 
@@ -573,10 +567,12 @@ export default function ResultsPage() {
   const router = useRouter();
   const sp = useSearchParams();
 
-  // Keep URLSearchParams for your existing code (back button, share link, etc.)
-  const qs = useMemo(() => stripDeprecatedParams(sp), [sp]);
+  // base params (legacy stripping)
+  const qsBase = useMemo(() => stripDeprecatedParams(sp), [sp]);
+  const qsBaseString = useMemo(() => qsBase.toString(), [qsBase]);
 
-  // ✅ Critical: stable string snapshot for effect deps + initial hydration timing
+  // normalized params (P1/P2 rules)
+  const qs = useMemo(() => normalizePairParams(qsBase), [qsBaseString]);
   const qsString = useMemo(() => qs.toString(), [qs]);
 
   const originIata = (qs.get("origin") || "").trim().toUpperCase();
@@ -587,7 +583,14 @@ export default function ResultsPage() {
       .map((x) => (x || "").trim())
       .filter(Boolean);
     return ids.length;
-  }, [qsString]); // depends on query content, not object identity
+  }, [qsString]);
+
+  // “same entity” mode: P1==P2 (including the “one blank -> copy” normalization)
+  const sameEntityMode = useMemo(() => {
+    const p1 = qs.get("p1");
+    const p2 = qs.get("p2");
+    return samePick(p1, p2);
+  }, [qsString]);
 
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -638,9 +641,8 @@ export default function ResultsPage() {
     };
   }, []);
 
-  // ✅ FIX: don't fetch until querystring is present, and abort stale/empty calls
+  // Fetch using normalized qsString (this is what enforces your P1/P2 rules even if API doesn't)
   useEffect(() => {
-    // On the very first render in a fresh browser context, this can be ""
     if (!qsString) return;
 
     const ac = new AbortController();
@@ -668,26 +670,27 @@ export default function ResultsPage() {
   const fallbackMode = data?.fallback?.mode || null;
   const fallbackSchedules = data?.fallback?.schedules || null;
 
-  // ✅ NEW: if P1 == P2, show only one schedule in NO_OVERLAP_SCHEDULES mode
+  /**
+   * If P1==P2, avoid duplicate schedule display:
+   * - show only one schedule (P1) in NO_OVERLAP_SCHEDULES mode
+   */
   const fallbackSchedulesToRender = useMemo(() => {
     if (!Array.isArray(fallbackSchedules)) return null;
-
-    const p1 = qs.get("p1");
-    const p2 = qs.get("p2");
-    const same = samePick(p1, p2);
-
-    if (!same) return fallbackSchedules;
-
-    // If they are the same pick, just show the first schedule (P1) to avoid duplicate overlap display.
+    if (!sameEntityMode) return fallbackSchedules;
     return fallbackSchedules.slice(0, 1);
-  }, [qsString, fallbackSchedules]);
+  }, [fallbackSchedules, sameEntityMode]);
 
   const occurrencesSorted = useMemo(() => {
     const enriched = occurrencesRaw.map((occ: any, idx: number) => {
+      // These dedupes already prevent the “P1=P2 duplicate event list” problem in normal overlap mode,
+      // even if the backend returns the same event twice.
       const eventsDeduped = dedupeEventsWithinOccurrence(occ.events);
       const main = [...eventsDeduped]
         .filter((e) => !!eventUrl(e))
-        .sort((a, b) => eventSortKey(a) - eventSortKey(b));
+        .sort((a, b) => eventSortKey(a) - eventSortKey(b.e ? b.e : b));
+
+      // NOTE: safer sort (avoid accidental b.e from older refactor)
+      main.sort((a, b) => eventSortKey(a) - eventSortKey(b));
 
       const mainDates = uniqueSortedDates(main);
       const firstMain = mainDates[0] ?? null;
@@ -718,8 +721,6 @@ export default function ResultsPage() {
 
     return enriched;
   }, [occurrencesRaw]);
-
-  const occCount = occurrencesSorted.length;
 
   const hasSearched = useMemo(() => {
     const p1 = (qs.get("p1") || "").trim();
@@ -862,25 +863,31 @@ export default function ResultsPage() {
     const url = `${window.location.origin}/results?${qsString}#${occKey}`;
 
     const raw = [qs.get("p1"), qs.get("p2"), qs.get("p3")];
-    let pickNames: string[] = [];
 
+    // If P1==P2, don't repeat the name in share text.
+    const pickNames: string[] = [];
     for (const r of raw) {
       const parsed = parsePickParam(r);
       if (!parsed) continue;
 
-      if (parsed.label) {
-        pickNames.push(parsed.label);
-        continue;
+      let resolvedLabel = parsed.label || "";
+
+      if (!resolvedLabel && parsed.kind === "artist" && parsed.id) {
+        const resolved = lookupAttractionNameById(eventsForLookup, parsed.id);
+        if (resolved) resolvedLabel = resolved;
       }
 
-      if (parsed.kind === "artist" && parsed.id) {
-        const resolved = lookupAttractionNameById(eventsForLookup, parsed.id);
-        if (resolved) pickNames.push(resolved);
+      if (resolvedLabel) {
+        const norm = normPickLabel(resolvedLabel);
+        if (!pickNames.some((x) => normPickLabel(x) === norm)) pickNames.push(resolvedLabel);
       }
     }
 
     if (pickNames.length === 0 && Array.isArray(fallbackTitles) && fallbackTitles.length) {
-      pickNames = fallbackTitles.slice(0, 3);
+      fallbackTitles.slice(0, 3).forEach((t) => {
+        const norm = normPickLabel(t);
+        if (!pickNames.some((x) => normPickLabel(x) === norm)) pickNames.push(t);
+      });
     }
 
     const mark = pickCheckmarkGlyph();
@@ -919,6 +926,8 @@ export default function ResultsPage() {
     const isEntityOnly = occ?.meta?.mode === "ENTITY_ONLY";
     const entityName = (occ?.meta?.entityName || "").trim() || null;
 
+    // Critical: dedupe removes duplicates even if backend returns P1 and P2 lists that overlap heavily.
+    // This is the “just remove P2 from display” effect without needing to know which event came from P2.
     const eventsDeduped = dedupeEventsWithinOccurrence(occ.events);
     const popularDeduped = dedupeNearbyPopularEvents(occ.popular);
 
@@ -1026,7 +1035,11 @@ export default function ResultsPage() {
     ).sort((a, b) => eventSortKey(a.e) - eventSortKey(b.e));
 
     const coverage = occ.__coverage ?? occurrenceCoverageCountFromMainEvents(main);
-    const includesAll3 = !isEntityOnly && selectedPickCount === 3 && coverage === 3;
+
+    // If P1==P2, treat “coverage” as effectively 1 for the “Includes All 3” badge logic
+    // to avoid confusing red highlight when backend marks events with different __pick tags.
+    const effectiveCoverage = sameEntityMode ? Math.min(coverage, 1) : coverage;
+    const includesAll3 = !isEntityOnly && selectedPickCount === 3 && effectiveCoverage === 3;
 
     return (
       <section id={occKey} key={occKey} className="w-full max-w-5xl mx-auto mb-8">
@@ -1195,7 +1208,6 @@ export default function ResultsPage() {
               const t = getEventLocalTime(e);
               const venueLabel = eventVenueCityState(e);
 
-              // Step 2: darken Popular Nearby rows on mobile (more distinguishable)
               const popRowBg = "bg-slate-200";
               const popTitle = "text-slate-600";
               const popMeta = "text-slate-600";
@@ -1287,16 +1299,15 @@ export default function ResultsPage() {
       )}
 
       <div className="max-w-5xl mx-auto px-4 pt-6 pb-3 flex items-center justify-end">
-  <button
-    type="button"
-    onClick={() => router.push(`/?${qsString}`)}
-    className="rounded-xl px-4 py-2 text-xs font-extrabold transition border bg-slate-900 text-white hover:bg-slate-800"
-    title="Go back and revise your search"
-  >
-    Revise Search
-  </button>
-</div>
-
+        <button
+          type="button"
+          onClick={() => router.push(`/?${qsString}`)}
+          className="rounded-xl px-4 py-2 text-xs font-extrabold transition border bg-slate-900 text-white hover:bg-slate-800"
+          title="Go back and revise your search"
+        >
+          Revise Search
+        </button>
+      </div>
 
       <div className="pb-10">
         {hasSearched &&
@@ -1321,7 +1332,6 @@ export default function ResultsPage() {
             </div>
           )}
 
-        {/* Step 1: 0-occurrences fallback looks like the same mobile card aesthetic */}
         {hasSearched &&
           !loading &&
           !errMsg &&
