@@ -33,23 +33,6 @@ function stripDeprecatedParams(sp: ReturnType<typeof useSearchParams>) {
   return qs;
 }
 
-/**
- * Normalize P1/P2 per your desired logic:
- * - If P1 blank and P2 present => set P1=P2
- * - If P2 blank and P1 present => set P2=P1
- * - If both present or both blank => no change
- */
-function normalizePairParams(qs: URLSearchParams) {
-  const out = new URLSearchParams(qs.toString());
-  const p1 = (out.get("p1") || "").trim();
-  const p2 = (out.get("p2") || "").trim();
-
-  if (!p1 && p2) out.set("p1", p2);
-  if (p1 && !p2) out.set("p2", p1);
-
-  return out;
-}
-
 /* -------------------- Date helpers -------------------- */
 
 function parseYMDToUTC(ymd: string): Date | null {
@@ -183,6 +166,27 @@ function formatEventDateMMMDDYYYY(d: string | null) {
   return `${mm} ${dd}`;
 }
 
+function formatEventTime(t: string | null) {
+  if (!t) return "";
+  const m = /^(\d{2}):(\d{2})/.exec(t);
+  if (!m) return t;
+  let hh = +m[1];
+  const mm = m[2];
+  const ampm = hh >= 12 ? "PM" : "AM";
+  hh = hh % 12;
+  if (hh === 0) hh = 12;
+  return `${hh}:${mm} ${ampm}`;
+}
+
+function formatEventDateMMMDDYY(d: string | null) {
+  const dt = d ? parseYMDToUTC(d) : null;
+  if (!dt) return "";
+  const mm = fmtUTC(dt, { month: "short" });
+  const dd = fmtUTC(dt, { day: "2-digit" });
+  const yy = fmtUTC(dt, { year: "2-digit" });
+  return `${mm}-${dd}-${yy}`; // e.g., Feb-28-26
+}
+
 function formatEventTimeLower(t: string | null) {
   if (!t) return "";
   const m = /^(\d{2}):(\d{2})/.exec(t);
@@ -232,6 +236,121 @@ function eventSortKey(e: any) {
   const tKey = m ? +m[1] * 60 + +m[2] : 999999;
 
   return dKey * 100000 + tKey;
+}
+
+/* -------------------- Geo + clustering helpers (for P1=P2) -------------------- */
+
+function getEventLatLon(e: any): { lat: number; lon: number } | null {
+  const v = e?._embedded?.venues?.[0];
+  const lat = v?.location?.latitude;
+  const lon = v?.location?.longitude;
+  const la = lat != null ? Number(lat) : NaN;
+  const lo = lon != null ? Number(lon) : NaN;
+  if (Number.isFinite(la) && Number.isFinite(lo)) return { lat: la, lon: lo };
+  return null;
+}
+
+function haversineMiles(a: { lat: number; lon: number }, b: { lat: number; lon: number }) {
+  const R = 3958.7613; // miles
+  const toRad = (x: number) => (x * Math.PI) / 180;
+
+  const dLat = toRad(b.lat - a.lat);
+  const dLon = toRad(b.lon - a.lon);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * (Math.sin(dLon / 2) ** 2);
+
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(s)));
+}
+
+function daysBetweenYMD(a: string, b: string) {
+  const da = parseYMDToUTC(a);
+  const db = parseYMDToUTC(b);
+  if (!da || !db) return Infinity;
+  const ms = Math.abs(db.getTime() - da.getTime());
+  return Math.floor(ms / (24 * 60 * 60 * 1000));
+}
+
+function buildSinglePickOccurrencesFromSchedule(params: {
+  events: any[];
+  maxDays: number;
+  radiusMiles: number;
+}) {
+  const { events, maxDays, radiusMiles } = params;
+
+  const base = (events || [])
+    .filter((e) => !!eventUrl(e))
+    .sort((a, b) => eventSortKey(a) - eventSortKey(b));
+
+  const sigSet = new Set<string>();
+  const out: any[] = [];
+
+  for (let i = 0; i < base.length; i++) {
+    const seed = base[i];
+    const seedDate = getEventLocalDate(seed);
+    if (!seedDate) continue;
+
+    const seedLL = getEventLatLon(seed);
+    const seedCS = eventVenueCityState(seed);
+
+    const group: any[] = [];
+
+    for (let j = 0; j < base.length; j++) {
+      const e = base[j];
+      const d = getEventLocalDate(e);
+      if (!d) continue;
+
+      if (daysBetweenYMD(seedDate, d) > maxDays) continue;
+
+      const ll = getEventLatLon(e);
+      let okDist = true;
+
+      if (seedLL && ll) {
+        okDist = haversineMiles(seedLL, ll) <= radiusMiles;
+      } else if (seedCS) {
+        okDist = eventVenueCityState(e) === seedCS;
+      }
+
+      if (!okDist) continue;
+      group.push(e);
+    }
+
+    const deduped = dedupeEventsWithinOccurrence(group);
+    if (deduped.length < 2) continue;
+
+    const ids = deduped
+      .map((e) => eventId(e) || `${eventSortKey(e)}|${eventVenueKey(e)}`)
+      .sort();
+    const sig = ids.join("~");
+    if (sigSet.has(sig)) continue;
+    sigSet.add(sig);
+
+    const dates = uniqueSortedDates(deduped);
+    const startYMD = dates[0] || null;
+    const endYMD = dates.length ? dates[dates.length - 1] : startYMD;
+
+    out.push({
+      events: deduped,
+      popular: [],
+      meta: {
+        startYMD,
+        endYMD,
+        anchor: seedLL ? { lat: seedLL.lat, lon: seedLL.lon } : null,
+        mode: "SINGLE_PICK_OCCURRENCES",
+      },
+    });
+  }
+
+  out.sort((a, b) => {
+    const aStart = a?.meta?.startYMD ? Number(String(a.meta.startYMD).replace(/-/g, "")) : 99999999;
+    const bStart = b?.meta?.startYMD ? Number(String(b.meta.startYMD).replace(/-/g, "")) : 99999999;
+    return aStart - bStart;
+  });
+
+  return out;
 }
 
 /* -------------------- Misc helpers -------------------- */
@@ -421,70 +540,6 @@ function TravelButton({
   );
 }
 
-function MergedSchedules({
-  schedules,
-}: {
-  schedules: Array<{ label: string; events: any[] }>;
-}) {
-  const merged = useMemo(() => {
-    const out: Array<{ e: any; which: number; label: string }> = [];
-    schedules.forEach((s, idx) => {
-      (s.events || []).forEach((e) => out.push({ e, which: idx, label: s.label }));
-    });
-    out.sort((a, b) => eventSortKey(a.e) - eventSortKey(b.e));
-    return out;
-  }, [schedules]);
-
-  return (
-    <div className="p-4 sm:p-6 space-y-3">
-      {merged.map(({ e, which }) => {
-        const d = getEventLocalDate(e);
-        const t = getEventLocalTime(e);
-        const venueLabel = eventVenueCityState(e);
-
-        const rowBg = which === 1 ? "bg-slate-200" : "bg-slate-100";
-        const titleColor = which === 1 ? "text-slate-700" : "text-slate-900";
-
-        return (
-          <div
-            key={eventId(e) || `${eventSortKey(e)}-${normalizeTitleForDedup(eventTitle(e))}-${which}`}
-            className={cx(
-              "rounded-2xl border border-slate-200 p-4 flex items-center justify-between gap-4",
-              rowBg
-            )}
-          >
-            <div className="min-w-0">
-              <div className={cx("font-extrabold truncate", titleColor)}>{eventTitle(e)}</div>
-
-              <div className="mt-1 text-xs text-slate-600">
-                {(() => {
-                  const dateStr = formatEventDateMMMDDYYYY(d);
-                  const timeStr = formatEventTimeLower(t);
-                  const parts = [dateStr, timeStr, venueLabel].filter(Boolean);
-                  return parts.length ? <div className="truncate">{parts.join(" • ")}</div> : null;
-                })()}
-              </div>
-            </div>
-
-            {eventUrl(e) ? (
-              <a
-                href={eventUrl(e)}
-                target="_blank"
-                rel="noreferrer"
-                className="shrink-0 rounded-full px-4 py-2 text-xs font-extrabold bg-slate-900 text-white hover:bg-slate-800"
-              >
-                Tickets
-              </a>
-            ) : (
-              <span className="shrink-0 text-xs text-slate-400">No tickets</span>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 /* ==================== Share pick parsing + lookup ==================== */
 
 function parsePickParam(p: string | null): { kind: string; label?: string; id?: string } | null {
@@ -515,6 +570,7 @@ function parsePickParam(p: string | null): { kind: string; label?: string; id?: 
     return { kind, id: parts[1] };
   }
 
+  // genre:Rock, raw:Something, etc.
   return { kind, label: parts[parts.length - 1] };
 }
 
@@ -535,7 +591,7 @@ function lookupAttractionNameById(events: any[], attractionId: string): string |
   return null;
 }
 
-/* ==================== Same-pick detection (P1 vs P2) ==================== */
+/* ==================== Same-pick detection for P1 vs P2 ==================== */
 
 function normPickLabel(s: string) {
   return String(s || "")
@@ -550,6 +606,7 @@ function samePick(p1Raw: string | null, p2Raw: string | null) {
   const a = parsePickParam(p1Raw);
   const b = parsePickParam(p2Raw);
   if (!a || !b) return false;
+
   if (a.kind !== b.kind) return false;
 
   if (a.id && b.id) return String(a.id).trim() === String(b.id).trim();
@@ -567,12 +624,7 @@ export default function ResultsPage() {
   const router = useRouter();
   const sp = useSearchParams();
 
-  // base params (legacy stripping)
-  const qsBase = useMemo(() => stripDeprecatedParams(sp), [sp]);
-  const qsBaseString = useMemo(() => qsBase.toString(), [qsBase]);
-
-  // normalized params (P1/P2 rules)
-  const qs = useMemo(() => normalizePairParams(qsBase), [qsBaseString]);
+  const qs = useMemo(() => stripDeprecatedParams(sp), [sp]);
   const qsString = useMemo(() => qs.toString(), [qs]);
 
   const originIata = (qs.get("origin") || "").trim().toUpperCase();
@@ -583,13 +635,6 @@ export default function ResultsPage() {
       .map((x) => (x || "").trim())
       .filter(Boolean);
     return ids.length;
-  }, [qsString]);
-
-  // “same entity” mode: P1==P2 (including the “one blank -> copy” normalization)
-  const sameEntityMode = useMemo(() => {
-    const p1 = qs.get("p1");
-    const p2 = qs.get("p2");
-    return samePick(p1, p2);
   }, [qsString]);
 
   const [data, setData] = useState<ApiResponse | null>(null);
@@ -614,13 +659,26 @@ export default function ResultsPage() {
     error?: string;
   };
 
-  const [popularCacheByOcc, setPopularCacheByOcc] = useState<Record<string, PopularCacheEntry>>(
-    {}
-  );
+  const [popularCacheByOcc, setPopularCacheByOcc] = useState<Record<string, PopularCacheEntry>>({});
 
   const radiusMiles = useMemo(() => {
     const n = Number(qs.get("radiusMiles") || 100);
     return Number.isFinite(n) ? n : 100;
+  }, [qsString]);
+
+  const maxDays = useMemo(() => {
+    const n = Number(qs.get("days") || 5);
+    return Number.isFinite(n) ? Math.max(1, Math.floor(n)) : 5;
+  }, [qsString]);
+
+  // Determine if we're in "single pick" mode (P1=P2, including links where one is blank)
+  const sameEntityMode = useMemo(() => {
+    const p1 = (qs.get("p1") || "").trim();
+    const p2 = (qs.get("p2") || "").trim();
+    const p1n = p1 || p2;
+    const p2n = p2 || p1;
+    if (!p1n || !p2n) return false;
+    return samePick(p1n, p2n);
   }, [qsString]);
 
   useEffect(() => {
@@ -641,7 +699,6 @@ export default function ResultsPage() {
     };
   }, []);
 
-  // Fetch using normalized qsString (this is what enforces your P1/P2 rules even if API doesn't)
   useEffect(() => {
     if (!qsString) return;
 
@@ -667,48 +724,47 @@ export default function ResultsPage() {
 
   const occurrencesRaw = useMemo(() => data?.occurrences || [], [data]);
 
-  const fallbackMode = data?.fallback?.mode || null;
-  const fallbackSchedules = data?.fallback?.schedules || null;
+  // ✅ Key fix:
+  // If P1=P2 and API yields no occurrences but does return fallback schedules,
+  // convert schedule → occurrences client-side using the same days/radius logic.
+  const occurrencesEffective = useMemo(() => {
+    const occ = Array.isArray(occurrencesRaw) ? occurrencesRaw : [];
+    if (occ.length) return occ;
 
-  /**
-   * If P1==P2, avoid duplicate schedule display:
-   * - show only one schedule (P1) in NO_OVERLAP_SCHEDULES mode
-   */
-  const fallbackSchedulesToRender = useMemo(() => {
-    if (!Array.isArray(fallbackSchedules)) return null;
-    if (!sameEntityMode) return fallbackSchedules;
-    return fallbackSchedules.slice(0, 1);
-  }, [fallbackSchedules, sameEntityMode]);
+    if (!sameEntityMode) return occ;
+
+    const schedules = data?.fallback?.schedules;
+    if (!Array.isArray(schedules) || schedules.length === 0) return occ;
+
+    const scheduleEvents = Array.isArray(schedules[0]?.events) ? schedules[0].events : [];
+    return buildSinglePickOccurrencesFromSchedule({
+      events: scheduleEvents,
+      maxDays,
+      radiusMiles,
+    });
+  }, [occurrencesRaw, sameEntityMode, data, maxDays, radiusMiles]);
 
   const occurrencesSorted = useMemo(() => {
-    const enriched = occurrencesRaw.map((occ: any, idx: number) => {
-      // These dedupes already prevent the “P1=P2 duplicate event list” problem in normal overlap mode,
-      // even if the backend returns the same event twice.
+    const source = Array.isArray(occurrencesEffective) ? occurrencesEffective : [];
+
+    const enriched = source.map((occ: any, idx: number) => {
       const eventsDeduped = dedupeEventsWithinOccurrence(occ.events);
+
       const main = [...eventsDeduped]
         .filter((e) => !!eventUrl(e))
-        .sort((a, b) => eventSortKey(a) - eventSortKey(b.e ? b.e : b));
-
-      // NOTE: safer sort (avoid accidental b.e from older refactor)
-      main.sort((a, b) => eventSortKey(a) - eventSortKey(b));
+        .sort((a, b) => eventSortKey(a) - eventSortKey(b));
 
       const mainDates = uniqueSortedDates(main);
       const firstMain = mainDates[0] ?? null;
       const sortKey = firstMain ? Number(String(firstMain).replace(/-/g, "")) : 99999999;
-      const coverage = occurrenceCoverageCountFromMainEvents(main);
 
-      const entityOnly = occ?.meta?.mode === "ENTITY_ONLY";
-      const entitySortKey = entityOnly
-        ? firstMain
-          ? Number(String(firstMain).replace(/-/g, ""))
-          : 0
-        : sortKey;
+      const coverage = occurrenceCoverageCountFromMainEvents(main);
 
       return {
         ...occ,
         __idx: idx,
         __coverage: coverage,
-        __earliestMainKey: entitySortKey,
+        __earliestMainKey: sortKey,
       };
     });
 
@@ -720,7 +776,9 @@ export default function ResultsPage() {
     });
 
     return enriched;
-  }, [occurrencesRaw]);
+  }, [occurrencesEffective]);
+
+  const occCount = occurrencesSorted.length;
 
   const hasSearched = useMemo(() => {
     const p1 = (qs.get("p1") || "").trim();
@@ -863,31 +921,25 @@ export default function ResultsPage() {
     const url = `${window.location.origin}/results?${qsString}#${occKey}`;
 
     const raw = [qs.get("p1"), qs.get("p2"), qs.get("p3")];
+    let pickNames: string[] = [];
 
-    // If P1==P2, don't repeat the name in share text.
-    const pickNames: string[] = [];
     for (const r of raw) {
       const parsed = parsePickParam(r);
       if (!parsed) continue;
 
-      let resolvedLabel = parsed.label || "";
-
-      if (!resolvedLabel && parsed.kind === "artist" && parsed.id) {
-        const resolved = lookupAttractionNameById(eventsForLookup, parsed.id);
-        if (resolved) resolvedLabel = resolved;
+      if (parsed.label) {
+        pickNames.push(parsed.label);
+        continue;
       }
 
-      if (resolvedLabel) {
-        const norm = normPickLabel(resolvedLabel);
-        if (!pickNames.some((x) => normPickLabel(x) === norm)) pickNames.push(resolvedLabel);
+      if (parsed.kind === "artist" && parsed.id) {
+        const resolved = lookupAttractionNameById(eventsForLookup, parsed.id);
+        if (resolved) pickNames.push(resolved);
       }
     }
 
     if (pickNames.length === 0 && Array.isArray(fallbackTitles) && fallbackTitles.length) {
-      fallbackTitles.slice(0, 3).forEach((t) => {
-        const norm = normPickLabel(t);
-        if (!pickNames.some((x) => normPickLabel(x) === norm)) pickNames.push(t);
-      });
+      pickNames = fallbackTitles.slice(0, 3);
     }
 
     const mark = pickCheckmarkGlyph();
@@ -923,11 +975,6 @@ export default function ResultsPage() {
   }
 
   function renderOccurrenceBlock(occ: any, keySeed: string) {
-    const isEntityOnly = occ?.meta?.mode === "ENTITY_ONLY";
-    const entityName = (occ?.meta?.entityName || "").trim() || null;
-
-    // Critical: dedupe removes duplicates even if backend returns P1 and P2 lists that overlap heavily.
-    // This is the “just remove P2 from display” effect without needing to know which event came from P2.
     const eventsDeduped = dedupeEventsWithinOccurrence(occ.events);
     const popularDeduped = dedupeNearbyPopularEvents(occ.popular);
 
@@ -984,7 +1031,7 @@ export default function ResultsPage() {
     const checkOutYMD = lastMain ? addDaysUTC(lastMain, +1) : null;
 
     const hotelsUrl =
-      !isEntityOnly && cityState && checkInYMD && checkOutYMD
+      cityState && checkInYMD && checkOutYMD
         ? buildExpediaHotelSearchUrl({ destinationLabel: cityState, checkInYMD, checkOutYMD })
         : null;
 
@@ -996,7 +1043,6 @@ export default function ResultsPage() {
     });
 
     const flightsUrl =
-      !isEntityOnly &&
       originIata &&
       /^[A-Z]{3}$/.test(originIata) &&
       destIata &&
@@ -1011,7 +1057,6 @@ export default function ResultsPage() {
         : null;
 
     const packagesUrl =
-      !isEntityOnly &&
       originIata &&
       /^[A-Z]{3}$/.test(originIata) &&
       (destIata || cityState) &&
@@ -1026,7 +1071,7 @@ export default function ResultsPage() {
         : null;
 
     const merged = (
-      !isEntityOnly && showOtherPopular
+      showOtherPopular
         ? [
             ...main.map((e) => ({ e, pop: false })),
             ...basePopular.map((e: any) => ({ e, pop: true })),
@@ -1035,11 +1080,7 @@ export default function ResultsPage() {
     ).sort((a, b) => eventSortKey(a.e) - eventSortKey(b.e));
 
     const coverage = occ.__coverage ?? occurrenceCoverageCountFromMainEvents(main);
-
-    // If P1==P2, treat “coverage” as effectively 1 for the “Includes All 3” badge logic
-    // to avoid confusing red highlight when backend marks events with different __pick tags.
-    const effectiveCoverage = sameEntityMode ? Math.min(coverage, 1) : coverage;
-    const includesAll3 = !isEntityOnly && selectedPickCount === 3 && effectiveCoverage === 3;
+    const includesAll3 = selectedPickCount === 3 && coverage === 3;
 
     return (
       <section id={occKey} key={occKey} className="w-full max-w-5xl mx-auto mb-8">
@@ -1055,38 +1096,27 @@ export default function ResultsPage() {
               includesAll3 ? "bg-red-600 text-white" : "bg-slate-900 text-white"
             )}
           >
-            {!isEntityOnly && (
-              <button
-                type="button"
-                onClick={() => {
-                  shareOccurrence({
-                    occKey,
-                    cityState,
-                    startYMD: start,
-                    endYMD: end,
-                    fallbackTitles: main.map((e: any) => eventTitle(e)),
-                    eventsForLookup: allEvents,
-                  });
-                }}
-                title="Share this occurrence"
-                className="absolute right-4 top-4 sm:hidden rounded-2xl px-4 py-2.5 text-xs font-black tracking-wide bg-white text-slate-900 shadow-lg shadow-black/25 ring-1 ring-white/30 hover:-translate-y-px hover:shadow-xl"
-              >
-                SHARE
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => {
+                shareOccurrence({
+                  occKey,
+                  cityState,
+                  startYMD: start,
+                  endYMD: end,
+                  fallbackTitles: main.map((e: any) => eventTitle(e)),
+                  eventsForLookup: allEvents,
+                });
+              }}
+              title="Share this occurrence"
+              className="absolute right-4 top-4 sm:hidden rounded-2xl px-4 py-2.5 text-xs font-black tracking-wide bg-white text-slate-900 shadow-lg shadow-black/25 ring-1 ring-white/30 hover:-translate-y-px hover:shadow-xl"
+            >
+              SHARE
+            </button>
 
             <div className="pr-28 sm:pr-0">
-              {isEntityOnly ? (
-                <>
-                  <div className="text-xs font-extrabold text-white/80">Full schedule</div>
-                  <div className="text-xl font-extrabold">{entityName || "Selected entity"}</div>
-                </>
-              ) : (
-                <>
-                  <div className="text-lg font-extrabold">{formatRangePretty(start, end)}</div>
-                  <div className="text-xl font-extrabold">{cityState || "Location TBD"}</div>
-                </>
-              )}
+              <div className="text-lg font-extrabold">{formatRangePretty(start, end)}</div>
+              <div className="text-xl font-extrabold">{cityState || "Location TBD"}</div>
             </div>
 
             <div className="mt-3 w-full sm:mt-0 sm:w-auto">
@@ -1097,110 +1127,104 @@ export default function ResultsPage() {
                   </div>
                 )}
 
-                {!isEntityOnly && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      shareOccurrence({
-                        occKey,
-                        cityState,
-                        startYMD: start,
-                        endYMD: end,
-                        fallbackTitles: main.map((e: any) => eventTitle(e)),
-                        eventsForLookup: allEvents,
-                      });
-                    }}
-                    title="Share this occurrence"
-                    className="hidden sm:inline-flex shrink-0 rounded-2xl px-4 py-2.5 text-xs font-black tracking-wide transition bg-white text-slate-900 shadow-lg shadow-black/25 ring-1 ring-white/30 hover:-translate-y-px hover:shadow-xl"
-                  >
-                    SHARE
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    shareOccurrence({
+                      occKey,
+                      cityState,
+                      startYMD: start,
+                      endYMD: end,
+                      fallbackTitles: main.map((e: any) => eventTitle(e)),
+                      eventsForLookup: allEvents,
+                    });
+                  }}
+                  title="Share this occurrence"
+                  className="hidden sm:inline-flex shrink-0 rounded-2xl px-4 py-2.5 text-xs font-black tracking-wide transition bg-white text-slate-900 shadow-lg shadow-black/25 ring-1 ring-white/30 hover:-translate-y-px hover:shadow-xl"
+                >
+                  SHARE
+                </button>
               </div>
 
-              {!isEntityOnly && (
-                <div className="mt-3 flex w-full flex-wrap items-center justify-center gap-2 sm:mt-2 sm:justify-end">
-                  <TravelButton
-                    label="Hotels"
-                    enabled={!!hotelsUrl}
-                    title={hotelsUrl ? "Search hotels on Expedia" : "Missing destination or dates"}
-                    onClick={() => hotelsUrl && window.open(hotelsUrl, "_blank")}
-                  />
+              <div className="mt-3 flex w-full flex-wrap items-center justify-center gap-2 sm:mt-2 sm:justify-end">
+                <TravelButton
+                  label="Hotels"
+                  enabled={!!hotelsUrl}
+                  title={hotelsUrl ? "Search hotels on Expedia" : "Missing destination or dates"}
+                  onClick={() => hotelsUrl && window.open(hotelsUrl, "_blank")}
+                />
 
-                  <TravelButton
-                    label="Flights"
-                    enabled={!!flightsUrl}
-                    title={
-                      flightsUrl
-                        ? "Search flights on Expedia"
-                        : !hasOriginAirport
-                        ? "Add your nearest airport on the search page to enable flights"
-                        : "No destination airport found for this occurrence"
+                <TravelButton
+                  label="Flights"
+                  enabled={!!flightsUrl}
+                  title={
+                    flightsUrl
+                      ? "Search flights on Expedia"
+                      : !hasOriginAirport
+                      ? "Add your nearest airport on the search page to enable flights"
+                      : "No destination airport found for this occurrence"
+                  }
+                  onClick={() => {
+                    if (!hasOriginAirport) {
+                      showToast("Add your nearest airport to enable Flights.");
+                      return;
                     }
-                    onClick={() => {
-                      if (!hasOriginAirport) {
-                        showToast("Add your nearest airport to enable Flights.");
-                        return;
-                      }
-                      if (!flightsUrl) {
-                        showToast("No destination airport found for this occurrence.");
-                        return;
-                      }
-                      window.open(flightsUrl, "_blank");
-                    }}
-                  />
+                    if (!flightsUrl) {
+                      showToast("No destination airport found for this occurrence.");
+                      return;
+                    }
+                    window.open(flightsUrl, "_blank");
+                  }}
+                />
 
-                  <TravelButton
-                    label="Flight + Hotel"
-                    enabled={!!packagesUrl}
-                    title={
-                      packagesUrl
-                        ? "Search flight + hotel packages on Expedia"
-                        : !hasOriginAirport
-                        ? "Add your nearest airport on the search page to enable packages"
-                        : "Missing destination or dates"
+                <TravelButton
+                  label="Flight + Hotel"
+                  enabled={!!packagesUrl}
+                  title={
+                    packagesUrl
+                      ? "Search flight + hotel packages on Expedia"
+                      : !hasOriginAirport
+                      ? "Add your nearest airport on the search page to enable packages"
+                      : "Missing destination or dates"
+                  }
+                  onClick={() => {
+                    if (!hasOriginAirport) {
+                      showToast("Add your nearest airport to enable Flight + Hotel.");
+                      return;
                     }
-                    onClick={() => {
-                      if (!hasOriginAirport) {
-                        showToast("Add your nearest airport to enable Flight + Hotel.");
-                        return;
-                      }
-                      if (!packagesUrl) {
-                        showToast("Missing destination or dates for packages.");
-                        return;
-                      }
-                      window.open(packagesUrl, "_blank");
-                    }}
-                  />
-                </div>
-              )}
+                    if (!packagesUrl) {
+                      showToast("Missing destination or dates for packages.");
+                      return;
+                    }
+                    window.open(packagesUrl, "_blank");
+                  }}
+                />
+              </div>
             </div>
           </div>
 
-          {!isEntityOnly && (
-            <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 flex justify-center">
-              {hasOtherPopular ? (
-                <button
-                  type="button"
-                  onClick={() =>
-                    toggleOtherPopular(
-                      occKey,
-                      canFetchNearby,
-                      anchor,
-                      startYMD,
-                      endYMD,
-                      Array.from(mainIds)
-                    )
-                  }
-                  className="rounded-full px-6 py-2 text-sm font-extrabold border border-slate-300 bg-white text-slate-900 hover:bg-slate-100 active:bg-slate-200"
-                >
-                  {showOtherPopular ? "Hide Popular Events Nearby" : "Show Popular Events Nearby"}
-                </button>
-              ) : (
-                <div className="text-xs text-slate-500">No additional nearby events available.</div>
-              )}
-            </div>
-          )}
+          <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 flex justify-center">
+            {hasOtherPopular ? (
+              <button
+                type="button"
+                onClick={() =>
+                  toggleOtherPopular(
+                    occKey,
+                    canFetchNearby,
+                    anchor,
+                    startYMD,
+                    endYMD,
+                    Array.from(mainIds)
+                  )
+                }
+                className="rounded-full px-6 py-2 text-sm font-extrabold border border-slate-300 bg-white text-slate-900 hover:bg-slate-100 active:bg-slate-200"
+              >
+                {showOtherPopular ? "Hide Popular Events Nearby" : "Show Popular Events Nearby"}
+              </button>
+            ) : (
+              <div className="text-xs text-slate-500">No additional nearby events available.</div>
+            )}
+          </div>
 
           <div className="p-4 sm:p-6 space-y-3">
             {merged.map(({ e, pop }: any) => {
@@ -1223,7 +1247,7 @@ export default function ResultsPage() {
                   <div className="min-w-0">
                     <div className={cx("font-extrabold", pop ? popTitle : "text-slate-900")}>
                       {eventTitle(e)}
-                      {!isEntityOnly && pop && (
+                      {pop && (
                         <span className="ml-2 text-xs font-extrabold text-slate-500">
                           Popular Nearby
                         </span>
@@ -1256,12 +1280,6 @@ export default function ResultsPage() {
                 </div>
               );
             })}
-
-            {occ?.meta?.mode === "ENTITY_ONLY" && merged.length === 0 && (
-              <div className="text-sm text-slate-600 font-extrabold">
-                No upcoming ticketed events found for this entity.
-              </div>
-            )}
           </div>
         </div>
       </section>
@@ -1310,42 +1328,16 @@ export default function ResultsPage() {
       </div>
 
       <div className="pb-10">
-        {hasSearched &&
-          !loading &&
-          !errMsg &&
-          occurrencesSorted.length === 0 &&
-          fallbackMode === "NO_OVERLAP_SCHEDULES" &&
-          Array.isArray(fallbackSchedulesToRender) && (
-            <div className="max-w-5xl mx-auto px-4 py-8">
-              <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                <div className="px-5 py-4 bg-slate-900 text-white">
-                  <div className="text-lg font-extrabold">No overlap found</div>
-                  <div className="text-sm text-white/80 font-bold">
-                    {fallbackSchedulesToRender.length > 1
-                      ? "Here's an overlay of both schedules sorted by date..."
-                      : "Here is the schedule (same selection was chosen for P1 and P2):"}
-                  </div>
-                </div>
-
-                <MergedSchedules schedules={fallbackSchedulesToRender} />
-              </div>
+        {hasSearched && !loading && !errMsg && occurrencesSorted.length === 0 && (
+          <div className="max-w-xl mx-auto px-4 py-6">
+            <div className="rounded-2xl bg-white shadow-md p-6 text-center">
+              <h2 className="text-lg font-semibold text-slate-800">No Results Found</h2>
+              <p className="mt-2 text-sm text-slate-500">
+                Try adjusting your days, radius, or selections.
+              </p>
             </div>
-          )}
-
-        {hasSearched &&
-          !loading &&
-          !errMsg &&
-          occurrencesSorted.length === 0 &&
-          !(fallbackMode === "NO_OVERLAP_SCHEDULES" && Array.isArray(fallbackSchedulesToRender)) && (
-            <div className="max-w-xl mx-auto px-4 py-6">
-              <div className="rounded-2xl bg-white shadow-md p-6 text-center">
-                <h2 className="text-lg font-semibold text-slate-800">No Results Found</h2>
-                <p className="mt-2 text-sm text-slate-500">
-                  Try adjusting your days, radius, or selections.
-                </p>
-              </div>
-            </div>
-          )}
+          </div>
+        )}
 
         {occurrencesSorted.map((occ: any, idx: number) => renderOccurrenceBlock(occ, `occ-${idx}`))}
       </div>
