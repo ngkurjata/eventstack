@@ -139,7 +139,7 @@ export function AirportPicker(props: {
 />
       {/* Always show helper text */}
       <div className="mt-2 text-xs text-slate-600">
-  Required (autofills Expedia)
+  Not required, but autofills Expedia Flights and Flight + Hotel options.
 </div>
 
       {isOpen ? (
