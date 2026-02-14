@@ -20,7 +20,7 @@ const GENRE_EXPANSION = {
   Folk: ["folk", "singer-songwriter", "traditional"],
 };
 
-/* ==================== Date range helpers (NEW) ==================== */
+/* ==================== Date range helpers ==================== */
 
 function isYMD(s) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(s || ""));
@@ -33,7 +33,7 @@ function filterEventsByDateRange(events, startDate, endDate) {
 
   return (events || []).filter((ev) => {
     const d = ev?.dates?.start?.localDate;
-    if (!isYMD(d)) return false; // if no date, exclude from filtered searches
+    if (!isYMD(d)) return false; // when user filters by date, exclude undated events
     if (s && d < s) return false;
     if (e && d > e) return false;
     return true;
@@ -85,7 +85,6 @@ async function resolveBestAttraction(apiKey, segmentName, keyword, countryCode =
   return candidates[0] || null;
 }
 
-// Optional: lookup name by attractionId (improves labels for artists)
 async function fetchAttractionNameById(apiKey, attractionId) {
   try {
     const url = `${TM_ATTRACTIONS}/${encodeURIComponent(attractionId)}.json?apikey=${encodeURIComponent(
@@ -114,20 +113,10 @@ function parsePickOrRaw(pick) {
   // team:LEAGUE:NAME (current)
   if (kind === "team") {
     if (parts.length >= 4) {
-      return {
-        type: "team",
-        league: parts[1],
-        attractionId: parts[2],
-        name: parts.slice(3).join(":"),
-      };
+      return { type: "team", league: parts[1], attractionId: parts[2], name: parts.slice(3).join(":") };
     }
     if (parts.length >= 3) {
-      return {
-        type: "team",
-        league: parts[1],
-        attractionId: "",
-        name: parts.slice(2).join(":"),
-      };
+      return { type: "team", league: parts[1], attractionId: "", name: parts.slice(2).join(":") };
     }
     return null;
   }
@@ -154,10 +143,8 @@ function isEntityPick(p) {
 async function ensureAttractionId(apiKey, pick) {
   if (!pick || !isEntityPick(pick)) return pick;
 
-  // Artists already have attractionId in your encoding
   if (pick.type === "artist") return pick;
 
-  // Teams: if attractionId missing, resolve it via attractions search
   if (pick.type === "team") {
     if (!pick.attractionId && pick.name) {
       const best = await resolveBestAttraction(apiKey, "Sports", pick.name, "US,CA");
@@ -183,7 +170,6 @@ async function fetchEventsByParams(params) {
   return data?._embedded?.events || [];
 }
 
-// Keyword fallback for schedules if attractionId returns 0 events
 async function fallbackEventsByKeyword(apiKey, pickType, keyword) {
   if (!keyword) return [];
   const params = new URLSearchParams();
@@ -214,15 +200,12 @@ function eventMatchesGenreBucket(event, bucket) {
   });
 }
 
-// IMPORTANT: pickKey needs to distinguish P1 vs P2 when user picks the same thing.
-// We add a __slot marker ("p1"/"p2"/"p3") and include it here when present.
 function pickKey(p) {
   if (!p) return "";
-  const slot = p.__slot ? `|slot:${String(p.__slot)}` : "";
-  if (p.type === "team") return `team:${p.league}:${p.attractionId || p.name || ""}${slot}`;
-  if (p.type === "artist") return `artist:${p.attractionId || p.name || ""}${slot}`;
-  if (p.type === "genre") return `genre:${p.bucket || ""}:${p.name || ""}${slot}`;
-  return `raw:${p.name || ""}${slot}`;
+  if (p.type === "team") return `team:${p.league}:${p.attractionId || p.name || ""}`;
+  if (p.type === "artist") return `artist:${p.attractionId || p.name || ""}`;
+  if (p.type === "genre") return `genre:${p.bucket || ""}:${p.name || ""}`;
+  return `raw:${p.name || ""}`;
 }
 
 function eventMetaForOccurrenceKey(e) {
@@ -238,13 +221,9 @@ function eventMetaForOccurrenceKey(e) {
   return { date, lat: hasCoords ? lat : null, lon: hasCoords ? lon : null };
 }
 
-// IMPORTANT: dedupeKey must ALSO include slot when present,
-// otherwise identical events from P1/P2 collapse and you can't form "overlaps" for P1=P2.
 function dedupeKeyForEvent(e) {
-  const slot = e?.__pick?.__slot ? String(e.__pick.__slot) : "";
-
   const id = e?.id ? String(e.id).trim() : "";
-  if (id) return slot ? `id:${id}|slot:${slot}` : `id:${id}`;
+  if (id) return `id:${id}`;
 
   const name = String(e?.name || "").trim().toLowerCase();
   const localDate = String(e?.dates?.start?.localDate || "").trim();
@@ -256,8 +235,7 @@ function dedupeKeyForEvent(e) {
   const city = String(venue?.city?.name || "").trim().toLowerCase();
 
   const place = venueId ? `vid:${venueId}` : `v:${venueName}|c:${city}`;
-  const base = `cmp:${name}|${localDate}|${localTime}|${place}`;
-  return slot ? `${base}|slot:${slot}` : base;
+  return `cmp:${name}|${localDate}|${localTime}|${place}`;
 }
 
 function parseLocalDateToUTC(localDate) {
@@ -331,8 +309,15 @@ function occurrenceSpanDays(events) {
   return Number.isFinite(d) ? d : 0;
 }
 
-function buildOccurrencesByRadiusAndDays(allEvents, maxMiles, effectiveDays) {
-  const metas = allEvents
+/**
+ * Build occurrences either as:
+ * - overlap mode (require >=2 distinct picks), OR
+ * - single-pick clustering mode (require >=minEventsSingle events)
+ */
+function buildOccurrencesByRadiusAndDays(allEvents, maxMiles, effectiveDays, opts = {}) {
+  const { singlePickMode = false, minEventsSingle = 2 } = opts;
+
+  const metas = (allEvents || [])
     .map((e) => {
       const meta = eventMetaForOccurrenceKey(e);
       const key = dedupeKeyForEvent(e);
@@ -348,6 +333,7 @@ function buildOccurrencesByRadiusAndDays(allEvents, maxMiles, effectiveDays) {
   for (let i = 0; i < metas.length; i++) {
     const a = metas[i];
     if (!a.key) continue;
+    if (!a.meta.date || a.meta.lat == null || a.meta.lon == null) continue;
 
     const occEvents = new Map();
     occEvents.set(a.key, a.e);
@@ -366,11 +352,16 @@ function buildOccurrencesByRadiusAndDays(allEvents, maxMiles, effectiveDays) {
       if (miles <= maxMiles) occEvents.set(b.key, b.e);
     }
 
-    const picksSet = new Set();
-    for (const ev of occEvents.values()) picksSet.add(pickKey(ev.__pick));
-    if (picksSet.size < 2) continue;
-
     const occList = Array.from(occEvents.values());
+
+    // Gate: overlap mode vs single-pick clustering mode
+    if (singlePickMode) {
+      if (occList.length < Math.max(1, Math.floor(minEventsSingle))) continue;
+    } else {
+      const picksSet = new Set();
+      for (const ev of occList) picksSet.add(pickKey(ev.__pick));
+      if (picksSet.size < 2) continue;
+    }
 
     const distinctDates = occurrenceDistinctDateCount(occList);
     if (distinctDates > safeSpanDays) continue;
@@ -425,7 +416,6 @@ export async function GET(req) {
     const { searchParams } = new URL(req.url);
     const debugMode = searchParams.get("debug") === "1";
 
-    // ✅ NEW: read optional date filters
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
 
@@ -451,22 +441,17 @@ export async function GET(req) {
     const origin = (searchParams.get("origin") || "").trim();
     const countryCode = "US,CA";
 
-    // ✅ NEW: allow single-pick searches by mirroring the non-empty one
-    // - If p1 blank and p2 filled => treat p1=p2
-    // - If p2 blank and p1 filled => treat p1=p2
+    // Read raw picks
     const rawP1 = (searchParams.get("p1") || "").trim();
     const rawP2 = (searchParams.get("p2") || "").trim();
     const rawP3 = (searchParams.get("p3") || "").trim();
 
-    const effectiveRawP1 = rawP1 || rawP2;
-    const effectiveRawP2 = rawP2 || rawP1;
-
-    const p1 = parsePickOrRaw(effectiveRawP1);
-    const p2 = parsePickOrRaw(effectiveRawP2);
+    const p1Raw = parsePickOrRaw(rawP1);
+    const p2Raw = parsePickOrRaw(rawP2);
     const p3 = rawP3 ? parsePickOrRaw(rawP3) : null;
 
-    // Need at least two picks after mirroring
-    if (!p1 || !p2) {
+    // Must have at least one pick in p1 or p2
+    if (!p1Raw && !p2Raw) {
       return NextResponse.json({
         count: 0,
         occurrences: [],
@@ -474,22 +459,46 @@ export async function GET(req) {
       });
     }
 
-    // Resolve attractionIds if needed
+    // Determine single-pick mode:
+    // - only one of p1/p2 provided OR
+    // - p1 and p2 are the same entity
+    const onlyOneProvided = Boolean((p1Raw && !p2Raw) || (!p1Raw && p2Raw));
+
+    // Normalize to actual picks used
+    const p1 = p1Raw || p2Raw;
+    const p2 = p2Raw || p1Raw;
+
+    // Resolve attraction ids (best-effort)
     await ensureAttractionId(apiKey, p1);
     await ensureAttractionId(apiKey, p2);
     if (p3) await ensureAttractionId(apiKey, p3);
 
-    // Mark slots so P1/P2 can be distinguished when same pick
-    p1.__slot = "p1";
-    p2.__slot = "p2";
-    if (p3) p3.__slot = "p3";
+    const id1 = isEntityPick(p1) ? String(p1.attractionId || "").trim() : "";
+    const id2 = isEntityPick(p2) ? String(p2.attractionId || "").trim() : "";
+
+    const sameEntity =
+      p1 &&
+      p2 &&
+      p1.type === p2.type &&
+      ((id1 && id2 && id1 === id2) ||
+        (!id1 || !id2) &&
+          (String(p1.name || "").trim().toLowerCase() &&
+            String(p1.name || "").trim().toLowerCase() ===
+              String(p2.name || "").trim().toLowerCase()));
+
+    const singlePickMode = onlyOneProvided || sameEntity;
+
+    // Build the pick list to fetch
+    // In singlePickMode, we fetch ONLY ONCE for the entity to avoid duplicates.
+    const picksToFetch = singlePickMode ? [p1] : [p1, p2];
+
+    // Optional p3 only if not PUBLIC_MODE in UI; keep it as you already had
+    if (p3) picksToFetch.push(p3);
 
     const debugResolutions = [];
     const allEvents = [];
 
-    const picks = [p1, p2, ...(p3 ? [p3] : [])];
-
-    for (const pick of picks) {
+    for (const pick of picksToFetch) {
       const params = new URLSearchParams();
       params.set("apikey", apiKey);
       params.set("size", "200");
@@ -511,10 +520,9 @@ export async function GET(req) {
         params.set("keyword", pick.name || "");
       }
 
-      // Fetch Ticketmaster events
       let events = await fetchEventsByParams(params);
 
-      // ✅ NEW: filter by date range BEFORE overlaps/occurrences
+      // Date filter BEFORE occurrence building
       events = filterEventsByDateRange(events, startDate, endDate);
 
       const filtered =
@@ -532,20 +540,19 @@ export async function GET(req) {
       );
     }
 
-    // Compute occurrences (overlaps)
-    const occurrences = buildOccurrencesByRadiusAndDays(allEvents, radiusMiles, effectiveDays);
+    // Compute occurrences
+    const occurrences = buildOccurrencesByRadiusAndDays(allEvents, radiusMiles, effectiveDays, {
+      singlePickMode,
+      minEventsSingle: 2, // change to 1 if you want single-event occurrences
+    });
 
-    // Fallback: show schedules when no overlap (still date-filtered)
-    if (!occurrences || occurrences.length === 0) {
-      // Only do fallback for team/artist pairs
+    // Fallback schedules only make sense for overlap mode
+    if ((!occurrences || occurrences.length === 0) && !singlePickMode) {
       if (isEntityPick(p1) && isEntityPick(p2)) {
-        const id1 = String(p1.attractionId || "").trim();
-        const id2 = String(p2.attractionId || "").trim();
+        const idA = String(p1.attractionId || "").trim();
+        const idB = String(p2.attractionId || "").trim();
 
         async function getSchedule(pick) {
-          // Primary: attractionId schedule via events endpoint paging is not implemented here;
-          // so we use keyword fallback for schedule-like output.
-          // (Keeps your previous behavior but date-filtered.)
           const kw =
             pick.type === "team"
               ? String(pick.name || "").trim()
@@ -554,8 +561,6 @@ export async function GET(req) {
                   : null) || "";
 
           let events = await fallbackEventsByKeyword(apiKey, pick.type, kw);
-
-          // ✅ NEW: apply date range filter to schedule results too
           events = filterEventsByDateRange(events, startDate, endDate);
 
           return (events || [])
@@ -569,12 +574,12 @@ export async function GET(req) {
         const label1 =
           p1.type === "team"
             ? String(p1.name || "").trim() || "Pick 1"
-            : (id1 ? (await fetchAttractionNameById(apiKey, id1)) : null) || "Pick 1";
+            : (idA ? (await fetchAttractionNameById(apiKey, idA)) : null) || "Pick 1";
 
         const label2 =
           p2.type === "team"
             ? String(p2.name || "").trim() || "Pick 2"
-            : (id2 ? (await fetchAttractionNameById(apiKey, id2)) : null) || "Pick 2";
+            : (idB ? (await fetchAttractionNameById(apiKey, idB)) : null) || "Pick 2";
 
         return NextResponse.json({
           count: 0,
@@ -601,7 +606,7 @@ export async function GET(req) {
       }
     }
 
-    const occurrencesForUi = occurrences.map((occ) => {
+    const occurrencesForUi = (occurrences || []).map((occ) => {
       const dates = uniqueSortedDates(occ);
       const startYMD = dates[0] || null;
       const endYMD = dates[dates.length - 1] || null;
@@ -609,14 +614,14 @@ export async function GET(req) {
       return {
         events: occ,
         popular: [],
-        meta: { anchor, startYMD, endYMD },
+        meta: { anchor, startYMD, endYMD, mode: singlePickMode ? "SINGLE_PICK" : "OVERLAP" },
       };
     });
 
     const spanDays = Number.isFinite(effectiveDays) ? Math.max(1, Math.floor(effectiveDays)) : 1;
     const maxDiffDays = Math.max(0, spanDays - 1);
 
-    const debugOccurrenceDates = occurrences.slice(0, 50).map((occ) => {
+    const debugOccurrenceDates = (occurrences || []).slice(0, 50).map((occ) => {
       const dates = uniqueSortedDates(occ);
       return {
         dates,
@@ -626,7 +631,7 @@ export async function GET(req) {
     });
 
     const payload = {
-      count: occurrences.length,
+      count: (occurrences || []).length,
       occurrences: occurrencesForUi,
       debug: {
         userDays,
@@ -637,10 +642,11 @@ export async function GET(req) {
         origin,
         startDate,
         endDate,
-        picks,
-        resolutions: debugResolutions,
+        picks: picksToFetch,
+        singlePickMode,
         note:
           "Popular nearby events are no longer fetched during /api/search. UI should call /api/nearby only when the user clicks the toggle button.",
+        resolutions: debugResolutions,
         occurrenceDatesSample: debugOccurrenceDates,
       },
     };
