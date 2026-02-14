@@ -73,8 +73,8 @@ function buildGroupedListForQuery(
     const matches = opts.filter((o) => o.label.toLowerCase().includes(q)).slice(0, 25);
 
     if (matches.length) {
-      // We will *not* render group headers anymore (redundant), but we keep this
-      // structure in case you want to bring them back later.
+      // We keep this structure in case you want to bring group headers back later,
+      // but we do not render headers in the UI.
       items.push({ type: "group", group });
       for (const option of matches) items.push({ type: "item", group, option });
     }
@@ -103,7 +103,7 @@ function useOutsideClick<T extends HTMLElement>(
 
 function Combobox({
   label,
-  required,
+  required, // still used for validation/placeholder copy if you want; we just don't render a badge
   optionsAll,
   grouped,
   groups,
@@ -197,7 +197,7 @@ function Combobox({
       return;
     }
 
-    // ✅ Tab commits highlighted option (if any) and lets the browser move focus naturally
+    // Tab commits highlighted option (if any) and lets the browser move focus naturally
     if (e.key === "Tab") {
       const it = menuItems[activeIdx];
       if (it && it.type === "item") {
@@ -249,20 +249,14 @@ function Combobox({
 
   return (
     <div ref={wrapRef} className="w-full">
-      {/* Header row: move "Required" here (right side), not as help text */}
+      {/* Header row: label left, help right (NO Required badge) */}
       <div className="mb-2 flex items-end justify-between gap-3">
         <div className="flex items-baseline gap-2">
           <div className="text-sm font-semibold text-slate-900">{label}</div>
         </div>
 
-        <div className="flex items-center gap-3">
-  {!required ? (
-    <div className="text-xs font-semibold text-slate-500">(optional)</div>
-  ) : null}
-
-  {/* Keep help (if provided) */}
-  {help ? <div className="hidden text-xs text-slate-500 sm:block">{help}</div> : null}
-</div>
+        {help ? <div className="hidden text-xs text-slate-500 sm:block">{help}</div> : null}
+      </div>
 
       <div className="relative">
         <input
@@ -276,9 +270,7 @@ function Combobox({
               : "bg-white text-slate-900 border-slate-200 placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100",
           ].join(" ")}
           value={showLoading ? "Loading ..." : inputValue}
-          placeholder={
-            showLoading ? "Loading ..." : required ? "Type to search…" : "Type to search (or leave blank)…"
-          }
+          placeholder={showLoading ? "Loading ..." : "Type to search…"}
           onFocus={() => {
             if (showLoading) return;
             setActiveIdx(-1);
@@ -331,7 +323,7 @@ function Combobox({
                 <div className="px-3 py-3 text-sm text-slate-500">No matches.</div>
               ) : (
                 menuItems.map((it, idx) => {
-                  // ✅ CHANGE 1: remove sticky group headers (NHL/NBA/ARTISTS etc.)
+                  // Remove group headers (NHL/NBA/ARTISTS etc.)
                   if (it.type === "group") return null;
 
                   const isActive = idx === activeIdx;
@@ -401,7 +393,6 @@ export default function Page() {
   const [originErr, setOriginErr] = useState<string>("");
 
   const didInitRef = useRef(false);
-
   const [searchPulse, setSearchPulse] = useState(false);
 
   useEffect(() => {
@@ -515,7 +506,9 @@ export default function Page() {
         p2: String(parsed?.p2 || ""),
         p3: String(parsed?.p3 || ""),
         days: Number.isFinite(Number(parsed?.days)) ? Number(parsed.days) : 3,
-        radiusMiles: Number.isFinite(Number(parsed?.radiusMiles)) ? Number(parsed.radiusMiles) : 100,
+        radiusMiles: Number.isFinite(Number(parsed?.radiusMiles))
+          ? Number(parsed.radiusMiles)
+          : 100,
         origin: String(parsed?.origin || ""),
       });
     } catch {
@@ -536,7 +529,9 @@ export default function Page() {
       })(),
       radiusMiles: (() => {
         const parsed = safeParseInt(radiusText, PUBLIC_MODE ? PUBLIC_PRESET.maxRadiusMiles : 100);
-        return PUBLIC_MODE ? clamp(parsed, 1, PUBLIC_PRESET.maxRadiusMiles) : clamp(parsed, 1, 2000);
+        return PUBLIC_MODE
+          ? clamp(parsed, 1, PUBLIC_PRESET.maxRadiusMiles)
+          : clamp(parsed, 1, 2000);
       })(),
       origin: originIata,
     };
@@ -586,10 +581,12 @@ export default function Page() {
     const effectiveDays = PUBLIC_MODE
       ? clamp(parsedDays, 1, PUBLIC_PRESET.maxDays)
       : clamp(parsedDays, 1, 30);
+
     const parsedRadius = safeParseInt(radiusText, PUBLIC_MODE ? PUBLIC_PRESET.maxRadiusMiles : 100);
     const effectiveRadius = PUBLIC_MODE
       ? clamp(parsedRadius, 1, PUBLIC_PRESET.maxRadiusMiles)
       : clamp(parsedRadius, 1, 2000);
+
     const effectiveP3 = PUBLIC_MODE ? "" : p3;
 
     const params = new URLSearchParams();
@@ -618,9 +615,7 @@ export default function Page() {
         <div className="space-y-6">
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="mb-4 flex items-end justify-between gap-3">
-              <div>
-                <div className="text-lg font-extrabold text-slate-900">Pick 2 of your favorites</div>
-              </div>
+              <div className="text-lg font-extrabold text-slate-900">Pick 2 of your favorites</div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -632,7 +627,6 @@ export default function Page() {
                 groups={groups}
                 valueId={p1}
                 setValueId={setP1}
-                // no longer used for "Required" (we show Required in the header row)
                 help={undefined}
                 disabled={loading}
               />
@@ -670,7 +664,9 @@ export default function Page() {
 
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <label className="block">
-                <div className="mb-2 text-sm font-semibold text-slate-900">Max trip length (# of Days)</div>
+                <div className="mb-2 text-sm font-semibold text-slate-900">
+                  Max trip length (# of Days)
+                </div>
                 <input
                   className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-[15px] text-slate-900 shadow-sm outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
                   type="text"
@@ -683,19 +679,17 @@ export default function Page() {
                   }}
                   onChange={(e) => {
                     const next = e.target.value;
-
                     if (next === "") {
                       setDaysText("");
                       return;
                     }
-
-                    if (/^\d+$/.test(next)) {
-                      setDaysText(next);
-                    }
+                    if (/^\d+$/.test(next)) setDaysText(next);
                   }}
                   onBlur={() => {
                     const parsed = safeParseInt(daysText, PUBLIC_MODE ? PUBLIC_PRESET.maxDays : 3);
-                    const clamped = PUBLIC_MODE ? clamp(parsed, 1, PUBLIC_PRESET.maxDays) : clamp(parsed, 1, 30);
+                    const clamped = PUBLIC_MODE
+                      ? clamp(parsed, 1, PUBLIC_PRESET.maxDays)
+                      : clamp(parsed, 1, 30);
                     setDaysText(String(clamped));
                   }}
                 />
@@ -722,18 +716,17 @@ export default function Page() {
                   }}
                   onChange={(e) => {
                     const next = e.target.value;
-
                     if (next === "") {
                       setRadiusText("");
                       return;
                     }
-
-                    if (/^\d+$/.test(next)) {
-                      setRadiusText(next);
-                    }
+                    if (/^\d+$/.test(next)) setRadiusText(next);
                   }}
                   onBlur={() => {
-                    const parsed = safeParseInt(radiusText, PUBLIC_MODE ? PUBLIC_PRESET.maxRadiusMiles : 100);
+                    const parsed = safeParseInt(
+                      radiusText,
+                      PUBLIC_MODE ? PUBLIC_PRESET.maxRadiusMiles : 100
+                    );
                     const clamped = PUBLIC_MODE
                       ? clamp(parsed, 1, PUBLIC_PRESET.maxRadiusMiles)
                       : clamp(parsed, 1, 2000);
@@ -794,9 +787,7 @@ export default function Page() {
           The next page will show you when and where your favorites cross paths (if at all).
         </footer>
 
-        {loadError ? (
-          <div className="mt-6 text-center text-xs text-rose-700">{loadError}</div>
-        ) : null}
+        {loadError ? <div className="mt-6 text-center text-xs text-rose-700">{loadError}</div> : null}
       </div>
     </main>
   );
