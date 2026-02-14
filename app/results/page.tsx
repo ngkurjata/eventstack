@@ -1322,7 +1322,7 @@ export default function ResultsPage() {
                   <div className="text-lg font-extrabold">No overlap found</div>
                   <div className="text-sm text-white/80 font-bold">
                     {fallbackSchedulesToRender.length > 1
-                      ? "Here are both schedules merged in date order:"
+                      ? "Here's an overlay of both schedules sorted by date..."
                       : "Here is the schedule (same selection was chosen for P1 and P2):"}
                   </div>
                 </div>
