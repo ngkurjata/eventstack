@@ -20,6 +20,28 @@ const GENRE_EXPANSION = {
   Folk: ["folk", "singer-songwriter", "traditional"],
 };
 
+/* ==================== Date range helpers (NEW) ==================== */
+
+function isYMD(s) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(s || ""));
+}
+
+function filterEventsByDateRange(events, startDate, endDate) {
+  const s = isYMD(startDate) ? startDate : null;
+  const e = isYMD(endDate) ? endDate : null;
+  if (!s && !e) return events;
+
+  return (events || []).filter((ev) => {
+    const d = ev?.dates?.start?.localDate;
+    if (!isYMD(d)) return false; // if no date, exclude from filtered searches
+    if (s && d < s) return false;
+    if (e && d > e) return false;
+    return true;
+  });
+}
+
+/* ==================== Attraction resolution ==================== */
+
 function scoreCandidate(query, candName) {
   const q = String(query || "").toLowerCase().trim();
   const n = String(candName || "").toLowerCase().trim();
@@ -63,10 +85,12 @@ async function resolveBestAttraction(apiKey, segmentName, keyword, countryCode =
   return candidates[0] || null;
 }
 
-// Optional: lookup name by attractionId (improves ENTITY_ONLY header for artists)
+// Optional: lookup name by attractionId (improves labels for artists)
 async function fetchAttractionNameById(apiKey, attractionId) {
   try {
-    const url = `${TM_ATTRACTIONS}/${encodeURIComponent(attractionId)}.json?apikey=${encodeURIComponent(apiKey)}`;
+    const url = `${TM_ATTRACTIONS}/${encodeURIComponent(attractionId)}.json?apikey=${encodeURIComponent(
+      apiKey
+    )}`;
     const res = await fetch(url);
     if (!res.ok) return null;
     const data = await res.json();
@@ -76,6 +100,8 @@ async function fetchAttractionNameById(apiKey, attractionId) {
     return null;
   }
 }
+
+/* ==================== Pick parsing ==================== */
 
 function parsePickOrRaw(pick) {
   const raw = String(pick || "").trim();
@@ -88,10 +114,20 @@ function parsePickOrRaw(pick) {
   // team:LEAGUE:NAME (current)
   if (kind === "team") {
     if (parts.length >= 4) {
-      return { type: "team", league: parts[1], attractionId: parts[2], name: parts.slice(3).join(":") };
+      return {
+        type: "team",
+        league: parts[1],
+        attractionId: parts[2],
+        name: parts.slice(3).join(":"),
+      };
     }
     if (parts.length >= 3) {
-      return { type: "team", league: parts[1], attractionId: "", name: parts.slice(2).join(":") };
+      return {
+        type: "team",
+        league: parts[1],
+        attractionId: "",
+        name: parts.slice(2).join(":"),
+      };
     }
     return null;
   }
@@ -133,6 +169,8 @@ async function ensureAttractionId(apiKey, pick) {
   return pick;
 }
 
+/* ==================== Ticketmaster fetch helpers ==================== */
+
 function hasTicketLink(e) {
   const url = String(e?.url || "").trim();
   return Boolean(url);
@@ -145,46 +183,24 @@ async function fetchEventsByParams(params) {
   return data?._embedded?.events || [];
 }
 
-// ✅ For ENTITY_ONLY: fetch *all* events for attractionId (no startDateTime filter)
-async function fetchAllEventsForAttraction(apiKey, attractionId, opts = {}) {
-  const {
-    maxPages = 25,
-    countryCode = "US,CA",
-    includePast = true, // keep true to avoid returning zero due to strict "upcoming only"
-  } = opts;
+// Keyword fallback for schedules if attractionId returns 0 events
+async function fallbackEventsByKeyword(apiKey, pickType, keyword) {
+  if (!keyword) return [];
+  const params = new URLSearchParams();
+  params.set("apikey", apiKey);
+  params.set("size", "200");
+  params.set("countryCode", "US,CA");
+  params.set("sort", "date,asc");
+  params.set("keyword", keyword);
 
-  const all = [];
+  if (pickType === "team") params.set("segmentName", "Sports");
+  if (pickType === "artist") params.set("segmentName", "Music");
 
-  for (let page = 0; page < maxPages; page++) {
-    const params = new URLSearchParams();
-    params.set("apikey", apiKey);
-    params.set("size", "200");
-    params.set("sort", "date,asc");
-    params.set("attractionId", attractionId);
-    if (countryCode) params.set("countryCode", countryCode);
-    params.set("page", String(page));
-
-    // If you *really* want upcoming-only later, set includePast=false and re-enable this:
-    // if (!includePast) params.set("startDateTime", new Date().toISOString());
-
-    const events = await fetchEventsByParams(params);
-    all.push(...events);
-
-    // We don’t always get stable page metadata; break when the page returns no events.
-    if (!events || events.length === 0) break;
-  }
-
-const seen = new Set();
-const deduped = [];
-for (const e of all) {
-  const id = String(e?.id || "").trim();
-  const key = id || JSON.stringify([e?.name, e?.dates?.start?.localDate, e?._embedded?.venues?.[0]?.id || ""]);
-  if (seen.has(key)) continue;
-  seen.add(key);
-  if (hasTicketLink(e)) deduped.push(e);
+  const events = await fetchEventsByParams(params);
+  return (events || []).filter(hasTicketLink);
 }
-return deduped;
-}
+
+/* ==================== Occurrence helpers ==================== */
 
 function eventMatchesGenreBucket(event, bucket) {
   const keywords = GENRE_EXPANSION[bucket];
@@ -198,12 +214,15 @@ function eventMatchesGenreBucket(event, bucket) {
   });
 }
 
+// IMPORTANT: pickKey needs to distinguish P1 vs P2 when user picks the same thing.
+// We add a __slot marker ("p1"/"p2"/"p3") and include it here when present.
 function pickKey(p) {
   if (!p) return "";
-  if (p.type === "team") return `team:${p.league}:${p.attractionId || p.name || ""}`;
-  if (p.type === "artist") return `artist:${p.attractionId || p.name || ""}`;
-  if (p.type === "genre") return `genre:${p.bucket || ""}:${p.name || ""}`;
-  return `raw:${p.name || ""}`;
+  const slot = p.__slot ? `|slot:${String(p.__slot)}` : "";
+  if (p.type === "team") return `team:${p.league}:${p.attractionId || p.name || ""}${slot}`;
+  if (p.type === "artist") return `artist:${p.attractionId || p.name || ""}${slot}`;
+  if (p.type === "genre") return `genre:${p.bucket || ""}:${p.name || ""}${slot}`;
+  return `raw:${p.name || ""}${slot}`;
 }
 
 function eventMetaForOccurrenceKey(e) {
@@ -219,9 +238,13 @@ function eventMetaForOccurrenceKey(e) {
   return { date, lat: hasCoords ? lat : null, lon: hasCoords ? lon : null };
 }
 
+// IMPORTANT: dedupeKey must ALSO include slot when present,
+// otherwise identical events from P1/P2 collapse and you can't form "overlaps" for P1=P2.
 function dedupeKeyForEvent(e) {
+  const slot = e?.__pick?.__slot ? String(e.__pick.__slot) : "";
+
   const id = e?.id ? String(e.id).trim() : "";
-  if (id) return `id:${id}`;
+  if (id) return slot ? `id:${id}|slot:${slot}` : `id:${id}`;
 
   const name = String(e?.name || "").trim().toLowerCase();
   const localDate = String(e?.dates?.start?.localDate || "").trim();
@@ -233,7 +256,8 @@ function dedupeKeyForEvent(e) {
   const city = String(venue?.city?.name || "").trim().toLowerCase();
 
   const place = venueId ? `vid:${venueId}` : `v:${venueName}|c:${city}`;
-  return `cmp:${name}|${localDate}|${localTime}|${place}`;
+  const base = `cmp:${name}|${localDate}|${localTime}|${place}`;
+  return slot ? `${base}|slot:${slot}` : base;
 }
 
 function parseLocalDateToUTC(localDate) {
@@ -384,6 +408,8 @@ function getAnchorLatLon(occ) {
   return null;
 }
 
+/* ==================== Debug helper ==================== */
+
 function envKeyDebug(key) {
   const s = String(key || "");
   const len = s.length;
@@ -392,28 +418,16 @@ function envKeyDebug(key) {
   return { present: Boolean(key), length: len, head, tail };
 }
 
-// Keyword fallback for ENTITY_ONLY if attractionId returns 0 events
-async function fallbackEventsByKeyword(apiKey, pickType, keyword) {
-  if (!keyword) return [];
-  const params = new URLSearchParams();
-  params.set("apikey", apiKey);
-  params.set("size", "200");
-  params.set("countryCode", "US,CA");
-  params.set("sort", "date,asc");
-  params.set("keyword", keyword);
-
-  // Nudge the API toward the right segment
-  if (pickType === "team") params.set("segmentName", "Sports");
-  if (pickType === "artist") params.set("segmentName", "Music");
-
-  const events = await fetchEventsByParams(params);
-  return (events || []).filter(hasTicketLink);
-}
+/* ==================== Main handler ==================== */
 
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
     const debugMode = searchParams.get("debug") === "1";
+
+    // ✅ NEW: read optional date filters
+    const startDate = searchParams.get("startDate");
+    const endDate = searchParams.get("endDate");
 
     const apiKey = process.env.TICKETMASTER_API_KEY;
 
@@ -422,7 +436,10 @@ export async function GET(req) {
 
     if (!apiKey) {
       return NextResponse.json(
-        { error: "Missing API key", debug: debugMode ? { env: { TICKETMASTER_API_KEY: keyDbg } } : undefined },
+        {
+          error: "Missing API key",
+          debug: debugMode ? { env: { TICKETMASTER_API_KEY: keyDbg } } : undefined,
+        },
         { status: 500 }
       );
     }
@@ -434,107 +451,43 @@ export async function GET(req) {
     const origin = (searchParams.get("origin") || "").trim();
     const countryCode = "US,CA";
 
-    // Dropdown 4 removed: only read p1/p2/p3
-    const rawPickStrings = ["p1", "p2", "p3"].map((k) => searchParams.get(k)).filter(Boolean);
-    const picks = rawPickStrings.map(parsePickOrRaw).filter(Boolean);
+    // ✅ NEW: allow single-pick searches by mirroring the non-empty one
+    // - If p1 blank and p2 filled => treat p1=p2
+    // - If p2 blank and p1 filled => treat p1=p2
+    const rawP1 = (searchParams.get("p1") || "").trim();
+    const rawP2 = (searchParams.get("p2") || "").trim();
+    const rawP3 = (searchParams.get("p3") || "").trim();
 
-    /* ==========================================================
-       ✅ ENTITY_ONLY SHORT-CIRCUIT:
-       If p1 and p2 are the same team/artist, ignore days/radius/airports
-       and return ONE occurrence containing the full schedule.
-       ========================================================== */
+    const effectiveRawP1 = rawP1 || rawP2;
+    const effectiveRawP2 = rawP2 || rawP1;
 
-    const rawP1 = searchParams.get("p1");
-    const rawP2 = searchParams.get("p2");
-    const pick1 = parsePickOrRaw(rawP1);
-    const pick2 = parsePickOrRaw(rawP2);
+    const p1 = parsePickOrRaw(effectiveRawP1);
+    const p2 = parsePickOrRaw(effectiveRawP2);
+    const p3 = rawP3 ? parsePickOrRaw(rawP3) : null;
 
-    if (isEntityPick(pick1) && isEntityPick(pick2)) {
-      await ensureAttractionId(apiKey, pick1);
-      await ensureAttractionId(apiKey, pick2);
-
-      const id1 = String(pick1.attractionId || "").trim();
-      const id2 = String(pick2.attractionId || "").trim();
-
-      if (id1 && id2 && id1 === id2) {
-        // best-effort entity name for header (teams have name; artists often don't)
-        let entityName =
-          (pick1.type === "team" ? String(pick1.name || "").trim() : "") || null;
-
-        if (!entityName && pick1.type === "artist") {
-          entityName = (await fetchAttractionNameById(apiKey, id1)) || null;
-        }
-
-        // 1) Try attractionId schedule (no startDateTime filter)
-        let events = await fetchAllEventsForAttraction(apiKey, id1, { countryCode, includePast: true });
-
-        // 2) Fallback to keyword if attractionId returns nothing
-        if (!events || events.length === 0) {
-          const kw = entityName || (pick1.type === "team" ? pick1.name : "");
-          events = await fallbackEventsByKeyword(apiKey, pick1.type, kw);
-        }
-
-        // Ensure ticketed + attach __pick
-        const eventsForUi = (events || [])
-          .filter(hasTicketLink)
-          .map((e) => ({ ...e, __pick: pick1 }));
-
-// If we still don't have a name (common for artist picks), pull it from the events payload
-if (!entityName && Array.isArray(eventsForUi) && eventsForUi.length) {
-  const first = eventsForUi[0];
-  const atts = first?._embedded?.attractions || [];
-  const match = atts.find((a) => String(a?.id || "").trim() === String(id1).trim());
-  const nm = String(match?.name || atts[0]?.name || "").trim();
-  if (nm) entityName = nm;
-}
-
-        const dates = uniqueSortedDates(eventsForUi);
-        const startYMD = dates[0] || null;
-        const endYMD = dates[dates.length - 1] || null;
-        const anchor = getAnchorLatLon(eventsForUi);
-
-        return NextResponse.json({
-          count: 1,
-          occurrences: [
-            {
-              events: eventsForUi,
-              popular: [],
-              meta: {
-                anchor,
-                startYMD,
-                endYMD,
-                mode: "ENTITY_ONLY",
-                attractionId: id1,
-                entityName: entityName || "Selected entity",
-              },
-            },
-          ],
-          debug: debugMode
-            ? {
-                note:
-                  "ENTITY_ONLY: p1 and p2 resolved to the same attractionId; ignoring days, radius, origin/airports.",
-                p1: pick1,
-                p2: pick2,
-                entityName: entityName || null,
-                counts: { events: eventsForUi.length },
-              }
-            : undefined,
-        });
-      }
-    }
-
-    /* ==================== Normal behavior ==================== */
-
-    if (picks.length < 2) {
+    // Need at least two picks after mirroring
+    if (!p1 || !p2) {
       return NextResponse.json({
         count: 0,
         occurrences: [],
-        debug: { note: "Need at least 2 picks" },
+        debug: { note: "Need at least 1 pick (p1 or p2)" },
       });
     }
 
+    // Resolve attractionIds if needed
+    await ensureAttractionId(apiKey, p1);
+    await ensureAttractionId(apiKey, p2);
+    if (p3) await ensureAttractionId(apiKey, p3);
+
+    // Mark slots so P1/P2 can be distinguished when same pick
+    p1.__slot = "p1";
+    p2.__slot = "p2";
+    if (p3) p3.__slot = "p3";
+
     const debugResolutions = [];
     const allEvents = [];
+
+    const picks = [p1, p2, ...(p3 ? [p3] : [])];
 
     for (const pick of picks) {
       const params = new URLSearchParams();
@@ -558,10 +511,16 @@ if (!entityName && Array.isArray(eventsForUi) && eventsForUi.length) {
         params.set("keyword", pick.name || "");
       }
 
-      const events = await fetchEventsByParams(params);
+      // Fetch Ticketmaster events
+      let events = await fetchEventsByParams(params);
+
+      // ✅ NEW: filter by date range BEFORE overlaps/occurrences
+      events = filterEventsByDateRange(events, startDate, endDate);
 
       const filtered =
-        pick.type === "genre" ? events.filter((e) => eventMatchesGenreBucket(e, pick.bucket)) : events;
+        pick.type === "genre"
+          ? events.filter((e) => eventMatchesGenreBucket(e, pick.bucket))
+          : events;
 
       allEvents.push(
         ...filtered
@@ -573,80 +532,74 @@ if (!entityName && Array.isArray(eventsForUi) && eventsForUi.length) {
       );
     }
 
+    // Compute occurrences (overlaps)
     const occurrences = buildOccurrencesByRadiusAndDays(allEvents, radiusMiles, effectiveDays);
 
-if (!occurrences || occurrences.length === 0) {
-  const p1 = parsePickOrRaw(searchParams.get("p1"));
-  const p2 = parsePickOrRaw(searchParams.get("p2"));
+    // Fallback: show schedules when no overlap (still date-filtered)
+    if (!occurrences || occurrences.length === 0) {
+      // Only do fallback for team/artist pairs
+      if (isEntityPick(p1) && isEntityPick(p2)) {
+        const id1 = String(p1.attractionId || "").trim();
+        const id2 = String(p2.attractionId || "").trim();
 
-  // Only do fallback for team/artist pairs (your “entity” definition)
-  if (isEntityPick(p1) && isEntityPick(p2)) {
-    await ensureAttractionId(apiKey, p1);
-    await ensureAttractionId(apiKey, p2);
+        async function getSchedule(pick) {
+          // Primary: attractionId schedule via events endpoint paging is not implemented here;
+          // so we use keyword fallback for schedule-like output.
+          // (Keeps your previous behavior but date-filtered.)
+          const kw =
+            pick.type === "team"
+              ? String(pick.name || "").trim()
+              : (String(pick.attractionId || "").trim()
+                  ? await fetchAttractionNameById(apiKey, String(pick.attractionId || "").trim())
+                  : null) || "";
 
-    const id1 = String(p1.attractionId || "").trim();
-    const id2 = String(p2.attractionId || "").trim();
+          let events = await fallbackEventsByKeyword(apiKey, pick.type, kw);
 
-    // Fetch each schedule (prefer attractionId; fallback keyword if needed)
-    async function getSchedule(pick) {
-      const id = String(pick.attractionId || "").trim();
+          // ✅ NEW: apply date range filter to schedule results too
+          events = filterEventsByDateRange(events, startDate, endDate);
 
-      let events = [];
-      if (id) {
-        events = await fetchAllEventsForAttraction(apiKey, id, { countryCode: "US,CA", includePast: true });
+          return (events || [])
+            .filter(hasTicketLink)
+            .map((e) => ({ ...e, __pick: pick }));
+        }
+
+        const s1 = await getSchedule(p1);
+        const s2 = await getSchedule(p2);
+
+        const label1 =
+          p1.type === "team"
+            ? String(p1.name || "").trim() || "Pick 1"
+            : (id1 ? (await fetchAttractionNameById(apiKey, id1)) : null) || "Pick 1";
+
+        const label2 =
+          p2.type === "team"
+            ? String(p2.name || "").trim() || "Pick 2"
+            : (id2 ? (await fetchAttractionNameById(apiKey, id2)) : null) || "Pick 2";
+
+        return NextResponse.json({
+          count: 0,
+          occurrences: [],
+          fallback: {
+            mode: "NO_OVERLAP_SCHEDULES",
+            schedules: [
+              { label: label1, events: s1 },
+              { label: label2, events: s2 },
+            ],
+          },
+          debug: debugMode
+            ? {
+                note: "NO_OVERLAP_SCHEDULES fallback returned (merged schedules).",
+                startDate,
+                endDate,
+                p1,
+                p2,
+                labels: { label1, label2 },
+                counts: { s1: s1.length, s2: s2.length },
+              }
+            : undefined,
+        });
       }
-
-      if (!events || events.length === 0) {
-const kw =
-  pick.type === "team"
-    ? String(pick.name || "").trim()
-    : (id ? (await fetchAttractionNameById(apiKey, id)) : null) || "";
-        events = await fallbackEventsByKeyword(apiKey, pick.type, kw);
-      }
-
-      return (events || [])
-        .filter(hasTicketLink)
-        .map((e) => ({ ...e, __pick: pick }));
     }
-
-    const s1 = await getSchedule(p1);
-    const s2 = await getSchedule(p2);
-
-    // Labels for UI (teams already have a name; artists need lookup best-effort)
-const label1 =
-  p1.type === "team"
-    ? String(p1.name || "").trim() || "Pick 1"
-    : (id1 ? (await fetchAttractionNameById(apiKey, id1)) : null) || "Pick 1";
-
-const label2 =
-  p2.type === "team"
-    ? String(p2.name || "").trim() || "Pick 2"
-    : (id2 ? (await fetchAttractionNameById(apiKey, id2)) : null) || "Pick 2";
-
-return NextResponse.json({
-  count: 0,
-  occurrences: [],
-  fallback: {
-    mode: "NO_OVERLAP_SCHEDULES",
-    schedules: [
-      { label: label1, events: s1 },
-      { label: label2, events: s2 },
-    ],
-  },
-  debug: debugMode
-    ? {
-        note: "NO_OVERLAP_SCHEDULES fallback returned (merged schedules).",
-        p1,
-        p2,
-        labels: { label1, label2 },
-        counts: { s1: s1.length, s2: s2.length },
-      }
-    : undefined,
-});
-
-
-  }
-}
 
     const occurrencesForUi = occurrences.map((occ) => {
       const dates = uniqueSortedDates(occ);
@@ -682,6 +635,8 @@ return NextResponse.json({
         maxDiffDays,
         radiusMiles,
         origin,
+        startDate,
+        endDate,
         picks,
         resolutions: debugResolutions,
         note:

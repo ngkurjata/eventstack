@@ -851,7 +851,7 @@ export default function Page() {
         </div>
 
         <footer className="mt-7 text-center text-sm text-slate-600 sm:text-base">
-          The next page will show you when and where your favorites cross paths (if at all).
+          The next page will show you some epic trip opportunities (within your indicated trip constraints).
         </footer>
 
         {loadError ? <div className="mt-6 text-center text-xs text-rose-700">{loadError}</div> : null}
