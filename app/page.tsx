@@ -256,15 +256,13 @@ function Combobox({
         </div>
 
         <div className="flex items-center gap-3">
-          {required ? (
-            <div className="text-xs font-extrabold text-slate-600">Required</div>
-          ) : (
-            <div className="text-xs font-semibold text-slate-500">(optional)</div>
-          )}
-          {/* Keep help (if provided) but don't use it for Required anymore */}
-          {help ? <div className="hidden text-xs text-slate-500 sm:block">{help}</div> : null}
-        </div>
-      </div>
+  {!required ? (
+    <div className="text-xs font-semibold text-slate-500">(optional)</div>
+  ) : null}
+
+  {/* Keep help (if provided) */}
+  {help ? <div className="hidden text-xs text-slate-500 sm:block">{help}</div> : null}
+</div>
 
       <div className="relative">
         <input
