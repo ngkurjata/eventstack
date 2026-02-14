@@ -73,8 +73,6 @@ function buildGroupedListForQuery(
     const matches = opts.filter((o) => o.label.toLowerCase().includes(q)).slice(0, 25);
 
     if (matches.length) {
-      // We keep this structure in case you want to bring group headers back later,
-      // but we do not render headers in the UI.
       items.push({ type: "group", group });
       for (const option of matches) items.push({ type: "item", group, option });
     }
@@ -103,7 +101,7 @@ function useOutsideClick<T extends HTMLElement>(
 
 function Combobox({
   label,
-  required, // still used for validation/placeholder copy if you want; we just don't render a badge
+  required,
   optionsAll,
   grouped,
   groups,
@@ -127,7 +125,6 @@ function Combobox({
 
   const [open, setOpen] = useState(false);
 
-  // query drives filtering; inputValue is what user sees/edits
   const [query, setQuery] = useState("");
   const [inputValue, setInputValue] = useState("");
   const [activeIdx, setActiveIdx] = useState<number>(-1);
@@ -138,7 +135,6 @@ function Combobox({
     return buildGroupedListForQuery(query, grouped, groups);
   }, [query, grouped, groups]);
 
-  // When selection changes or menu closes, reflect selected label in input.
   useEffect(() => {
     if (!open) {
       setInputValue(selectedLabel);
@@ -147,7 +143,6 @@ function Combobox({
     }
   }, [selectedLabel, open]);
 
-  // If we become disabled, close menu and reset query/active.
   useEffect(() => {
     if (disabled) {
       setOpen(false);
@@ -183,7 +178,6 @@ function Combobox({
     if (disabled) return;
 
     if (!open && (e.key === "ArrowDown" || e.key === "Enter")) {
-      // Only allow opening the menu via keyboard if user has typed at least 1 character.
       if (inputValue.trim().length > 0) {
         setQuery(inputValue);
         setOpen(true);
@@ -197,7 +191,6 @@ function Combobox({
       return;
     }
 
-    // Tab commits highlighted option (if any) and lets the browser move focus naturally
     if (e.key === "Tab") {
       const it = menuItems[activeIdx];
       if (it && it.type === "item") {
@@ -249,7 +242,6 @@ function Combobox({
 
   return (
     <div ref={wrapRef} className="w-full">
-      {/* Header row: label left, help right (NO Required badge) */}
       <div className="mb-2 flex items-end justify-between gap-3">
         <div className="flex items-baseline gap-2">
           <div className="text-sm font-semibold text-slate-900">{label}</div>
@@ -323,7 +315,6 @@ function Combobox({
                 <div className="px-3 py-3 text-sm text-slate-500">No matches.</div>
               ) : (
                 menuItems.map((it, idx) => {
-                  // Remove group headers (NHL/NBA/ARTISTS etc.)
                   if (it.type === "group") return null;
 
                   const isActive = idx === activeIdx;
@@ -349,7 +340,6 @@ function Combobox({
                         </div>
                       </div>
 
-                      {/* keep the right-side league label (useful even without headers) */}
                       <div
                         className={[
                           "shrink-0 text-xs font-bold",
@@ -372,6 +362,20 @@ function Combobox({
   );
 }
 
+// ---- Date helpers (client-side only) ----
+function isYMD(s: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(s || ""));
+}
+
+// If user enters inverted range, swap so backend gets sane range.
+// (UI still shows what user entered; we only normalize when building query)
+function normalizeDateRange(start: string, end: string) {
+  const s = (start || "").trim();
+  const e = (end || "").trim();
+  if (!isYMD(s) || !isYMD(e)) return { start: s, end: e };
+  return s <= e ? { start: s, end: e } : { start: e, end: s };
+}
+
 export default function Page() {
   const router = useRouter();
   const sp = useSearchParams();
@@ -384,6 +388,11 @@ export default function Page() {
   const [radiusText, setRadiusText] = useState<string>(
     String(PUBLIC_MODE ? PUBLIC_PRESET.maxRadiusMiles : 100)
   );
+
+  // ✅ NEW: optional date range
+  const [startDate, setStartDate] = useState<string>(""); // YYYY-MM-DD
+  const [endDate, setEndDate] = useState<string>(""); // YYYY-MM-DD
+
   const [p1, setP1] = useState("");
   const [p2, setP2] = useState("");
   const [p3, setP3] = useState("");
@@ -457,7 +466,13 @@ export default function Page() {
     const qRadius = sp.get("radiusMiles");
     const qOrigin = sp.get("origin") || "";
 
-    const hasAnyUrlState = Boolean(qp1 || qp2 || qp3 || qDays || qRadius || qOrigin);
+    // ✅ NEW: URL date filters
+    const qStartDate = sp.get("startDate") || "";
+    const qEndDate = sp.get("endDate") || "";
+
+    const hasAnyUrlState = Boolean(
+      qp1 || qp2 || qp3 || qDays || qRadius || qOrigin || qStartDate || qEndDate
+    );
 
     const applyState = (next: {
       p1: string;
@@ -466,6 +481,8 @@ export default function Page() {
       days: number;
       radiusMiles: number;
       origin: string;
+      startDate: string;
+      endDate: string;
     }) => {
       const clamped = PUBLIC_MODE
         ? {
@@ -482,6 +499,10 @@ export default function Page() {
       setDaysText(String(clamped.days));
       setRadiusText(String(clamped.radiusMiles));
       setOriginIata(clamped.origin.trim().toUpperCase());
+
+      // ✅ NEW: accept date strings if valid-ish
+      setStartDate(isYMD(clamped.startDate) ? clamped.startDate : "");
+      setEndDate(isYMD(clamped.endDate) ? clamped.endDate : "");
     };
 
     if (hasAnyUrlState) {
@@ -492,6 +513,8 @@ export default function Page() {
         days: safeParseInt(qDays, 3),
         radiusMiles: safeParseInt(qRadius, 100),
         origin: qOrigin,
+        startDate: qStartDate,
+        endDate: qEndDate,
       });
       return;
     }
@@ -510,6 +533,8 @@ export default function Page() {
           ? Number(parsed.radiusMiles)
           : 100,
         origin: String(parsed?.origin || ""),
+        startDate: String(parsed?.startDate || ""),
+        endDate: String(parsed?.endDate || ""),
       });
     } catch {
       // ignore
@@ -534,6 +559,10 @@ export default function Page() {
           : clamp(parsed, 1, 2000);
       })(),
       origin: originIata,
+
+      // ✅ NEW: persist dates
+      startDate: isYMD(startDate) ? startDate : "",
+      endDate: isYMD(endDate) ? endDate : "",
     };
 
     try {
@@ -548,25 +577,21 @@ export default function Page() {
     qs.set("radiusMiles", String(effective.radiusMiles));
     if (effective.origin) qs.set("origin", effective.origin);
 
+    // ✅ NEW: push optional dates into URL
+    if (effective.startDate) qs.set("startDate", effective.startDate);
+    if (effective.endDate) qs.set("endDate", effective.endDate);
+
     const next = qs.toString() ? `/?${qs.toString()}` : "/";
     window.history.replaceState(null, "", next);
-  }, [p1, p2, p3, daysText, radiusText, originIata]);
+  }, [p1, p2, p3, daysText, radiusText, originIata, startDate, endDate]);
 
   useEffect(() => {
     if (!PUBLIC_MODE) return;
     if (p3) setP3("");
   }, [p3]);
 
-  // ✅ NEW: allow search if *either* P1 or P2 is filled (or P3 in non-public mode)
-  const canSearch = useMemo(() => {
-    const hasP1 = !!String(p1 || "").trim();
-    const hasP2 = !!String(p2 || "").trim();
-    const hasP3 = !PUBLIC_MODE && !!String(p3 || "").trim();
-    return hasP1 || hasP2 || hasP3;
-  }, [p1, p2, p3]);
-
-  // ✅ NEW: tooltip copy (optional) when only one pick is present
-  const needsAtLeastOnePick = useMemo(() => !canSearch, [canSearch]);
+  const canSearch = Boolean(p1 && p2);
+  const needsBothPicks = Boolean((p1 && !p2) || (!p1 && p2));
 
   useEffect(() => {
     if (!loading && canSearch) {
@@ -577,26 +602,11 @@ export default function Page() {
   }, [loading, canSearch]);
 
   function onSearch() {
-    const p1Raw = (p1 || "").trim();
-    const p2Raw = (p2 || "").trim();
-
-    // ✅ NEW: require at least one (P1 or P2 or P3)
-    if (!p1Raw && !p2Raw && (PUBLIC_MODE || !String(p3 || "").trim())) {
-      alert("Pick at least one favorite to search.");
+    if (!p1 || !p2) {
+      alert("Pick at least Favorite Team/Artist #1 and #2.");
       return;
     }
 
-    // ✅ NEW: normalize so “one pick” becomes P1=P2
-    let p1q = p1Raw;
-    let p2q = p2Raw;
-    if (!p1q && p2q) p1q = p2q;
-    if (p1q && !p2q) p2q = p1q;
-
-    // keep state in sync (optional but nice UX)
-    if (p1q !== p1Raw) setP1(p1q);
-    if (p2q !== p2Raw) setP2(p2q);
-
-    // Airport is optional; flights/buttons will be disabled on results if missing.
     if (!originIata) setOriginErr("");
 
     const parsedDays = safeParseInt(daysText, PUBLIC_MODE ? PUBLIC_PRESET.maxDays : 3);
@@ -611,13 +621,19 @@ export default function Page() {
 
     const effectiveP3 = PUBLIC_MODE ? "" : p3;
 
+    const { start: startNorm, end: endNorm } = normalizeDateRange(startDate, endDate);
+
     const params = new URLSearchParams();
-    if (p1q) params.set("p1", p1q);
-    if (p2q) params.set("p2", p2q);
+    params.set("p1", p1);
+    params.set("p2", p2);
     if (effectiveP3) params.set("p3", effectiveP3);
     params.set("days", String(effectiveDays));
     params.set("radiusMiles", String(effectiveRadius));
-    if (originIata) params.set("origin", originIata);
+    params.set("origin", originIata);
+
+    // ✅ NEW: optional date filters
+    if (isYMD(startNorm)) params.set("startDate", startNorm);
+    if (isYMD(endNorm)) params.set("endDate", endNorm);
 
     router.push(`/results?${params.toString()}`);
   }
@@ -637,7 +653,7 @@ export default function Page() {
         <div className="space-y-6">
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="mb-4 flex items-end justify-between gap-3">
-              <div className="text-lg font-extrabold text-slate-900">Pick your favorites</div>
+              <div className="text-lg font-extrabold text-slate-900">Pick 2 of your favorites</div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -684,7 +700,36 @@ export default function Page() {
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="text-lg font-extrabold text-slate-900">Trip constraints</div>
 
+            {/* ✅ NEW: Optional date range */}
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <label className="block">
+                <div className="mb-2 text-sm font-semibold text-slate-900">Start date (optional)</div>
+                <input
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-[15px] text-slate-900 shadow-sm outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+                <div className="mt-2 text-xs text-slate-500">
+                  If set, results will only include events on/after this date.
+                </div>
+              </label>
+
+              <label className="block">
+                <div className="mb-2 text-sm font-semibold text-slate-900">End date (optional)</div>
+                <input
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-[15px] text-slate-900 shadow-sm outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                />
+                <div className="mt-2 text-xs text-slate-500">
+                  If set, results will only include events on/before this date.
+                </div>
+              </label>
+            </div>
+
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
               <label className="block">
                 <div className="mb-2 text-sm font-semibold text-slate-900">
                   Max trip length (# of Days)
@@ -786,10 +831,10 @@ export default function Page() {
               onClick={onSearch}
               disabled={!canSearch || loading}
               title={
-                loading
-                  ? "Loading options…"
-                  : needsAtLeastOnePick
-                  ? "Pick at least one favorite to enable Search."
+                needsBothPicks
+                  ? "Both Favorite #1 and Favorite #2 are required before Search will work."
+                  : !canSearch
+                  ? "Pick Favorite #1 and Favorite #2 to enable Search."
                   : "Search for overlap occurrences"
               }
               className={[
