@@ -39,6 +39,12 @@ function clampInt(n: any, min: number, max: number, fallback: number) {
   return Math.min(max, Math.max(min, Math.floor(x)));
 }
 
+/* -------------------- Nearby-per-event presets -------------------- */
+
+const NEARBY_RADIUS_MILES = 50;
+const NEARBY_LIMIT_PER_EVENT = 2;
+const NEARBY_DAY_PAD = 1; // +/- 1 day around each event date
+
 /* -------------------- Query helpers -------------------- */
 
 function stripDeprecatedParams(sp: ReturnType<typeof useSearchParams>) {
@@ -685,16 +691,19 @@ export default function ResultsPage() {
     {}
   );
 
-  // ✅ UPDATED: default + clamp in public mode
   const radiusMiles = useMemo(() => {
     const raw = qs.get("radiusMiles");
     if (PUBLIC_MODE) {
-      return clampInt(raw ?? PUBLIC_PRESET.maxRadiusMiles, 1, PUBLIC_PRESET.maxRadiusMiles, PUBLIC_PRESET.maxRadiusMiles);
+      return clampInt(
+        raw ?? PUBLIC_PRESET.maxRadiusMiles,
+        1,
+        PUBLIC_PRESET.maxRadiusMiles,
+        PUBLIC_PRESET.maxRadiusMiles
+      );
     }
     return clampInt(raw ?? 100, 1, 2000, 100);
   }, [qsString]);
 
-  // ✅ UPDATED: default + clamp in public mode
   const maxDays = useMemo(() => {
     const raw = qs.get("days");
     if (PUBLIC_MODE) {
@@ -828,14 +837,7 @@ export default function ResultsPage() {
     Array.isArray(data?.fallback?.schedules) && (data?.fallback?.schedules?.length || 0) >= 2;
 
   const shouldShowNoOverlapModal =
-    hasSearched &&
-    !loading &&
-    !errMsg &&
-    occCount === 0 &&
-    p1Filled &&
-    p2Filled &&
-    !sameEntityMode &&
-    hasFallbackSchedules;
+    hasSearched && !loading && !errMsg && occCount === 0 && p1Filled && p2Filled && !sameEntityMode && hasFallbackSchedules;
 
   // ✅ NEW: auto-open the modal when we hit the “no overlap” condition
   useEffect(() => {
@@ -853,14 +855,16 @@ export default function ResultsPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [showNoOverlapModal]);
 
+  // ✅ UPDATED: per-event nearby lookup (±1 day, 50 miles, 2 results per anchor)
   async function fetchNearbyPopularOnce(params: {
     occKey: string;
-    anchor: { lat: number; lng: number };
+    anchor: { lat: number; lng: number } | null;
     startYMD: string;
     endYMD: string;
     excludeIds: string[];
+    mainEvents: any[];
   }) {
-    const { occKey, anchor, startYMD, endYMD, excludeIds } = params;
+    const { occKey, anchor, excludeIds, mainEvents } = params;
 
     setPopularCacheByOcc((prev) => {
       const cur = prev[occKey];
@@ -869,31 +873,70 @@ export default function ResultsPage() {
     });
 
     try {
-      const res = await fetch("/api/nearby", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          lat: anchor.lat,
-          lng: anchor.lng,
-          startDate: startYMD,
-          endDate: endYMD,
-          radiusMiles,
-          limit: 10,
-          excludeIds,
-        }),
+      const excludeSet = new Set(excludeIds);
+
+      // Build one query per main event (uses event lat/lon if present; else falls back to occurrence anchor)
+      const queries = (mainEvents || [])
+        .map((e) => {
+          const d = getEventLocalDate(e);
+          if (!d) return null;
+
+          const ll = getEventLatLon(e);
+          const useLat = ll ? ll.lat : anchor?.lat;
+          const useLng = ll ? ll.lon : anchor?.lng;
+          if (useLat == null || useLng == null) return null;
+
+          const startDate = addDaysUTC(d, -NEARBY_DAY_PAD) || d;
+          const endDate = addDaysUTC(d, +NEARBY_DAY_PAD) || d;
+
+          return { lat: useLat, lng: useLng, startDate, endDate };
+        })
+        .filter(Boolean) as Array<{ lat: number; lng: number; startDate: string; endDate: string }>;
+
+      // De-dup identical queries (same approx location + same date window)
+      const seenQ = new Set<string>();
+      const uniqueQueries = queries.filter((q) => {
+        const k = `${q.lat.toFixed(3)}|${q.lng.toFixed(3)}|${q.startDate}|${q.endDate}`;
+        if (seenQ.has(k)) return false;
+        seenQ.add(k);
+        return true;
       });
 
-      const json = await res.json();
+      const results = await Promise.all(
+        uniqueQueries.map(async (q) => {
+          const res = await fetch("/api/nearby", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              lat: q.lat,
+              lng: q.lng,
+              startDate: q.startDate,
+              endDate: q.endDate,
+              radiusMiles: NEARBY_RADIUS_MILES,
+              limit: NEARBY_LIMIT_PER_EVENT,
+              excludeIds: Array.from(excludeSet),
+            }),
+          });
 
-      const events =
-        (Array.isArray(json?.events) && json.events) ||
-        (Array.isArray(json?.popular) && json.popular) ||
-        (Array.isArray(json?.nearby) && json.nearby) ||
-        (Array.isArray(json?.results) && json.results) ||
-        (Array.isArray(json?._embedded?.events) && json._embedded.events) ||
-        [];
+          const json = await res.json().catch(() => ({}));
 
-      const deduped = dedupeNearbyPopularEvents(events);
+          const events =
+            (Array.isArray(json?.events) && json.events) ||
+            (Array.isArray(json?.popular) && json.popular) ||
+            (Array.isArray(json?.nearby) && json.nearby) ||
+            (Array.isArray(json?.results) && json.results) ||
+            (Array.isArray(json?._embedded?.events) && json._embedded.events) ||
+            [];
+
+          return events;
+        })
+      );
+
+      const merged = results.flat();
+      const deduped = dedupeNearbyPopularEvents(merged).filter((e: any) => {
+        const id = eventId(e);
+        return id ? !excludeSet.has(id) : true;
+      });
 
       setPopularCacheByOcc((prev) => ({
         ...prev,
@@ -915,18 +958,26 @@ export default function ResultsPage() {
   function toggleOtherPopular(
     occKey: string,
     canFetchNearby: boolean,
-    anchor: any,
+    anchor: { lat: number; lng: number } | null,
     startYMD: string | null,
     endYMD: string | null,
-    excludeIds: string[]
+    excludeIds: string[],
+    mainEvents: any[]
   ) {
     setShowPopularByOcc((prev) => {
       const next = !prev[occKey];
 
-      if (next && canFetchNearby && anchor && startYMD && endYMD) {
+      if (next && canFetchNearby && startYMD && endYMD) {
         const entry = popularCacheByOcc[occKey];
         if (!(entry?.loaded || entry?.loading)) {
-          fetchNearbyPopularOnce({ occKey, anchor, startYMD, endYMD, excludeIds });
+          fetchNearbyPopularOnce({
+            occKey,
+            anchor,
+            startYMD,
+            endYMD,
+            excludeIds,
+            mainEvents,
+          });
         }
       }
 
@@ -1087,7 +1138,7 @@ export default function ResultsPage() {
         return id ? !mainIds.has(id) : true;
       });
 
-    const canFetchNearby = !!(anchor && startYMD && endYMD);
+    const canFetchNearby = !!((anchor || true) && startYMD && endYMD); // anchor can be null; we still try per-event if events have coords
     const hasOtherPopular = basePopular.length > 0 || canFetchNearby;
     const showOtherPopular = !!showPopularByOcc[occKey];
 
@@ -1270,7 +1321,8 @@ export default function ResultsPage() {
                     anchor,
                     startYMD,
                     endYMD,
-                    Array.from(mainIds)
+                    Array.from(mainIds),
+                    main
                   )
                 }
                 className="rounded-full px-6 py-2 text-sm font-extrabold border border-slate-300 bg-white text-slate-900 hover:bg-slate-100 active:bg-slate-200"
@@ -1314,9 +1366,7 @@ export default function ResultsPage() {
                         const dateStr = formatEventDateMMMDDYYYY(d);
                         const timeStr = formatEventTimeLower(t);
                         const parts = [dateStr, timeStr, venueLabel].filter(Boolean);
-                        return parts.length ? (
-                          <div className="truncate">{parts.join(" • ")}</div>
-                        ) : null;
+                        return parts.length ? <div className="truncate">{parts.join(" • ")}</div> : null;
                       })()}
                     </div>
                   </div>
@@ -1403,9 +1453,7 @@ export default function ResultsPage() {
             {rows.length === 0 ? (
               <div className="rounded-2xl bg-white shadow-md p-6 text-center">
                 <h2 className="text-lg font-semibold text-slate-800">No Results Found</h2>
-                <p className="mt-2 text-sm text-slate-500">
-                  Try adjusting your days, radius, or selections.
-                </p>
+                <p className="mt-2 text-sm text-slate-500">Try adjusting your days, radius, or selections.</p>
               </div>
             ) : (
               rows.map((r, idx) => {
@@ -1421,15 +1469,8 @@ export default function ResultsPage() {
 
                 return (
                   <div
-                    key={
-                      eventId(e) ||
-                      `${eventSortKey(e)}-${normalizeTitleForDedup(eventTitle(e))}-${idx}`
-                    }
-                    className={cx(
-                      "rounded-2xl border p-4 flex items-center justify-between gap-4",
-                      "border-slate-200",
-                      rowBg
-                    )}
+                    key={eventId(e) || `${eventSortKey(e)}-${normalizeTitleForDedup(eventTitle(e))}-${idx}`}
+                    className={cx("rounded-2xl border p-4 flex items-center justify-between gap-4", "border-slate-200", rowBg)}
                   >
                     <div className="min-w-0">
                       <div className={cx("font-extrabold", titleColor)}>{eventTitle(e)}</div>
@@ -1438,9 +1479,7 @@ export default function ResultsPage() {
                           const dateStr = formatEventDateMMMDDYYYY(d);
                           const timeStr = formatEventTimeLower(t);
                           const parts = [dateStr, timeStr, venueLabel].filter(Boolean);
-                          return parts.length ? (
-                            <div className="truncate">{parts.join(" • ")}</div>
-                          ) : null;
+                          return parts.length ? <div className="truncate">{parts.join(" • ")}</div> : null;
                         })()}
                       </div>
                     </div>
@@ -1517,9 +1556,7 @@ export default function ResultsPage() {
           <div className="max-w-xl mx-auto px-4 py-6">
             <div className="rounded-2xl bg-white shadow-md p-6 text-center">
               <h2 className="text-lg font-semibold text-slate-800">No Results Found</h2>
-              <p className="mt-2 text-sm text-slate-500">
-                Try adjusting your days, radius, or selections.
-              </p>
+              <p className="mt-2 text-sm text-slate-500">Try adjusting your days, radius, or selections.</p>
             </div>
           </div>
         )}
