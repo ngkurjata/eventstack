@@ -592,9 +592,10 @@ export async function GET(req) {
     }
 
     const userDays = Number(searchParams.get("days") || 3);
-    const effectiveDays = Math.max(1, Math.floor(userDays) - 1);
+    const effectiveDays = Math.max(1, Math.floor(userDays));
 
     const radiusMiles = Number(searchParams.get("radiusMiles") || 100);
+
     const origin = (searchParams.get("origin") || "").trim();
     const countryCode = "US,CA";
 

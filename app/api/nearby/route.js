@@ -6,7 +6,7 @@ const TM_EVENTS = "https://app.ticketmaster.com/discovery/v2/events.json";
 // Public (no-email) mode presets. Keep backend enforcement in sync with UI + /api/search.
 const PUBLIC_MODE = true;
 const PUBLIC_PRESET = {
-  maxRadiusMiles: 300,
+  maxRadiusMiles: 50,
 };
 
 // Target leagues (normalized)

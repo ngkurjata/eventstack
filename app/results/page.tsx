@@ -51,6 +51,39 @@ function clampInt(n: any, min: number, max: number, fallback: number) {
 
 const NEARBY_RADIUS_MILES = 50;
 
+const NEARBY_SPORTS_LEAGUES = ["MLB", "NHL", "NBA", "MLS", "NFL", "CFL"] as const;
+
+function getLeagueTagFromEventClient(ev: any): (typeof NEARBY_SPORTS_LEAGUES)[number] | null {
+  const classes = Array.isArray(ev?.classifications) ? ev.classifications : [];
+  for (const c of classes) {
+    const candidates = [
+      c?.segment?.name,
+      c?.type?.name,
+      c?.subType?.name,
+      c?.genre?.name,
+      c?.subGenre?.name,
+    ]
+      .map((v) => String(v || "").trim())
+      .filter(Boolean);
+
+    for (const name of candidates) {
+      const up = name.toUpperCase();
+
+      if ((NEARBY_SPORTS_LEAGUES as readonly string[]).includes(up)) {
+        return up as any;
+      }
+
+      if (up.includes("NATIONAL BASKETBALL")) return "NBA";
+      if (up.includes("NATIONAL FOOTBALL")) return "NFL";
+      if (up.includes("NATIONAL HOCKEY")) return "NHL";
+      if (up.includes("MAJOR LEAGUE BASEBALL")) return "MLB";
+      if (up.includes("MAJOR LEAGUE SOCCER")) return "MLS";
+      if (up.includes("CANADIAN FOOTBALL")) return "CFL";
+    }
+  }
+  return null;
+}
+
 /* -------------------- Query helpers -------------------- */
 
 function stripDeprecatedParams(sp: ReturnType<typeof useSearchParams>) {
@@ -858,63 +891,68 @@ const closestBlurb = buildClosestBlurb(data?.closest, maxDays);
 
   const errMsg = data?.error || null;
 
+// ✅ UPDATED: per-occurrence nearby lookup
+// Pull nearby events within 50 miles of *every* main event in the occurrence,
+// then merge + dedupe (overlapping circles create duplicates).
+async function fetchNearbyPopularOnce(params: {
+  occKey: string;
+  anchor: { lat: number; lng: number } | null;
+  startYMD: string | null;
+  endYMD: string | null;
+  excludeIds: string[];
+  mainEvents: any[];
+}) {
+  const { occKey, anchor, startYMD, endYMD, excludeIds, mainEvents } = params;
 
+  setPopularCacheByOcc((prev) => {
+    const cur = prev[occKey];
+    if (cur?.loading || cur?.loaded) return prev;
+    return { ...prev, [occKey]: { loading: true, loaded: false, events: [] } };
+  });
 
+  try {
+    const excludeSet = new Set(excludeIds);
 
+    // Build anchor points = every main event with coords (plus fallback anchor if needed)
+    const anchors: Array<{ lat: number; lng: number }> = [];
 
+    for (const e of mainEvents || []) {
+      const got = getEventLatLon(e); // returns {lat, lon} or null
+      if (got) anchors.push({ lat: got.lat, lng: got.lon });
+    }
 
+    if (anchors.length === 0 && anchor) anchors.push(anchor);
 
-  // ✅ UPDATED: per-occurrence nearby lookup (occurrence date range, 50 miles, ALL league games + top 5 other)
-  async function fetchNearbyPopularOnce(params: {
-    occKey: string;
-    anchor: { lat: number; lng: number } | null;
-    startYMD: string | null;
-    endYMD: string | null;
-    excludeIds: string[];
-    mainEvents: any[];
-  }) {
-    const { occKey, anchor, startYMD, endYMD, excludeIds, mainEvents } = params;
-
-    setPopularCacheByOcc((prev) => {
-      const cur = prev[occKey];
-      if (cur?.loading || cur?.loaded) return prev;
-      return { ...prev, [occKey]: { loading: true, loaded: false, events: [] } };
+    // Remove duplicate anchor points (prevents redundant calls)
+    const anchorSeen = new Set<string>();
+    const anchorDeduped = anchors.filter((p) => {
+      const key = `${p.lat.toFixed(4)}|${p.lng.toFixed(4)}`;
+      if (anchorSeen.has(key)) return false;
+      anchorSeen.add(key);
+      return true;
     });
 
-    try {
-      const excludeSet = new Set(excludeIds);
+    if (anchorDeduped.length === 0 || !startYMD || !endYMD) {
+      setPopularCacheByOcc((prev) => ({
+        ...prev,
+        [occKey]: { loading: false, loaded: true, events: [] },
+      }));
+      return;
+    }
 
-      // Pick one lat/lng for the occurrence:
-      // 1) prefer occ anchor (already computed), else 2) first main event with coords
-      const ll =
-        anchor ||
-        (() => {
-          for (const e of mainEvents || []) {
-            const got = getEventLatLon(e);
-            if (got) return { lat: got.lat, lng: got.lon }; // got is {lat, lon}
-          }
-          return null;
-        })();
-
-      if (!ll || !startYMD || !endYMD) {
-        setPopularCacheByOcc((prev) => ({
-          ...prev,
-          [occKey]: { loading: false, loaded: true, events: [] },
-        }));
-        return;
-      }
-
+    // Call /api/nearby for each anchor point (POST avoids huge querystrings)
+    const calls = anchorDeduped.map(async (ll) => {
       const res = await fetch("/api/nearby", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           lat: ll.lat,
           lng: ll.lng,
-          startDate: startYMD, // occurrence start (inclusive)
-          endDate: endYMD, // occurrence end (inclusive)
-          radiusMiles: NEARBY_RADIUS_MILES,
+          startDate: startYMD,
+          endDate: endYMD,
+          radiusMiles: NEARBY_RADIUS_MILES, // 50
           excludeIds: Array.from(excludeSet),
-          sportsLeagues: ["MLB", "NHL", "NBA", "MLS", "NFL", "CFL"],
+          sportsLeagues: [...NEARBY_SPORTS_LEAGUES],
           otherLimit: 5,
         }),
       });
@@ -929,29 +967,81 @@ const closestBlurb = buildClosestBlurb(data?.closest, maxDays);
         (Array.isArray(json?._embedded?.events) && json._embedded.events) ||
         [];
 
-      const deduped = dedupeNearbyPopularEvents(events).filter((e: any) => {
-        const id = eventId(e);
-        return id ? !excludeSet.has(id) : true;
-      });
+      return events;
+    });
 
-      setPopularCacheByOcc((prev) => ({
-        ...prev,
-        [occKey]: { loading: false, loaded: true, events: deduped },
-      }));
-    } catch (e: any) {
-      setPopularCacheByOcc((prev) => ({
-        ...prev,
-        [occKey]: {
-          loading: false,
-          loaded: true,
-          events: [],
-          error: e?.message || "Failed to load nearby events",
-        },
-      }));
-    }
+    const batches = await Promise.all(calls);
+
+// Keep a global “first seen” rank so we can choose top 5 OTHER across all anchors
+const mergedWithRank: Array<{ ev: any; rank: number }> = [];
+let rank = 0;
+
+for (const arr of batches) {
+  const list = Array.isArray(arr) ? arr : [];
+  for (const ev of list) {
+    mergedWithRank.push({ ev, rank });
+    rank++;
   }
+}
 
-  function toggleOtherPopular(
+// 1) filter out occurrence events again (safety), and any junk without URL
+const filteredWithRank = mergedWithRank.filter(({ ev }) => {
+  const id = eventId(ev);
+  if (id && excludeSet.has(id)) return false;
+  return true;
+});
+
+// 2) Deduplicate while preserving earliest rank
+const seen = new Set<string>();
+const uniqueWithRank: Array<{ ev: any; rank: number }> = [];
+
+for (const { ev, rank } of filteredWithRank) {
+  const id = eventId(ev);
+  const key =
+    id || `${eventSortKey(ev)}|${eventVenueKey(ev)}|${normalizeTitleForDedup(eventTitle(ev))}`;
+
+  if (seen.has(key)) continue;
+  seen.add(key);
+  uniqueWithRank.push({ ev, rank });
+}
+
+// 3) Split into sports vs other
+const sportsAll: any[] = [];
+const otherAll: Array<{ ev: any; rank: number }> = [];
+
+for (const item of uniqueWithRank) {
+  const tag = getLeagueTagFromEventClient(item.ev);
+  if (tag) sportsAll.push(item.ev);
+  else otherAll.push(item);
+}
+
+// 4) Choose top 5 OTHER overall (by earliest “first seen” rank)
+otherAll.sort((a, b) => a.rank - b.rank);
+const otherTop5 = otherAll.slice(0, 5).map((x) => x.ev);
+
+// 5) Final list: ALL sports + top 5 other, then run your existing deduper one last time
+const finalEvents = dedupeNearbyPopularEvents([...sportsAll, ...otherTop5]);
+
+setPopularCacheByOcc((prev) => ({
+  ...prev,
+  [occKey]: { loading: false, loaded: true, events: finalEvents },
+}));
+
+
+  } catch (e: any) {
+    setPopularCacheByOcc((prev) => ({
+      ...prev,
+      [occKey]: {
+        loading: false,
+        loaded: true,
+        events: [],
+        error: e?.message || "Failed to load nearby events",
+      },
+    }));
+  }
+}
+
+function toggleOtherPopular(
     occKey: string,
     canFetchNearby: boolean,
     anchor: { lat: number; lng: number } | null,
