@@ -1,4 +1,4 @@
-// app/api/search/route.js
+// FILE: app/api/search/route.js
 import { NextResponse } from "next/server";
 
 const TM_EVENTS = "https://app.ticketmaster.com/discovery/v2/events.json";
@@ -168,22 +168,6 @@ async function fetchEventsByParams(params) {
   return data?._embedded?.events || [];
 }
 
-async function fallbackEventsByKeyword(apiKey, pickType, keyword) {
-  if (!keyword) return [];
-  const params = new URLSearchParams();
-  params.set("apikey", apiKey);
-  params.set("size", "200");
-  params.set("countryCode", "US,CA");
-  params.set("sort", "date,asc");
-  params.set("keyword", keyword);
-
-  if (pickType === "team") params.set("segmentName", "Sports");
-  if (pickType === "artist") params.set("segmentName", "Music");
-
-  const events = await fetchEventsByParams(params);
-  return (events || []).filter(hasTicketLink);
-}
-
 /* ==================== Occurrence helpers ==================== */
 
 function eventMatchesGenreBucket(event, bucket) {
@@ -257,7 +241,6 @@ function getAnchorLatLon(occ) {
 }
 
 /* ==================== Normal-mode occurrence builder (P1 != P2) ==================== */
-/* (unchanged behavior for your normal overlap mode) */
 
 function pickKey(p) {
   if (!p) return "";
@@ -341,6 +324,9 @@ function buildOccurrencesByRadiusAndDays(allEvents, maxMiles, effectiveDays) {
     const a = metas[i];
     if (!a.key) continue;
 
+    // Require "a" to have coords + date, otherwise it can't seed a cluster.
+    if (!a.meta.date || a.meta.lat == null || a.meta.lon == null) continue;
+
     const occEvents = new Map();
     occEvents.set(a.key, a.e);
 
@@ -360,7 +346,7 @@ function buildOccurrencesByRadiusAndDays(allEvents, maxMiles, effectiveDays) {
 
     const picksSet = new Set();
     for (const ev of occEvents.values()) picksSet.add(pickKey(ev.__pick));
-    if (picksSet.size < 2) continue; // ✅ keep: overlaps only
+    if (picksSet.size < 2) continue; // overlaps only
 
     const occList = Array.from(occEvents.values());
 
@@ -390,14 +376,7 @@ function buildOccurrencesByRadiusAndDays(allEvents, maxMiles, effectiveDays) {
   return occurrences;
 }
 
-/* ==================== Single-mode occurrence builder (NEW) ==================== */
-/*
-Single-favorite mode: ignore days/radius and build occurrences as
-consecutive runs of the SAME LOCATION (venue/city) in date order.
-
-Example:
-EDM, EDM, VAN, EDM, EDM => [EDM,EDM], [VAN], [EDM,EDM]
-*/
+/* ==================== Single-mode occurrence builder (unchanged) ==================== */
 
 function locationKeyForEvent(e) {
   const v = e?._embedded?.venues?.[0] || null;
@@ -411,7 +390,6 @@ function locationKeyForEvent(e) {
       .trim()
       .toLowerCase();
 
-  // city+region is the important part; venueName helps avoid weird collisions
   const base = [city, region, venueName].filter(Boolean).join("|");
   return base ? `loc:${base}` : "loc:unknown";
 }
@@ -419,7 +397,6 @@ function locationKeyForEvent(e) {
 function sortKeyForEvent(e) {
   const d = String(e?.dates?.start?.localDate || "").trim(); // YYYY-MM-DD
   const t = String(e?.dates?.start?.localTime || "").trim(); // HH:MM:SS (optional)
-  // Lexicographic works fine for YYYY-MM-DD and 24h times
   return `${d}T${t || "00:00:00"}`;
 }
 
@@ -450,9 +427,37 @@ function buildOccurrencesSingleByLocationRuns(events) {
   }
 
   if (cur.length) occs.push(cur);
-
-  // Optional: sort occurrences by earliest date (already in order), but keep stable.
   return occs;
+}
+
+/* ==================== Labels for fallback schedules ==================== */
+
+function pickLabelFromPick(pick) {
+  if (!pick) return "Pick";
+  if (pick.type === "team") return pick.name || "Team";
+  if (pick.type === "genre") return pick.bucket || pick.name || "Genre";
+  if (pick.type === "raw") return pick.name || "Pick";
+  // artist: pick.name may be empty (artist:id); resolve later from events if possible
+  return pick.name || "Artist";
+}
+
+function labelFromScheduleEvents(pick, events) {
+  const base = pickLabelFromPick(pick);
+  if (pick?.type !== "artist") return base;
+
+  // If artist name is empty, try to infer from the first event's attractions list
+  if (base && base !== "Artist") return base;
+
+  for (const ev of events || []) {
+    const atts = ev?._embedded?.attractions;
+    if (!Array.isArray(atts)) continue;
+    const hit = atts.find((a) => String(a?.id || "") === String(pick?.attractionId || ""));
+    if (hit?.name) {
+      const nm = String(hit.name).trim();
+      if (nm) return nm;
+    }
+  }
+  return base;
 }
 
 /* ==================== Debug helper ==================== */
@@ -624,8 +629,9 @@ export async function GET(req) {
     }
 
     // =========================
-    // NORMAL MODE (unchanged):
+    // NORMAL MODE:
     // P1 != P2 => overlap clustering by days/radius + 2-pick coverage requirement
+    // PLUS: if 0 occurrences => return fallback schedules for UI overlay
     // =========================
 
     p1.__slot = "p1";
@@ -634,11 +640,15 @@ export async function GET(req) {
 
     const picks = [p1, p2, ...(p3 ? [p3] : [])];
 
+    // ✅ collect schedules for p1/p2 so the UI can show "no overlap" overlay
+    const scheduleBySlot = { p1: [], p2: [] };
+
     for (const pick of picks) {
       const params = new URLSearchParams();
       params.set("apikey", apiKey);
       params.set("size", "200");
       params.set("countryCode", countryCode);
+      params.set("sort", "date,asc"); // ✅ keep chronological
 
       if (pick.type === "team") {
         if (!pick.attractionId && pick.name) {
@@ -665,14 +675,17 @@ export async function GET(req) {
           ? events.filter((e) => eventMatchesGenreBucket(e, pick.bucket))
           : events;
 
-      allEvents.push(
-        ...filtered
-          .filter(hasTicketLink)
-          .map((e) => ({
-            ...e,
-            __pick: pick,
-          }))
-      );
+      const mapped = filtered
+        .filter(hasTicketLink)
+        .map((e) => ({
+          ...e,
+          __pick: pick,
+        }));
+
+      allEvents.push(...mapped);
+
+      if (pick.__slot === "p1") scheduleBySlot.p1.push(...mapped);
+      if (pick.__slot === "p2") scheduleBySlot.p2.push(...mapped);
     }
 
     const occurrences = buildOccurrencesByRadiusAndDays(allEvents, radiusMiles, effectiveDays);
@@ -689,6 +702,24 @@ export async function GET(req) {
       };
     });
 
+    // ✅ fallback schedules for "0 overlap" UI overlay (P1 != P2)
+    let fallback = undefined;
+    if (occurrencesForUi.length === 0) {
+      const s1 = (scheduleBySlot.p1 || []).slice().sort((a, b) => sortKeyForEvent(a).localeCompare(sortKeyForEvent(b)));
+      const s2 = (scheduleBySlot.p2 || []).slice().sort((a, b) => sortKeyForEvent(a).localeCompare(sortKeyForEvent(b)));
+
+      const p1Label = labelFromScheduleEvents(p1, s1);
+      const p2Label = labelFromScheduleEvents(p2, s2);
+
+      fallback = {
+        mode: "NO_OVERLAP_SCHEDULES",
+        schedules: [
+          { label: p1Label, events: s1 },
+          { label: p2Label, events: s2 },
+        ],
+      };
+    }
+
     const spanDays = Number.isFinite(effectiveDays) ? Math.max(1, Math.floor(effectiveDays)) : 1;
     const maxDiffDays = Math.max(0, spanDays - 1);
 
@@ -704,6 +735,7 @@ export async function GET(req) {
     const payload = {
       count: occurrencesForUi.length,
       occurrences: occurrencesForUi,
+      fallback, // ✅ added
       debug: {
         userDays,
         effectiveDays,
