@@ -1056,14 +1056,20 @@ function toggleOtherPopular(
       if (next && canFetchNearby) {
         const entry = popularCacheByOcc[occKey];
         if (!(entry?.loaded || entry?.loading)) {
-          fetchNearbyPopularOnce({
-            occKey,
-            anchor,
-            startYMD,
-            endYMD,
-            excludeIds,
-            mainEvents,
-          });
+          const nearbyStartYMD = startYMD ? addDaysUTC(startYMD, -1) : null;
+const nearbyEndYMD = endYMD ? addDaysUTC(endYMD, +1) : null;
+
+fetchNearbyPopularOnce({
+  occKey,
+  anchor,
+  startYMD: nearbyStartYMD,
+  endYMD: nearbyEndYMD,
+  excludeIds,
+  mainEvents,
+});
+
+
+
         }
       }
 
