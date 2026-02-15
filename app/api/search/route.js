@@ -1,19 +1,6 @@
 // FILE: app/api/search/route.js
 import { NextResponse } from "next/server";
 
-// Public (no-email) mode presets. Keep backend enforcement in sync with the UI.
-const PUBLIC_MODE = true;
-const PUBLIC_PRESET = {
-  maxDays: 7,
-  maxRadiusMiles: 300,
-};
-
-function clampInt(n, min, max, fallback) {
-  const x = Number(n);
-  if (!Number.isFinite(x)) return fallback;
-  return Math.min(max, Math.max(min, Math.floor(x)));
-}
-
 const TM_EVENTS = "https://app.ticketmaster.com/discovery/v2/events.json";
 const TM_ATTRACTIONS = "https://app.ticketmaster.com/discovery/v2/attractions.json";
 
@@ -25,42 +12,182 @@ const GENRE_EXPANSION = {
   Rap: ["rap", "hip hop", "hip-hop", "trap"],
   Electronic: ["electronic", "edm", "dance", "house", "techno", "trance", "dubstep"],
   "R&B": ["r&b", "rnb", "rhythm and blues", "neo soul", "neo-soul", "soul"],
-  Jazz: ["jazz", "swing", "big band", "bebop", "fusion", "smooth jazz"],
+  Jazz: ["jazz", "swing", "bebop", "big band"],
+  Classical: ["classical", "orchestra", "symphony", "opera", "baroque"],
+  Latin: ["latin", "reggaeton", "bachata", "salsa", "cumbia", "mariachi"],
+  Metal: ["metal", "metalcore", "death metal", "black metal", "thrash"],
+  Reggae: ["reggae", "ska", "dancehall", "dub"],
+  Folk: ["folk", "singer-songwriter", "traditional"],
 };
 
-function normalizeQuery(q) {
-  return String(q || "").trim().toLowerCase();
-}
+/* ==================== Date range helpers ==================== */
 
-function isValidYMD(s) {
+function isYMD(s) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(s || ""));
 }
 
-function parseLocalDateToUTC(ymd) {
-  if (!isValidYMD(ymd)) return null;
-  const [y, m, d] = ymd.split("-").map((x) => Number(x));
-  const dt = new Date(Date.UTC(y, (m || 1) - 1, d || 1, 0, 0, 0));
-  return Number.isFinite(dt.getTime()) ? dt : null;
+function filterEventsByDateRange(events, startDate, endDate) {
+  const s = isYMD(startDate) ? startDate : null;
+  const e = isYMD(endDate) ? endDate : null;
+  if (!s && !e) return events;
+
+  return (events || []).filter((ev) => {
+    const d = ev?.dates?.start?.localDate;
+    if (!isYMD(d)) return false;
+    if (s && d < s) return false;
+    if (e && d > e) return false;
+    return true;
+  });
 }
 
-function sameYMD(a, b) {
-  return String(a || "") === String(b || "");
+/* ==================== Attraction resolution ==================== */
+
+function scoreCandidate(query, candName) {
+  const q = String(query || "").toLowerCase().trim();
+  const n = String(candName || "").toLowerCase().trim();
+  if (!q || !n) return 0;
+
+  let score = 0;
+  if (n === q) score += 100;
+  if (n.includes(q)) score += 40;
+
+  const qWords = new Set(q.split(/\s+/).filter(Boolean));
+  const nWords = new Set(n.split(/\s+/).filter(Boolean));
+  let overlap = 0;
+  for (const w of qWords) if (nWords.has(w)) overlap += 1;
+  score += overlap * 5;
+
+  return score;
 }
 
-function withinDateRange(localYmd, startYmd, endYmd) {
-  if (!isValidYMD(localYmd)) return false;
-  const cur = parseLocalDateToUTC(localYmd);
-  if (!cur) return false;
+async function resolveBestAttraction(apiKey, segmentName, keyword, countryCode = "US,CA") {
+  const params = new URLSearchParams();
+  params.set("apikey", apiKey);
+  params.set("segmentName", segmentName); // "Music" or "Sports"
+  params.set("keyword", keyword);
+  params.set("size", "20");
+  if (countryCode) params.set("countryCode", countryCode);
 
-  if (startYmd && isValidYMD(startYmd)) {
-    const s = parseLocalDateToUTC(startYmd);
-    if (s && cur.getTime() < s.getTime()) return false;
+  const url = `${TM_ATTRACTIONS}?${params.toString()}`;
+  const res = await fetch(url);
+  const data = await res.json();
+
+  const attractions = data?._embedded?.attractions || [];
+  const candidates = attractions
+    .map((a) => ({
+      id: a?.id || null,
+      name: a?.name || "",
+      score: scoreCandidate(keyword, a?.name),
+    }))
+    .filter((c) => c.id);
+
+  candidates.sort((a, b) => (b.score || 0) - (a.score || 0));
+  return candidates[0] || null;
+}
+
+async function fetchAttractionNameById(apiKey, attractionId) {
+  try {
+    const url = `${TM_ATTRACTIONS}/${encodeURIComponent(attractionId)}.json?apikey=${encodeURIComponent(
+      apiKey
+    )}`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const name = String(data?.name || "").trim();
+    return name || null;
+  } catch {
+    return null;
   }
-  if (endYmd && isValidYMD(endYmd)) {
-    const e = parseLocalDateToUTC(endYmd);
-    if (e && cur.getTime() > e.getTime()) return false;
+}
+
+/* ==================== Pick parsing ==================== */
+
+function parsePickOrRaw(pick) {
+  const raw = String(pick || "").trim();
+  if (!raw) return null;
+
+  const parts = raw.split(":");
+  const kind = parts[0];
+
+  // team:LEAGUE:ATTRACTIONID:NAME (legacy)
+  // team:LEAGUE:NAME (current)
+  if (kind === "team") {
+    if (parts.length >= 4) {
+      return { type: "team", league: parts[1], attractionId: parts[2], name: parts.slice(3).join(":") };
+    }
+    if (parts.length >= 3) {
+      return { type: "team", league: parts[1], attractionId: "", name: parts.slice(2).join(":") };
+    }
+    return null;
   }
-  return true;
+
+  // artist:ATTRACTIONID
+  if (kind === "artist") {
+    if (parts.length >= 2) return { type: "artist", attractionId: parts[1], name: "" };
+    return null;
+  }
+
+  // genre:BUCKET:NAME
+  if (kind === "genre") return { type: "genre", bucket: parts[1], name: parts.slice(2).join(":") };
+
+  // fallback: raw keyword
+  return { type: "raw", name: raw };
+}
+
+function isEntityPick(p) {
+  return p && (p.type === "team" || p.type === "artist");
+}
+
+async function ensureAttractionId(apiKey, pick) {
+  if (!pick || !isEntityPick(pick)) return pick;
+
+  if (pick.type === "artist") return pick;
+
+  if (pick.type === "team") {
+    if (!pick.attractionId && pick.name) {
+      const best = await resolveBestAttraction(apiKey, "Sports", pick.name, "US,CA");
+      if (best?.id) pick.attractionId = best.id;
+    }
+    return pick;
+  }
+
+  return pick;
+}
+
+/* ==================== Ticketmaster fetch helpers ==================== */
+
+function hasTicketLink(e) {
+  const url = String(e?.url || "").trim();
+  return Boolean(url);
+}
+
+async function fetchEventsByParams(params) {
+  const url = `${TM_EVENTS}?${params.toString()}`;
+  const res = await fetch(url);
+  const data = await res.json();
+  return data?._embedded?.events || [];
+}
+
+/* ==================== Occurrence helpers ==================== */
+
+function eventMatchesGenreBucket(event, bucket) {
+  const keywords = GENRE_EXPANSION[bucket];
+  if (!keywords) return false;
+
+  const classifications = event.classifications || [];
+  return classifications.some((c) => {
+    const g = (c.genre?.name || "").toLowerCase();
+    const sg = (c.subGenre?.name || "").toLowerCase();
+    return keywords.some((k) => g.includes(k) || sg.includes(k));
+  });
+}
+
+function parseLocalDateToUTC(localDate) {
+  if (!localDate) return null;
+  const parts = String(localDate).split("-").map((x) => Number(x));
+  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return null;
+  const [y, m, d] = parts;
+  return new Date(Date.UTC(y, m - 1, d));
 }
 
 function diffDaysSigned(aLocalDate, bLocalDate) {
@@ -78,342 +205,426 @@ function diffDaysAbs(aLocalDate, bLocalDate) {
 }
 
 function haversineMiles(lat1, lon1, lat2, lon2) {
-  const toRad = (x) => (x * Math.PI) / 180;
-  const R = 3958.7613; // miles
+  const R = 3958.7613;
+  const toRad = (deg) => (deg * Math.PI) / 180;
+
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
+  const rLat1 = toRad(lat1);
+  const rLat2 = toRad(lat2);
+
   const a =
     Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+    Math.cos(rLat1) * Math.cos(rLat2) * Math.sin(dLon / 2) ** 2;
+
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
 
-function safeNum(x) {
-  const n = Number(x);
-  return Number.isFinite(n) ? n : null;
-}
-
-function uniq(arr) {
-  return Array.from(new Set(arr));
-}
-
 function uniqueSortedDates(events) {
-  const dates = uniq(
-    (events || [])
-      .map((e) => e?.localDate || e?.dates?.start?.localDate || null)
-      .filter(Boolean)
-  );
-  dates.sort();
-  return dates;
+  const s = new Set();
+  for (const e of events) {
+    const d = String(e?.dates?.start?.localDate || "").trim();
+    if (d) s.add(d);
+  }
+  return Array.from(s).sort();
 }
 
-function resolvePick(pick) {
-  // pick may be an attractionId or a literal text search (label)
-  // In your existing code, it looks like you already store TM attraction IDs for teams/artists.
-  // This function keeps current behavior and returns an object used by downstream fetchers.
-  const id = String(pick || "").trim();
-  return { id };
+function getAnchorLatLon(occ) {
+  for (const e of occ) {
+    const venue = e?._embedded?.venues?.[0];
+    const lat = venue?.location?.latitude != null ? Number(venue.location.latitude) : null;
+    const lon = venue?.location?.longitude != null ? Number(venue.location.longitude) : null;
+    if (Number.isFinite(lat) && Number.isFinite(lon)) return { lat, lon };
+  }
+  return null;
 }
 
-async function tmFetchJson(url, params, apiKey) {
-  const qs = new URLSearchParams({
-    apikey: apiKey,
-    ...Object.fromEntries(
-      Object.entries(params || {}).filter(([_, v]) => v !== undefined && v !== null && String(v) !== "")
-    ),
-  });
+/* ==================== Normal-mode occurrence builder (P1 != P2) ==================== */
 
-  const fullUrl = `${url}?${qs.toString()}`;
-  const res = await fetch(fullUrl, { next: { revalidate: 0 } });
-  const json = await res.json().catch(() => null);
-  return { ok: res.ok, status: res.status, json, fullUrl };
+function pickKey(p) {
+  if (!p) return "";
+  const slot = p.__slot ? `|slot:${String(p.__slot)}` : "";
+  if (p.type === "team") return `team:${p.league}:${p.attractionId || p.name || ""}${slot}`;
+  if (p.type === "artist") return `artist:${p.attractionId || p.name || ""}${slot}`;
+  if (p.type === "genre") return `genre:${p.bucket || ""}:${p.name || ""}${slot}`;
+  return `raw:${p.name || ""}${slot}`;
 }
 
-function mapTmEventsToUiEvents(tmEvents, slotLabel) {
-  const embedded = tmEvents?._embedded?.events || [];
-  return embedded
-    .map((ev) => {
-      const localDate = ev?.dates?.start?.localDate || null;
-      const localTime = ev?.dates?.start?.localTime || null;
-      const name = ev?.name || "";
-      const url = ev?.url || "";
-      const images = ev?.images || [];
-      const img = images.find((i) => i?.ratio === "16_9") || images[0] || null;
+function eventMetaForOccurrenceKey(e) {
+  const venue = e?._embedded?.venues?.[0] || null;
+  const date = e?.dates?.start?.localDate || "";
 
-      const venue = ev?._embedded?.venues?.[0] || null;
-      const city = venue?.city?.name || "";
-      const state = venue?.state?.stateCode || venue?.state?.name || "";
-      const country = venue?.country?.countryCode || "";
-      const lat = safeNum(venue?.location?.latitude);
-      const lon = safeNum(venue?.location?.longitude);
+  const latStr = venue?.location?.latitude;
+  const lonStr = venue?.location?.longitude;
+  const lat = latStr != null ? Number(latStr) : null;
+  const lon = lonStr != null ? Number(lonStr) : null;
 
-      return {
-        slot: slotLabel,
-        id: ev?.id || `${slotLabel}-${name}-${localDate}-${city}`,
-        name,
-        url,
-        localDate,
-        localTime,
-        city,
-        state,
-        country,
-        lat,
-        lon,
-        imageUrl: img?.url || null,
-        _raw: ev,
-      };
+  const hasCoords = Number.isFinite(lat) && Number.isFinite(lon);
+  return { date, lat: hasCoords ? lat : null, lon: hasCoords ? lon : null };
+}
+
+function dedupeKeyForEvent(e) {
+  const slot = e?.__pick?.__slot ? String(e.__pick.__slot) : "";
+
+  const id = e?.id ? String(e.id).trim() : "";
+  if (id) return slot ? `id:${id}|slot:${slot}` : `id:${id}`;
+
+  const name = String(e?.name || "").trim().toLowerCase();
+  const localDate = String(e?.dates?.start?.localDate || "").trim();
+  const localTime = String(e?.dates?.start?.localTime || "").trim();
+
+  const venue = e?._embedded?.venues?.[0];
+  const venueId = String(venue?.id || "").trim();
+  const venueName = String(venue?.name || "").trim().toLowerCase();
+  const city = String(venue?.city?.name || "").trim().toLowerCase();
+
+  const place = venueId ? `vid:${venueId}` : `v:${venueName}|c:${city}`;
+  const base = `cmp:${name}|${localDate}|${localTime}|${place}`;
+  return slot ? `${base}|slot:${slot}` : base;
+}
+
+function occurrenceEarliestDate(events) {
+  const dates = uniqueSortedDates(events);
+  return dates[0] || "9999-12-31";
+}
+
+function occurrencePickCoverageCount(events) {
+  const picksSet = new Set();
+  for (const e of events) picksSet.add(pickKey(e.__pick));
+  return picksSet.size;
+}
+
+function occurrenceDistinctDateCount(events) {
+  return uniqueSortedDates(events).length;
+}
+
+function occurrenceSpanDays(events) {
+  const dates = uniqueSortedDates(events);
+  if (dates.length === 0) return 0;
+  const d = diffDaysAbs(dates[0], dates[dates.length - 1]);
+  return Number.isFinite(d) ? d : 0;
+}
+
+function buildOccurrencesByRadiusAndDays(allEvents, maxMiles, effectiveDays) {
+  const metas = allEvents
+    .map((e) => {
+      const meta = eventMetaForOccurrenceKey(e);
+      const key = dedupeKeyForEvent(e);
+      return { e, key, meta };
     })
-    .filter((e) => e && e.localDate && e.city);
+    .filter((x) => x.key);
+
+  const safeSpanDays = Number.isFinite(effectiveDays) ? Math.max(1, Math.floor(effectiveDays)) : 1;
+  const maxDiffDays = Math.max(0, safeSpanDays - 1);
+
+  const occurrencesMap = new Map();
+
+  for (let i = 0; i < metas.length; i++) {
+    const a = metas[i];
+    if (!a.key) continue;
+
+    // Require "a" to have coords + date, otherwise it can't seed a cluster.
+    if (!a.meta.date || a.meta.lat == null || a.meta.lon == null) continue;
+
+    const occEvents = new Map();
+    occEvents.set(a.key, a.e);
+
+    for (let j = 0; j < metas.length; j++) {
+      if (i === j) continue;
+      const b = metas[j];
+      if (!b.key) continue;
+
+      if (!b.meta.date || b.meta.lat == null || b.meta.lon == null) continue;
+
+      const dSigned = diffDaysSigned(a.meta.date, b.meta.date);
+      if (dSigned == null || dSigned < 0 || dSigned > maxDiffDays) continue;
+
+      const miles = haversineMiles(a.meta.lat, a.meta.lon, b.meta.lat, b.meta.lon);
+      if (miles <= maxMiles) occEvents.set(b.key, b.e);
+    }
+
+    const picksSet = new Set();
+    for (const ev of occEvents.values()) picksSet.add(pickKey(ev.__pick));
+    if (picksSet.size < 2) continue; // overlaps only
+
+    const occList = Array.from(occEvents.values());
+
+    const distinctDates = occurrenceDistinctDateCount(occList);
+    if (distinctDates > safeSpanDays) continue;
+
+    const hardSpan = occurrenceSpanDays(occList);
+    if (hardSpan > maxDiffDays) continue;
+
+    const sortedIds = Array.from(occEvents.keys()).sort();
+    const occKey = sortedIds.join("|");
+    if (!occurrencesMap.has(occKey)) occurrencesMap.set(occKey, occList);
+  }
+
+  const occurrences = Array.from(occurrencesMap.values());
+
+  occurrences.sort((A, B) => {
+    const aCoverage = occurrencePickCoverageCount(A);
+    const bCoverage = occurrencePickCoverageCount(B);
+    if (aCoverage !== bCoverage) return bCoverage - aCoverage;
+    if (A.length !== B.length) return B.length - A.length;
+    const aDate = occurrenceEarliestDate(A);
+    const bDate = occurrenceEarliestDate(B);
+    return aDate.localeCompare(bDate);
+  });
+
+  return occurrences;
 }
 
-function buildOccurrencesByRadiusAndDays(allEvents, radiusMiles, maxDiffDays) {
-  // Your existing clustering logic is preserved.
-  // It groups events (from both picks) into occurrences where:
-  // - all event-to-event date diffs <= maxDiffDays
-  // - all event-to-event distances <= radiusMiles
-  // and then applies per-pick coverage checks elsewhere (as you already do).
-  //
-  // NOTE: this file only changed max defaults/clamps. The logic below is intentionally unchanged.
+/* ==================== Single-mode occurrence builder (unchanged) ==================== */
 
-  const events = (allEvents || [])
-    .filter((e) => e && e.localDate && e.lat != null && e.lon != null)
-    .slice();
+function locationKeyForEvent(e) {
+  const v = e?._embedded?.venues?.[0] || null;
+  const venueId = String(v?.id || "").trim();
+  if (venueId) return `vid:${venueId}`;
 
-  // sort by date then by city
-  events.sort((a, b) => {
-    if (a.localDate < b.localDate) return -1;
-    if (a.localDate > b.localDate) return 1;
-    return String(a.city || "").localeCompare(String(b.city || ""));
-  });
+  const venueName = String(v?.name || "").trim().toLowerCase();
+  const city = String(v?.city?.name || "").trim().toLowerCase();
+  const region =
+    String(v?.state?.stateCode || v?.state?.name || v?.country?.countryCode || "")
+      .trim()
+      .toLowerCase();
+
+  const base = [city, region, venueName].filter(Boolean).join("|");
+  return base ? `loc:${base}` : "loc:unknown";
+}
+
+function sortKeyForEvent(e) {
+  const d = String(e?.dates?.start?.localDate || "").trim(); // YYYY-MM-DD
+  const t = String(e?.dates?.start?.localTime || "").trim(); // HH:MM:SS (optional)
+  return `${d}T${t || "00:00:00"}`;
+}
+
+function buildOccurrencesSingleByLocationRuns(events) {
+  const list = (events || [])
+    .filter((e) => isYMD(e?.dates?.start?.localDate))
+    .slice()
+    .sort((a, b) => sortKeyForEvent(a).localeCompare(sortKeyForEvent(b)));
 
   const occs = [];
+  let cur = [];
+  let curKey = null;
 
-  function canJoin(occ, ev) {
-    // date constraint
-    const dates = uniqueSortedDates(occ.concat([ev]));
-    if (dates.length) {
-      const dMin = dates[0];
-      const dMax = dates[dates.length - 1];
-      const span = diffDaysAbs(dMin, dMax);
-      if (span != null && span > maxDiffDays) return false;
+  for (const e of list) {
+    const k = locationKeyForEvent(e);
+    if (!cur.length) {
+      cur = [e];
+      curKey = k;
+      continue;
     }
-
-    // distance constraint (pairwise vs. existing members)
-    for (const e of occ) {
-      const dist = haversineMiles(e.lat, e.lon, ev.lat, ev.lon);
-      if (dist > radiusMiles) return false;
+    if (k === curKey) {
+      cur.push(e);
+    } else {
+      occs.push(cur);
+      cur = [e];
+      curKey = k;
     }
-    return true;
   }
 
-  for (const ev of events) {
-    let placed = false;
-
-    for (const occ of occs) {
-      if (canJoin(occ, ev)) {
-        occ.push(ev);
-        placed = true;
-        break;
-      }
-    }
-
-    if (!placed) occs.push([ev]);
-  }
-
-  // sort each occurrence by date/time
-  for (const occ of occs) {
-    occ.sort((a, b) => {
-      if (a.localDate < b.localDate) return -1;
-      if (a.localDate > b.localDate) return 1;
-      return String(a.localTime || "").localeCompare(String(b.localTime || ""));
-    });
-  }
-
+  if (cur.length) occs.push(cur);
   return occs;
 }
 
-function buildFallbackSchedules(scheduleBySlot) {
-  // Preserve your existing fallback payload structure for the UI overlay
-  const schedules = [];
-  for (const [label, events] of Object.entries(scheduleBySlot || {})) {
-    schedules.push({ label, events: events || [] });
-  }
-  return { mode: "fallback_schedules", schedules };
+/* ==================== Labels for fallback schedules ==================== */
+
+function pickLabelFromPick(pick) {
+  if (!pick) return "Pick";
+  if (pick.type === "team") return pick.name || "Team";
+  if (pick.type === "genre") return pick.bucket || pick.name || "Genre";
+  if (pick.type === "raw") return pick.name || "Pick";
+  // artist: pick.name may be empty (artist:id); resolve later from events if possible
+  return pick.name || "Artist";
 }
 
-function isSingleMode(p1, p2) {
-  // singleMode = user selected only one OR both the same
-  return (!!p1 && !p2) || (!p1 && !!p2) || (!!p1 && !!p2 && String(p1) === String(p2));
+function labelFromScheduleEvents(pick, events) {
+  const base = pickLabelFromPick(pick);
+  if (pick?.type !== "artist") return base;
+
+  // If artist name is empty, try to infer from the first event's attractions list
+  if (base && base !== "Artist") return base;
+
+  for (const ev of events || []) {
+    const atts = ev?._embedded?.attractions;
+    if (!Array.isArray(atts)) continue;
+    const hit = atts.find((a) => String(a?.id || "") === String(pick?.attractionId || ""));
+    if (hit?.name) {
+      const nm = String(hit.name).trim();
+      if (nm) return nm;
+    }
+  }
+  return base;
 }
+
+/* ==================== Debug helper ==================== */
+
+function envKeyDebug(key) {
+  const s = String(key || "");
+  const len = s.length;
+  const head = len >= 2 ? s.slice(0, 2) : "";
+  const tail = len >= 2 ? s.slice(-2) : "";
+  return { present: Boolean(key), length: len, head, tail };
+}
+
+/* ==================== Main handler ==================== */
 
 export async function GET(req) {
   try {
-    const url = new URL(req.url);
-    const searchParams = url.searchParams;
+    const { searchParams } = new URL(req.url);
+    const debugMode = searchParams.get("debug") === "1";
+
+    const startDate = searchParams.get("startDate");
+    const endDate = searchParams.get("endDate");
 
     const apiKey = process.env.TICKETMASTER_API_KEY;
+    const keyDbg = envKeyDebug(apiKey);
+    console.log("ENV TICKETMASTER_API_KEY:", keyDbg);
+
     if (!apiKey) {
       return NextResponse.json(
-        { error: "Missing TICKETMASTER_API_KEY in environment." },
+        {
+          error: "Missing API key",
+          debug: debugMode ? { env: { TICKETMASTER_API_KEY: keyDbg } } : undefined,
+        },
         { status: 500 }
       );
     }
 
-    const userDaysRaw = searchParams.get("days");
-    const userDays = PUBLIC_MODE
-      ? clampInt(
-          userDaysRaw ?? PUBLIC_PRESET.maxDays,
-          1,
-          PUBLIC_PRESET.maxDays,
-          PUBLIC_PRESET.maxDays
-        )
-      : clampInt(userDaysRaw ?? 3, 1, 30, 3);
-
-    // Internally we use a max day-difference (inclusive window -> diff = days - 1)
+    const userDays = Number(searchParams.get("days") || 3);
     const effectiveDays = Math.max(1, Math.floor(userDays) - 1);
 
-    const radiusRaw = searchParams.get("radiusMiles");
-    const radiusMiles = PUBLIC_MODE
-      ? clampInt(
-          radiusRaw ?? PUBLIC_PRESET.maxRadiusMiles,
-          1,
-          PUBLIC_PRESET.maxRadiusMiles,
-          PUBLIC_PRESET.maxRadiusMiles
-        )
-      : clampInt(radiusRaw ?? 100, 1, 2000, 100);
-
+    const radiusMiles = Number(searchParams.get("radiusMiles") || 100);
     const origin = (searchParams.get("origin") || "").trim();
     const countryCode = "US,CA";
 
-    const p1 = (searchParams.get("p1") || "").trim();
-    const p2 = (searchParams.get("p2") || "").trim();
-    const p3 = (searchParams.get("p3") || "").trim();
+    // Original raw picks (for single-mode detection)
+    const rawP1Orig = (searchParams.get("p1") || "").trim();
+    const rawP2Orig = (searchParams.get("p2") || "").trim();
+    const rawP3 = (searchParams.get("p3") || "").trim();
 
-    const startDate = (searchParams.get("startDate") || "").trim();
-    const endDate = (searchParams.get("endDate") || "").trim();
+    // Allow single-pick searches by mirroring the non-empty one
+    const effectiveRawP1 = rawP1Orig || rawP2Orig;
+    const effectiveRawP2 = rawP2Orig || rawP1Orig;
 
-    const singleMode = isSingleMode(p1, p2);
+    const p1 = parsePickOrRaw(effectiveRawP1);
+    const p2 = parsePickOrRaw(effectiveRawP2);
+    const p3 = rawP3 ? parsePickOrRaw(rawP3) : null;
 
-    const picks = [
-      { slot: "p1", raw: p1 },
-      { slot: "p2", raw: p2 },
-      { slot: "p3", raw: PUBLIC_MODE ? "" : p3 },
-    ].filter((x) => x.raw);
-
-    if (!picks.length) {
-      return NextResponse.json({ count: 0, occurrences: [], error: "Missing p1/p2." });
+    if (!p1 || !p2) {
+      return NextResponse.json({
+        count: 0,
+        occurrences: [],
+        debug: { note: "Need at least 1 pick (p1 or p2)" },
+      });
     }
 
-    const debugResolutions = picks.map((p) => ({ slot: p.slot, resolved: resolvePick(p.raw) }));
+    await ensureAttractionId(apiKey, p1);
+    await ensureAttractionId(apiKey, p2);
+    if (p3) await ensureAttractionId(apiKey, p3);
 
-    // Fetch Ticketmaster events for each pick (as you had)
-    const scheduleBySlot = { p1: [], p2: [], p3: [] };
+    // Detect single-favorite mode
+    let singleMode =
+      (!rawP1Orig && !!rawP2Orig) ||
+      (!!rawP1Orig && !rawP2Orig) ||
+      (!!rawP1Orig && !!rawP2Orig && rawP1Orig === rawP2Orig);
+
+    if (isEntityPick(p1) && isEntityPick(p2)) {
+      const id1 = String(p1.attractionId || "").trim();
+      const id2 = String(p2.attractionId || "").trim();
+      if (id1 && id2 && id1 === id2) singleMode = true;
+    }
+
+    // Choose the anchor pick for single mode (prefer the one user filled)
+    const anchorPick = rawP1Orig ? p1 : rawP2Orig ? p2 : p1;
+
+    const debugResolutions = [];
     const allEvents = [];
 
-    for (const pick of picks) {
-      const resolved = resolvePick(pick.raw);
-
-      // If you have attractionId, use it; otherwise you may be doing keyword
-      const params = {
-        countryCode,
-        radius: 300, // Ticketmaster API radius is km by default unless unit specified; keeping your existing call pattern
-        unit: "miles",
-        size: 200,
-        sort: "date,asc",
-        attractionId: resolved?.id || undefined,
-      };
-
-      // Apply date range if provided (both modes)
-      if (isValidYMD(startDate)) params.startDateTime = `${startDate}T00:00:00Z`;
-      if (isValidYMD(endDate)) params.endDateTime = `${endDate}T23:59:59Z`;
-
-      const { ok, json } = await tmFetchJson(TM_EVENTS, params, apiKey);
-
-      if (!ok) continue;
-
-      const mapped = mapTmEventsToUiEvents(json, pick.slot);
-
-      // Post-filter by local date range (defensive)
-      const filtered =
-        isValidYMD(startDate) || isValidYMD(endDate)
-          ? mapped.filter((e) => withinDateRange(e.localDate, startDate, endDate))
-          : mapped;
-
-      scheduleBySlot[pick.slot].push(...filtered);
-      allEvents.push(...filtered);
-    }
-
-    // =========================
-    // SINGLE MODE:
-    // - KEEP date range filters
-    // - IGNORE days/radius
-    // - Occurrences = consecutive runs of same location
-    // =========================
     if (singleMode) {
-      // Pick the "anchor" (the one that exists)
-      const anchorPick = p1 || p2;
+      // =========================
+      // SINGLE MODE:
+      // - KEEP date range filters
+      // - IGNORE days/radius
+      // - Occurrences = consecutive runs of same location
+      // =========================
 
-      // Group consecutive runs by "same location"
-      const anchorSlot = p1 ? "p1" : "p2";
-      const anchorEvents = (scheduleBySlot[anchorSlot] || []).slice();
+      const params = new URLSearchParams();
+      params.set("apikey", apiKey);
+      params.set("size", "200");
+      params.set("countryCode", countryCode);
+      params.set("sort", "date,asc");
 
-      // Sort by date to build consecutive runs
-      anchorEvents.sort((a, b) => {
-        if (a.localDate < b.localDate) return -1;
-        if (a.localDate > b.localDate) return 1;
-        return String(a.city || "").localeCompare(String(b.city || ""));
+      if (anchorPick.type === "team") {
+        if (!anchorPick.attractionId && anchorPick.name) {
+          const best = await resolveBestAttraction(apiKey, "Sports", anchorPick.name, countryCode);
+          if (best?.id) anchorPick.attractionId = best.id;
+          debugResolutions.push({ pick: anchorPick, resolved: best || null });
+        }
+        if (anchorPick.attractionId) params.set("attractionId", anchorPick.attractionId);
+        else params.set("keyword", anchorPick.name || "");
+      } else if (anchorPick.type === "artist") {
+        if (anchorPick.attractionId) params.set("attractionId", anchorPick.attractionId);
+        else params.set("keyword", anchorPick.name || "");
+      } else if (anchorPick.type === "genre") {
+        params.set("segmentName", "Music");
+      } else {
+        params.set("keyword", anchorPick.name || "");
+      }
+
+      let events = await fetchEventsByParams(params);
+      events = filterEventsByDateRange(events, startDate, endDate);
+
+      const filtered =
+        anchorPick.type === "genre"
+          ? events.filter((e) => eventMatchesGenreBucket(e, anchorPick.bucket))
+          : events;
+
+      allEvents.push(
+        ...filtered
+          .filter(hasTicketLink)
+          .map((e) => ({
+            ...e,
+            __pick: anchorPick,
+          }))
+      );
+
+      const occurrences = buildOccurrencesSingleByLocationRuns(allEvents);
+
+      const occurrencesForUi = occurrences.map((occ) => {
+        const dates = uniqueSortedDates(occ);
+        const startYMD = dates[0] || null;
+        const endYMD = dates[dates.length - 1] || null;
+        const anchor = getAnchorLatLon(occ);
+        const locKey = locationKeyForEvent(occ?.[0]);
+        return {
+          events: occ,
+          popular: [],
+          meta: { anchor, startYMD, endYMD, mode: "SINGLE_PICK_LOCATION_RUNS", locKey },
+        };
       });
-
-      const occurrences = [];
-      let cur = [];
-
-      function sameLoc(a, b) {
-        if (!a || !b) return false;
-        const ac = `${a.city || ""}|${a.state || ""}|${a.country || ""}`.toLowerCase();
-        const bc = `${b.city || ""}|${b.state || ""}|${b.country || ""}`.toLowerCase();
-        return ac === bc;
-      }
-
-      for (const ev of anchorEvents) {
-        if (!cur.length) {
-          cur.push(ev);
-          continue;
-        }
-        const last = cur[cur.length - 1];
-        if (sameLoc(last, ev)) {
-          cur.push(ev);
-        } else {
-          occurrences.push(cur);
-          cur = [ev];
-        }
-      }
-      if (cur.length) occurrences.push(cur);
-
-      const occurrencesForUi = occurrences.map((occ) => ({
-        events: occ,
-        dates: uniqueSortedDates(occ),
-      }));
 
       return NextResponse.json({
         count: occurrencesForUi.length,
         occurrences: occurrencesForUi,
-        debug: {
-          note:
-            "SINGLE MODE: occurrences are consecutive runs of same location. days/radius are ignored; date range is applied.",
-          singleMode,
-          startDate,
-          endDate,
-          ignored: { userDays, effectiveDays, radiusMiles },
-          origin,
-          anchorPick,
-          resolutions: debugResolutions,
-          counts: {
-            p1: scheduleBySlot.p1.length,
-            p2: scheduleBySlot.p2.length,
-            p3: scheduleBySlot.p3.length,
-          },
-        },
+        debug: debugMode
+          ? {
+              note:
+                "SINGLE MODE: occurrences are consecutive runs of same location. days/radius are ignored; date range is applied.",
+              singleMode,
+              startDate,
+              endDate,
+              ignored: { userDays, effectiveDays, radiusMiles },
+              origin,
+              anchorPick,
+              resolutions: debugResolutions,
+              counts: { fetchedEvents: allEvents.length, occurrences: occurrencesForUi.length },
+              env: { TICKETMASTER_API_KEY: keyDbg },
+            }
+          : undefined,
       });
     }
 
@@ -423,30 +634,108 @@ export async function GET(req) {
     // PLUS: if 0 occurrences => return fallback schedules for UI overlay
     // =========================
 
+    p1.__slot = "p1";
+    p2.__slot = "p2";
+    if (p3) p3.__slot = "p3";
+
+    const picks = [p1, p2, ...(p3 ? [p3] : [])];
+
+    // ✅ collect schedules for p1/p2 so the UI can show "no overlap" overlay
+    const scheduleBySlot = { p1: [], p2: [] };
+
+    for (const pick of picks) {
+      const params = new URLSearchParams();
+      params.set("apikey", apiKey);
+      params.set("size", "200");
+      params.set("countryCode", countryCode);
+      params.set("sort", "date,asc"); // ✅ keep chronological
+
+      if (pick.type === "team") {
+        if (!pick.attractionId && pick.name) {
+          const best = await resolveBestAttraction(apiKey, "Sports", pick.name, countryCode);
+          if (best?.id) pick.attractionId = best.id;
+          debugResolutions.push({ pick, resolved: best || null });
+        }
+        if (pick.attractionId) params.set("attractionId", pick.attractionId);
+        else params.set("keyword", pick.name || "");
+      } else if (pick.type === "artist") {
+        if (pick.attractionId) params.set("attractionId", pick.attractionId);
+        else params.set("keyword", pick.name || "");
+      } else if (pick.type === "genre") {
+        params.set("segmentName", "Music");
+      } else {
+        params.set("keyword", pick.name || "");
+      }
+
+      let events = await fetchEventsByParams(params);
+      events = filterEventsByDateRange(events, startDate, endDate);
+
+      const filtered =
+        pick.type === "genre"
+          ? events.filter((e) => eventMatchesGenreBucket(e, pick.bucket))
+          : events;
+
+      const mapped = filtered
+        .filter(hasTicketLink)
+        .map((e) => ({
+          ...e,
+          __pick: pick,
+        }));
+
+      allEvents.push(...mapped);
+
+      if (pick.__slot === "p1") scheduleBySlot.p1.push(...mapped);
+      if (pick.__slot === "p2") scheduleBySlot.p2.push(...mapped);
+    }
+
     const occurrences = buildOccurrencesByRadiusAndDays(allEvents, radiusMiles, effectiveDays);
 
     const occurrencesForUi = occurrences.map((occ) => {
       const dates = uniqueSortedDates(occ);
-      return { events: occ, dates };
+      const startYMD = dates[0] || null;
+      const endYMD = dates[dates.length - 1] || null;
+      const anchor = getAnchorLatLon(occ);
+      return {
+        events: occ,
+        popular: [],
+        meta: { anchor, startYMD, endYMD },
+      };
     });
 
-    const fallback =
-      occurrencesForUi.length === 0 ? buildFallbackSchedules(scheduleBySlot) : undefined;
+    // ✅ fallback schedules for "0 overlap" UI overlay (P1 != P2)
+    let fallback = undefined;
+    if (occurrencesForUi.length === 0) {
+      const s1 = (scheduleBySlot.p1 || []).slice().sort((a, b) => sortKeyForEvent(a).localeCompare(sortKeyForEvent(b)));
+      const s2 = (scheduleBySlot.p2 || []).slice().sort((a, b) => sortKeyForEvent(a).localeCompare(sortKeyForEvent(b)));
 
-    // Existing debug values
-    const spanDays = occurrencesForUi.length
-      ? diffDaysAbs(occurrencesForUi[0]?.dates?.[0], occurrencesForUi[0]?.dates?.slice(-1)?.[0])
-      : null;
+      const p1Label = labelFromScheduleEvents(p1, s1);
+      const p2Label = labelFromScheduleEvents(p2, s2);
 
-    const maxDiffDays = effectiveDays;
+      fallback = {
+        mode: "NO_OVERLAP_SCHEDULES",
+        schedules: [
+          { label: p1Label, events: s1 },
+          { label: p2Label, events: s2 },
+        ],
+      };
+    }
 
-    const note =
-      "NORMAL MODE: occurrences clustered by days/radius; expects coverage across picks. Fallback schedules returned when 0 occurrences.";
+    const spanDays = Number.isFinite(effectiveDays) ? Math.max(1, Math.floor(effectiveDays)) : 1;
+    const maxDiffDays = Math.max(0, spanDays - 1);
 
-    return NextResponse.json({
+    const debugOccurrenceDates = (occurrences || []).slice(0, 50).map((occ) => {
+      const dates = uniqueSortedDates(occ);
+      return {
+        dates,
+        distinct: dates.length,
+        span: dates.length ? diffDaysAbs(dates[0], dates[dates.length - 1]) : 0,
+      };
+    });
+
+    const payload = {
       count: occurrencesForUi.length,
       occurrences: occurrencesForUi,
-      fallback,
+      fallback, // ✅ added
       debug: {
         userDays,
         effectiveDays,
@@ -458,13 +747,17 @@ export async function GET(req) {
         endDate,
         picks,
         resolutions: debugResolutions,
-        note,
+        note:
+          "Popular nearby events are no longer fetched during /api/search. UI should call /api/nearby only when the user clicks the toggle button.",
+        occurrenceDatesSample: debugOccurrenceDates,
       },
-    });
+    };
+
+    if (debugMode) payload.debug.env = { TICKETMASTER_API_KEY: keyDbg };
+
+    return NextResponse.json(payload);
   } catch (err) {
-    return NextResponse.json(
-      { error: err?.message || "Search failed." },
-      { status: 500 }
-    );
+    console.error(err);
+    return NextResponse.json({ error: "Search failed" }, { status: 500 });
   }
 }
