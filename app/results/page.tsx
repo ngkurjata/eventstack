@@ -13,6 +13,14 @@ type ApiResponse = {
     mode?: string;
     schedules?: Array<{ label: string; events: any[] }>;
   };
+  // ✅ Added: closest pair summary from /api/search when count === 0
+  closest?: {
+    withinDays?: number;
+    miles?: number;
+    daysApart?: number;
+    p1?: { label?: string; date?: string | null; city?: string | null; region?: string | null; venue?: string | null };
+    p2?: { label?: string; date?: string | null; city?: string | null; region?: string | null; venue?: string | null };
+  };
 };
 
 type Airport = {
@@ -82,6 +90,16 @@ function formatRangePretty(startYMD: string, endYMD: string): string {
     return `${sm} ${sd}-${em} ${ed}, ${sy}`;
   }
   return `${sm} ${sd}, ${sy}-${em} ${ed}, ${ey}`;
+}
+
+function formatYMDPretty(ymd: string | null | undefined): string | null {
+  if (!ymd) return null;
+  const dt = parseYMDToUTC(ymd);
+  if (!dt) return null;
+  const m = fmtUTC(dt, { month: "short" });
+  const d = fmtUTC(dt, { day: "numeric" });
+  const y = fmtUTC(dt, { year: "numeric" });
+  return `${m} ${d}, ${y}`;
 }
 
 function ymdToDMY(ymd: string): string | null {
@@ -1370,6 +1388,44 @@ export default function ResultsPage() {
     );
   }
 
+  // ✅ Build the “closest pair” sentence for the No Results card (if provided by API)
+  const closestBlurb = useMemo(() => {
+    const c = data?.closest;
+    if (!c?.p1 || !c?.p2) return null;
+
+    const miles = Number(c.miles);
+    if (!Number.isFinite(miles)) return null;
+
+    const withinDays = Number.isFinite(Number(c.withinDays)) ? Number(c.withinDays) : maxDays;
+
+    const p1Label = String(c.p1.label || "").trim() || "Selection 1";
+    const p2Label = String(c.p2.label || "").trim() || "Selection 2";
+
+    const p1City = String(c.p1.city || "").trim();
+    const p1Region = String(c.p1.region || "").trim();
+    const p2City = String(c.p2.city || "").trim();
+    const p2Region = String(c.p2.region || "").trim();
+
+    const p1Loc = [p1City, p1Region].filter(Boolean).join(", ");
+    const p2Loc = [p2City, p2Region].filter(Boolean).join(", ");
+
+    const p1Date = formatYMDPretty(c.p1.date || null);
+    const p2Date = formatYMDPretty(c.p2.date || null);
+
+    const milesRounded = Math.round(miles);
+
+    const tailParts: string[] = [];
+    if (p1Loc && p1Date) tailParts.push(`${p1Label} are in ${p1Loc} on ${p1Date}`);
+    else if (p1Date) tailParts.push(`${p1Label} play on ${p1Date}`);
+
+    if (p2Loc && p2Date) tailParts.push(`${p2Label} is in ${p2Loc} on ${p2Date}`);
+    else if (p2Date) tailParts.push(`${p2Label} plays on ${p2Date}`);
+
+    const detail = tailParts.length ? ` — which is when ${tailParts.join(" and ")}.` : ".";
+
+    return `Unfortunately, the closest ${p1Label} and ${p2Label} get within ${withinDays} days of each other is ${milesRounded} miles${detail}`;
+  }, [data, maxDays]);
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
       {toastMsg && (
@@ -1396,9 +1452,14 @@ export default function ResultsPage() {
           <div className="max-w-xl mx-auto px-4 py-6">
             <div className="rounded-2xl bg-white shadow-md p-6 text-center">
               <h2 className="text-lg font-semibold text-slate-800">No Results Found</h2>
-              <p className="mt-2 text-sm text-slate-500">
-                Try a different pair, or expand your trip constraints (days / radius).
-              </p>
+
+              {closestBlurb ? (
+                <p className="mt-2 text-sm text-slate-600">{closestBlurb}</p>
+              ) : (
+                <p className="mt-2 text-sm text-slate-500">
+                  Try a different pair, or expand your trip constraints (days / radius).
+                </p>
+              )}
             </div>
           </div>
         )}

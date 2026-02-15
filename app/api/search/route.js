@@ -221,6 +221,103 @@ function haversineMiles(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
+/* ==================== Closest-pair helpers (for 0-occurrence message) ==================== */
+
+function getEventGeo(e) {
+  const v = e?._embedded?.venues?.[0] || null;
+  const latStr = v?.location?.latitude;
+  const lonStr = v?.location?.longitude;
+  const lat = latStr != null ? Number(latStr) : null;
+  const lon = lonStr != null ? Number(lonStr) : null;
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  return { lat, lon };
+}
+
+function summarizeEventForClosest(e, fallbackLabel) {
+  const v = e?._embedded?.venues?.[0] || null;
+  const date = String(e?.dates?.start?.localDate || "").trim() || null;
+  const city = String(v?.city?.name || "").trim() || null;
+
+  const region =
+    String(v?.state?.stateCode || v?.state?.name || v?.country?.countryCode || "")
+      .trim() || null;
+
+  const venue = String(v?.name || "").trim() || null;
+
+  // Prefer the resolved schedule label (p1Label/p2Label) so we show "Edmonton Oilers" even if event.name is verbose.
+  const label = String(fallbackLabel || "").trim() || String(e?.__pick?.name || "").trim() || "Event";
+
+  return { label, date, city, region, venue };
+}
+
+function findClosestPairWithinDays(eventsA, eventsB, maxDiffDays, labelA, labelB) {
+  const A = Array.isArray(eventsA) ? eventsA : [];
+  const B = Array.isArray(eventsB) ? eventsB : [];
+  if (!A.length || !B.length) return null;
+
+  let best = null;
+
+  for (const ea of A) {
+    const da = String(ea?.dates?.start?.localDate || "").trim();
+    if (!isYMD(da)) continue;
+
+    const ga = getEventGeo(ea);
+    if (!ga) continue;
+
+    for (const eb of B) {
+      const db = String(eb?.dates?.start?.localDate || "").trim();
+      if (!isYMD(db)) continue;
+
+      const daysApart = diffDaysAbs(da, db);
+      if (daysApart == null || daysApart > maxDiffDays) continue;
+
+      const gb = getEventGeo(eb);
+      if (!gb) continue;
+
+      const miles = haversineMiles(ga.lat, ga.lon, gb.lat, gb.lon);
+      if (!Number.isFinite(miles)) continue;
+
+      // Tie-breakers:
+      // 1) smaller miles
+      // 2) smaller daysApart
+      // 3) earlier earliest date among the pair
+      const earliest = da < db ? da : db;
+
+      const candidate = {
+        miles,
+        daysApart,
+        p1: summarizeEventForClosest(ea, labelA),
+        p2: summarizeEventForClosest(eb, labelB),
+        _earliest: earliest,
+      };
+
+      if (!best) {
+        best = candidate;
+        continue;
+      }
+
+      if (candidate.miles < best.miles - 1e-9) {
+        best = candidate;
+        continue;
+      }
+      if (Math.abs(candidate.miles - best.miles) <= 1e-9) {
+        if (candidate.daysApart < best.daysApart) {
+          best = candidate;
+          continue;
+        }
+        if (candidate.daysApart === best.daysApart && candidate._earliest < best._earliest) {
+          best = candidate;
+          continue;
+        }
+      }
+    }
+  }
+
+  if (!best) return null;
+  const { _earliest, ...out } = best;
+  return out;
+}
+
 function uniqueSortedDates(events) {
   const s = new Set();
   for (const e of events) {
@@ -704,6 +801,7 @@ export async function GET(req) {
 
     // ✅ fallback schedules for "0 overlap" UI overlay (P1 != P2)
     let fallback = undefined;
+    let closest = undefined;
     if (occurrencesForUi.length === 0) {
       const s1 = (scheduleBySlot.p1 || []).slice().sort((a, b) => sortKeyForEvent(a).localeCompare(sortKeyForEvent(b)));
       const s2 = (scheduleBySlot.p2 || []).slice().sort((a, b) => sortKeyForEvent(a).localeCompare(sortKeyForEvent(b)));
@@ -718,6 +816,21 @@ export async function GET(req) {
           { label: p2Label, events: s2 },
         ],
       };
+
+      // ✅ Also compute the "closest pair" within the user's day constraint,
+      // so the UI can say: "...closest they get within X days is Y miles (with details)."
+      // If the user chooses "5 days", that means date difference <= 4 days.
+      const windowDaysForClosest = Number.isFinite(userDays) ? Math.max(1, Math.floor(userDays)) : 1;
+      const maxDiffDaysForClosest = Math.max(0, windowDaysForClosest - 1);
+
+      const best = findClosestPairWithinDays(s1, s2, maxDiffDaysForClosest, p1Label, p2Label);
+      if (best) {
+        closest = {
+          ...best,
+          // Helpful for copy on the results page:
+          withinDays: windowDaysForClosest,
+        };
+      }
     }
 
     const spanDays = Number.isFinite(effectiveDays) ? Math.max(1, Math.floor(effectiveDays)) : 1;
@@ -736,6 +849,7 @@ export async function GET(req) {
       count: occurrencesForUi.length,
       occurrences: occurrencesForUi,
       fallback, // ✅ added
+      closest,  // ✅ added (when no occurrences)
       debug: {
         userDays,
         effectiveDays,
