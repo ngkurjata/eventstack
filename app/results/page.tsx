@@ -977,7 +977,7 @@ const { occKey, anchor, startYMD, endYMD, candidateDaySet, candidateDays, exclud
           radiusMiles: NEARBY_RADIUS_MILES, // 50
           excludeIds: Array.from(excludeSet),
           sportsLeagues: [...NEARBY_SPORTS_LEAGUES],
-          otherLimit: 5,
+          otherLimit: Math.min(50, Math.max(20, candidateDays.length * 6)),
         }),
       });
 
@@ -996,7 +996,7 @@ const { occKey, anchor, startYMD, endYMD, candidateDaySet, candidateDays, exclud
 
     const batches = await Promise.all(calls);
 
-// Keep a global “first seen” rank so we can choose top 5 OTHER across all anchors
+// Keep a global “first seen” rank so we can do day-bucket picks consistently
 const mergedWithRank: Array<{ ev: any; rank: number }> = [];
 let rank = 0;
 
