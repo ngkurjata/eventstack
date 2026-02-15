@@ -858,8 +858,6 @@ const closestBlurb = useMemo(() => {
   return `Unfortunately, the closest ${p1Label} and ${p2Label} get within ${withinDays} days of each other is ${milesRounded} miles${detail}`;
 }, [data, maxDays]);
 
-
-
   // ✅ UPDATED: per-occurrence nearby lookup (occurrence date range, 50 miles, ALL league games + top 5 other)
   async function fetchNearbyPopularOnce(params: {
     occKey: string;
