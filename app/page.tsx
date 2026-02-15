@@ -21,8 +21,8 @@ const LS_KEY = "eventstack_search_v1";
 
 const PUBLIC_MODE = true;
 const PUBLIC_PRESET = {
-  maxDays: 5,
-  maxRadiusMiles: 200,
+  maxDays: 7,
+  maxRadiusMiles: 300,
   maxSelections: 2,
 } as const;
 
@@ -323,7 +323,9 @@ function Combobox({
                       key={it.option.id}
                       className={[
                         "mt-1 flex cursor-pointer items-center justify-between gap-3 rounded-xl px-3 py-2.5",
-                        isActive ? "bg-slate-900 text-white" : "bg-white text-slate-900 hover:bg-slate-50",
+                        isActive
+                          ? "bg-slate-900 text-white"
+                          : "bg-white text-slate-900 hover:bg-slate-50",
                       ].join(" ")}
                       onMouseEnter={() => setActiveIdx(idx)}
                       onMouseDown={(e) => {
@@ -379,7 +381,9 @@ export default function Page() {
   const [loadError, setLoadError] = useState("");
   const [combined, setCombined] = useState<CombinedOption[]>([]);
 
-  const [daysText, setDaysText] = useState<string>(String(PUBLIC_MODE ? PUBLIC_PRESET.maxDays : 3));
+  const [daysText, setDaysText] = useState<string>(
+    String(PUBLIC_MODE ? PUBLIC_PRESET.maxDays : 3)
+  );
   const [radiusText, setRadiusText] = useState<string>(
     String(PUBLIC_MODE ? PUBLIC_PRESET.maxRadiusMiles : 100)
   );
@@ -463,7 +467,9 @@ export default function Page() {
     const qStartDate = sp.get("startDate") || "";
     const qEndDate = sp.get("endDate") || "";
 
-    const hasAnyUrlState = Boolean(qp1 || qp2 || qp3 || qDays || qRadius || qOrigin || qStartDate || qEndDate);
+    const hasAnyUrlState = Boolean(
+      qp1 || qp2 || qp3 || qDays || qRadius || qOrigin || qStartDate || qEndDate
+    );
 
     const applyState = (next: {
       p1: string;
@@ -519,7 +525,9 @@ export default function Page() {
         p2: String(parsed?.p2 || ""),
         p3: String(parsed?.p3 || ""),
         days: Number.isFinite(Number(parsed?.days)) ? Number(parsed.days) : 3,
-        radiusMiles: Number.isFinite(Number(parsed?.radiusMiles)) ? Number(parsed.radiusMiles) : 100,
+        radiusMiles: Number.isFinite(Number(parsed?.radiusMiles))
+          ? Number(parsed.radiusMiles)
+          : 100,
         origin: String(parsed?.origin || ""),
         startDate: String(parsed?.startDate || ""),
         endDate: String(parsed?.endDate || ""),
@@ -590,50 +598,47 @@ export default function Page() {
   }, [loading, canSearch]);
 
   function onSearch() {
-  if (!p1 && !p2) {
-    alert("Pick at least one Favorite Team/Artist.");
-    return;
+    if (!p1 && !p2) {
+      alert("Pick at least one Favorite Team/Artist.");
+      return;
+    }
+
+    if (!originIata) setOriginErr("");
+
+    // Always send two favorites to results.
+    // If user picked only one, duplicate it so backend logic is consistent.
+    const effectiveP1 = p1 || p2;
+    const effectiveP2 = p2 || p1;
+
+    const parsedDays = safeParseInt(daysText, PUBLIC_MODE ? PUBLIC_PRESET.maxDays : 3);
+    const effectiveDays = PUBLIC_MODE ? clamp(parsedDays, 1, PUBLIC_PRESET.maxDays) : clamp(parsedDays, 1, 30);
+
+    const parsedRadius = safeParseInt(radiusText, PUBLIC_MODE ? PUBLIC_PRESET.maxRadiusMiles : 100);
+    const effectiveRadius = PUBLIC_MODE
+      ? clamp(parsedRadius, 1, PUBLIC_PRESET.maxRadiusMiles)
+      : clamp(parsedRadius, 1, 2000);
+
+    const effectiveP3 = PUBLIC_MODE ? "" : p3;
+
+    const { start: startNorm, end: endNorm } = normalizeDateRange(startDate, endDate);
+
+    const params = new URLSearchParams();
+
+    // IMPORTANT: always set both
+    params.set("p1", effectiveP1);
+    params.set("p2", effectiveP2);
+
+    if (effectiveP3) params.set("p3", effectiveP3);
+
+    params.set("days", String(effectiveDays));
+    params.set("radiusMiles", String(effectiveRadius));
+    params.set("origin", originIata);
+
+    if (isYMD(startNorm)) params.set("startDate", startNorm);
+    if (isYMD(endNorm)) params.set("endDate", endNorm);
+
+    router.push(`/results?${params.toString()}`);
   }
-
-  if (!originIata) setOriginErr("");
-
-  // Always send two favorites to results.
-  // If user picked only one, duplicate it so backend logic is consistent.
-  const effectiveP1 = p1 || p2;
-  const effectiveP2 = p2 || p1;
-
-  const parsedDays = safeParseInt(daysText, PUBLIC_MODE ? PUBLIC_PRESET.maxDays : 3);
-  const effectiveDays = PUBLIC_MODE
-    ? clamp(parsedDays, 1, PUBLIC_PRESET.maxDays)
-    : clamp(parsedDays, 1, 30);
-
-  const parsedRadius = safeParseInt(radiusText, PUBLIC_MODE ? PUBLIC_PRESET.maxRadiusMiles : 100);
-  const effectiveRadius = PUBLIC_MODE
-    ? clamp(parsedRadius, 1, PUBLIC_PRESET.maxRadiusMiles)
-    : clamp(parsedRadius, 1, 2000);
-
-  const effectiveP3 = PUBLIC_MODE ? "" : p3;
-
-  const { start: startNorm, end: endNorm } = normalizeDateRange(startDate, endDate);
-
-  const params = new URLSearchParams();
-
-  // IMPORTANT: always set both
-  params.set("p1", effectiveP1);
-  params.set("p2", effectiveP2);
-
-  if (effectiveP3) params.set("p3", effectiveP3);
-
-  params.set("days", String(effectiveDays));
-  params.set("radiusMiles", String(effectiveRadius));
-  params.set("origin", originIata);
-
-  if (isYMD(startNorm)) params.set("startDate", startNorm);
-  if (isYMD(endNorm)) params.set("endDate", endNorm);
-
-  router.push(`/results?${params.toString()}`);
-}
-
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
@@ -856,7 +861,7 @@ export default function Page() {
           </div>
         </div>
 
-                {loadError ? <div className="mt-6 text-center text-xs text-rose-700">{loadError}</div> : null}
+        {loadError ? <div className="mt-6 text-center text-xs text-rose-700">{loadError}</div> : null}
       </div>
     </main>
   );

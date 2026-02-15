@@ -3,6 +3,12 @@ import { NextResponse } from "next/server";
 
 const TM_EVENTS = "https://app.ticketmaster.com/discovery/v2/events.json";
 
+// Public (no-email) mode presets. Keep backend enforcement in sync with UI + /api/search.
+const PUBLIC_MODE = true;
+const PUBLIC_PRESET = {
+  maxRadiusMiles: 300,
+};
+
 function toISOStartOfDayZ(yyyyMMdd) {
   return yyyyMMdd ? `${yyyyMMdd}T00:00:00Z` : null;
 }
@@ -14,6 +20,20 @@ function toISOEndOfDayZ(yyyyMMdd) {
 function safeNum(v, fallback = null) {
   const n = Number(v);
   return Number.isFinite(n) ? n : fallback;
+}
+
+function clampInt(n, min, max, fallback) {
+  const x = Number(n);
+  if (!Number.isFinite(x)) return fallback;
+  return Math.min(max, Math.max(min, Math.floor(x)));
+}
+
+function clampRadiusMiles(raw) {
+  if (PUBLIC_MODE) {
+    return clampInt(raw ?? PUBLIC_PRESET.maxRadiusMiles, 1, PUBLIC_PRESET.maxRadiusMiles, PUBLIC_PRESET.maxRadiusMiles);
+  }
+  // non-public mode: allow wider range
+  return clampInt(raw ?? 100, 1, 2000, 100);
 }
 
 async function runNearbyLookup({
@@ -38,16 +58,18 @@ async function runNearbyLookup({
   // “Popularity-ish” ranking from TM
   params.set("sort", "relevance,desc");
 
-  params.set("startDateTime", toISOStartOfDayZ(startDate));
-  params.set("endDateTime", toISOEndOfDayZ(endDate));
+  const s = toISOStartOfDayZ(startDate);
+  const e = toISOEndOfDayZ(endDate);
+  if (s) params.set("startDateTime", s);
+  if (e) params.set("endDateTime", e);
 
   const url = `${TM_EVENTS}?${params.toString()}`;
   const res = await fetch(url, { cache: "no-store" });
   const data = await res.json();
 
   const rawEvents = data?._embedded?.events || [];
-  const filtered = rawEvents.filter((e) => {
-    const id = String(e?.id || "");
+  const filtered = rawEvents.filter((ev) => {
+    const id = String(ev?.id || "");
     if (!id) return false;
     if (excludeIds.has(id)) return false;
     return true;
@@ -80,7 +102,9 @@ export async function GET(req) {
 
     const lat = safeNum(searchParams.get("lat"), null);
     const lng = safeNum(searchParams.get("lng"), null);
-    const radiusMiles = safeNum(searchParams.get("radiusMiles"), 100);
+
+    const radiusMiles = clampRadiusMiles(searchParams.get("radiusMiles"));
+
     const startDate = (searchParams.get("startDate") || "").trim(); // YYYY-MM-DD
     const endDate = (searchParams.get("endDate") || "").trim(); // YYYY-MM-DD
 
@@ -131,7 +155,9 @@ export async function POST(req) {
 
     const lat = safeNum(body.lat, null);
     const lng = safeNum(body.lng, null);
-    const radiusMiles = safeNum(body.radiusMiles, 100);
+
+    const radiusMiles = clampRadiusMiles(body.radiusMiles);
+
     const startDate = String(body.startDate || "").trim();
     const endDate = String(body.endDate || "").trim();
 

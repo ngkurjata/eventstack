@@ -25,6 +25,20 @@ type Airport = {
   lon: number | null;
 };
 
+/* -------------------- Public-mode limits (keep in sync with app/page + api/search) -------------------- */
+
+const PUBLIC_MODE = true;
+const PUBLIC_PRESET = {
+  maxDays: 7,
+  maxRadiusMiles: 300,
+} as const;
+
+function clampInt(n: any, min: number, max: number, fallback: number) {
+  const x = Number(n);
+  if (!Number.isFinite(x)) return fallback;
+  return Math.min(max, Math.max(min, Math.floor(x)));
+}
+
 /* -------------------- Query helpers -------------------- */
 
 function stripDeprecatedParams(sp: ReturnType<typeof useSearchParams>) {
@@ -667,16 +681,26 @@ export default function ResultsPage() {
     error?: string;
   };
 
-  const [popularCacheByOcc, setPopularCacheByOcc] = useState<Record<string, PopularCacheEntry>>({});
+  const [popularCacheByOcc, setPopularCacheByOcc] = useState<Record<string, PopularCacheEntry>>(
+    {}
+  );
 
+  // ✅ UPDATED: default + clamp in public mode
   const radiusMiles = useMemo(() => {
-    const n = Number(qs.get("radiusMiles") || 100);
-    return Number.isFinite(n) ? n : 100;
+    const raw = qs.get("radiusMiles");
+    if (PUBLIC_MODE) {
+      return clampInt(raw ?? PUBLIC_PRESET.maxRadiusMiles, 1, PUBLIC_PRESET.maxRadiusMiles, PUBLIC_PRESET.maxRadiusMiles);
+    }
+    return clampInt(raw ?? 100, 1, 2000, 100);
   }, [qsString]);
 
+  // ✅ UPDATED: default + clamp in public mode
   const maxDays = useMemo(() => {
-    const n = Number(qs.get("days") || 5);
-    return Number.isFinite(n) ? Math.max(1, Math.floor(n)) : 5;
+    const raw = qs.get("days");
+    if (PUBLIC_MODE) {
+      return clampInt(raw ?? PUBLIC_PRESET.maxDays, 1, PUBLIC_PRESET.maxDays, PUBLIC_PRESET.maxDays);
+    }
+    return clampInt(raw ?? 5, 1, 30, 5);
   }, [qsString]);
 
   // Determine if we're in "single pick" mode (P1=P2, including links where one is blank)
