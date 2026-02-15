@@ -618,6 +618,33 @@ function samePick(p1Raw: string | null, p2Raw: string | null) {
   return false;
 }
 
+/* ==================== Fallback schedules overlay (P1 != P2, 0 occurrences) ==================== */
+
+function dedupeScheduleEvents(events: any[]) {
+  // same strategy as your main dedupe, just applied to a flat schedule list
+  return dedupeEventsWithinOccurrence(events || []);
+}
+
+function buildMergedFallbackScheduleRows(schedules: Array<{ label: string; events: any[] }>) {
+  const rows: Array<{ src: "p1" | "p2"; e: any }> = [];
+
+  const s0 = schedules?.[0];
+  const s1 = schedules?.[1];
+
+  const p1Events = dedupeScheduleEvents(Array.isArray(s0?.events) ? s0.events : []).filter(
+    (e) => !!eventUrl(e)
+  );
+  const p2Events = dedupeScheduleEvents(Array.isArray(s1?.events) ? s1.events : []).filter(
+    (e) => !!eventUrl(e)
+  );
+
+  for (const e of p1Events) rows.push({ src: "p1", e });
+  for (const e of p2Events) rows.push({ src: "p2", e });
+
+  rows.sort((a, b) => eventSortKey(a.e) - eventSortKey(b.e));
+  return rows;
+}
+
 /* ==================== PAGE ==================== */
 
 export default function ResultsPage() {
@@ -1258,9 +1285,7 @@ export default function ResultsPage() {
                         const dateStr = formatEventDateMMMDDYYYY(d);
                         const timeStr = formatEventTimeLower(t);
                         const parts = [dateStr, timeStr, venueLabel].filter(Boolean);
-                        return parts.length ? (
-                          <div className="truncate">{parts.join(" • ")}</div>
-                        ) : null;
+                        return parts.length ? <div className="truncate">{parts.join(" • ")}</div> : null;
                       })()}
                     </div>
                   </div>
@@ -1286,6 +1311,99 @@ export default function ResultsPage() {
     );
   }
 
+  function renderFallbackSchedulesOverlay() {
+    const schedules = data?.fallback?.schedules;
+    if (!Array.isArray(schedules) || schedules.length < 2) return null;
+
+    const rows = buildMergedFallbackScheduleRows(schedules);
+
+    // derive a decent header location if possible
+    const all = rows.map((r) => r.e);
+    const cityState = getMostCommonCityState(all);
+
+    const p1Label = schedules[0]?.label ? String(schedules[0].label) : "P1";
+    const p2Label = schedules[1]?.label ? String(schedules[1].label) : "P2";
+
+    return (
+      <div className="max-w-5xl mx-auto px-4 py-6">
+        <div className="rounded-3xl overflow-hidden border border-slate-200 bg-white shadow-sm">
+          <div className="px-6 py-5 bg-slate-900 text-white">
+            <div className="text-xl font-extrabold">No overlap occurrences found</div>
+            <div className="mt-1 text-sm text-white/80">
+              Showing both schedules (chronological){cityState ? ` • ${cityState}` : ""}.
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center gap-3 text-xs font-extrabold">
+              <div className="flex items-center gap-2">
+                <span className="inline-block h-3 w-3 rounded-sm bg-slate-100 border border-white/30" />
+                <span className="text-white/90">{p1Label}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="inline-block h-3 w-3 rounded-sm bg-slate-200 border border-white/30" />
+                <span className="text-white/90">{p2Label}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-4 sm:p-6 space-y-3">
+            {rows.length === 0 ? (
+              <div className="rounded-2xl bg-white shadow-md p-6 text-center">
+                <h2 className="text-lg font-semibold text-slate-800">No Results Found</h2>
+                <p className="mt-2 text-sm text-slate-500">
+                  Try adjusting your days, radius, or selections.
+                </p>
+              </div>
+            ) : (
+              rows.map((r, idx) => {
+                const e = r.e;
+                const d = getEventLocalDate(e);
+                const t = getEventLocalTime(e);
+                const venueLabel = eventVenueCityState(e);
+
+                // P1 light, P2 darker (per your prior preference)
+                const rowBg = r.src === "p2" ? "bg-slate-200" : "bg-slate-100";
+                const titleColor = r.src === "p2" ? "text-slate-700" : "text-slate-900";
+                const metaColor = r.src === "p2" ? "text-slate-700" : "text-slate-600";
+
+                return (
+                  <div
+                    key={eventId(e) || `${eventSortKey(e)}-${normalizeTitleForDedup(eventTitle(e))}-${idx}`}
+                    className={cx("rounded-2xl border p-4 flex items-center justify-between gap-4", "border-slate-200", rowBg)}
+                  >
+                    <div className="min-w-0">
+                      <div className={cx("font-extrabold", titleColor)}>{eventTitle(e)}</div>
+                      <div className={cx("mt-1 text-xs", metaColor)}>
+                        {(() => {
+                          const dateStr = formatEventDateMMMDDYYYY(d);
+                          const timeStr = formatEventTimeLower(t);
+                          const parts = [dateStr, timeStr, venueLabel].filter(Boolean);
+                          return parts.length ? <div className="truncate">{parts.join(" • ")}</div> : null;
+                        })()}
+                      </div>
+                    </div>
+
+                    {eventUrl(e) ? (
+                      <a
+                        href={eventUrl(e)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="shrink-0 rounded-full px-4 py-2 text-xs font-extrabold bg-slate-900 text-white hover:bg-slate-800"
+                      >
+                        Tickets
+                      </a>
+                    ) : (
+                      <span className="shrink-0 text-xs text-slate-400">No tickets</span>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
@@ -1305,6 +1423,12 @@ export default function ResultsPage() {
       </main>
     );
   }
+
+  const hasFallbackSchedules =
+    Array.isArray(data?.fallback?.schedules) && (data?.fallback?.schedules?.length || 0) >= 2;
+
+  const showFallbackOverlay =
+    hasSearched && !loading && !errMsg && occurrencesSorted.length === 0 && !sameEntityMode && hasFallbackSchedules;
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
@@ -1328,7 +1452,11 @@ export default function ResultsPage() {
       </div>
 
       <div className="pb-10">
-        {hasSearched && !loading && !errMsg && occurrencesSorted.length === 0 && (
+        {/* ✅ When P1 != P2 and no occurrences, show merged fallback schedules (old behavior) */}
+        {showFallbackOverlay ? renderFallbackSchedulesOverlay() : null}
+
+        {/* Otherwise, keep your existing empty-state */}
+        {hasSearched && !loading && !errMsg && occurrencesSorted.length === 0 && !showFallbackOverlay && (
           <div className="max-w-xl mx-auto px-4 py-6">
             <div className="rounded-2xl bg-white shadow-md p-6 text-center">
               <h2 className="text-lg font-semibold text-slate-800">No Results Found</h2>

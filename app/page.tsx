@@ -640,7 +640,7 @@ export default function Page() {
       <div className="mx-auto max-w-3xl px-4 py-10 sm:py-14">
         <header className="mb-8">
           <h1 className="text-center text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
-            Find and book an epic trip!
+            Find and book epic trip!
           </h1>
           <p className="mt-7 text-center text-sm text-slate-600 sm:text-base">
             We help users quickly find and book epic trip opportunities based on their favorite teams and artists.
@@ -856,11 +856,7 @@ export default function Page() {
           </div>
         </div>
 
-        <footer className="mt-7 text-center text-sm text-slate-600 sm:text-base">
-          The next page will show you some epic trip opportunities (within your indicated trip constraints).
-        </footer>
-
-        {loadError ? <div className="mt-6 text-center text-xs text-rose-700">{loadError}</div> : null}
+                {loadError ? <div className="mt-6 text-center text-xs text-rose-700">{loadError}</div> : null}
       </div>
     </main>
   );
