@@ -1466,6 +1466,13 @@ fetchNearbyPopularOnce({
                   }}
                 />
               </div>
+
+              <div className="mt-2 text-[11px] leading-snug text-white/70 sm:text-right sm:max-w-[360px] sm:ml-auto">
+  Flight / Check In / Check Out dates are based on Primary Events and do not include Popular Events Nearby.
+</div>
+
+
+
             </div>
           </div>
 
