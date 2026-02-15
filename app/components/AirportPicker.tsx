@@ -139,7 +139,7 @@ export function AirportPicker(props: {
 />
       {/* Always show helper text */}
       <div className="mt-2 text-xs text-slate-600">
-  Ultimately booking your trip will be WAY easier if you tell use which airport you'd likely be flying from.
+  Booking your trip will be WAY easier if you input which airport you'd likely be flying from.
 </div>
 
       {isOpen ? (

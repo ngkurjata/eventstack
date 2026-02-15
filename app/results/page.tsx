@@ -166,27 +166,6 @@ function formatEventDateMMMDDYYYY(d: string | null) {
   return `${mm} ${dd}`;
 }
 
-function formatEventTime(t: string | null) {
-  if (!t) return "";
-  const m = /^(\d{2}):(\d{2})/.exec(t);
-  if (!m) return t;
-  let hh = +m[1];
-  const mm = m[2];
-  const ampm = hh >= 12 ? "PM" : "AM";
-  hh = hh % 12;
-  if (hh === 0) hh = 12;
-  return `${hh}:${mm} ${ampm}`;
-}
-
-function formatEventDateMMMDDYY(d: string | null) {
-  const dt = d ? parseYMDToUTC(d) : null;
-  if (!dt) return "";
-  const mm = fmtUTC(dt, { month: "short" });
-  const dd = fmtUTC(dt, { day: "2-digit" });
-  const yy = fmtUTC(dt, { year: "2-digit" });
-  return `${mm}-${dd}-${yy}`; // e.g., Feb-28-26
-}
-
 function formatEventTimeLower(t: string | null) {
   if (!t) return "";
   const m = /^(\d{2}):(\d{2})/.exec(t);
@@ -621,7 +600,6 @@ function samePick(p1Raw: string | null, p2Raw: string | null) {
 /* ==================== Fallback schedules overlay (P1 != P2, 0 occurrences) ==================== */
 
 function dedupeScheduleEvents(events: any[]) {
-  // same strategy as your main dedupe, just applied to a flat schedule list
   return dedupeEventsWithinOccurrence(events || []);
 }
 
@@ -672,6 +650,9 @@ export default function ResultsPage() {
 
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const toastTimer = useRef<number | null>(null);
+
+  // ✅ NEW: true overlay/modal for the "no overlap" schedule view
+  const [showNoOverlapModal, setShowNoOverlapModal] = useState(false);
 
   function showToast(msg: string) {
     setToastMsg(msg);
@@ -751,7 +732,6 @@ export default function ResultsPage() {
 
   const occurrencesRaw = useMemo(() => data?.occurrences || [], [data]);
 
-  // ✅ Key fix:
   // If P1=P2 and API yields no occurrences but does return fallback schedules,
   // convert schedule → occurrences client-side using the same days/radius logic.
   const occurrencesEffective = useMemo(() => {
@@ -815,6 +795,39 @@ export default function ResultsPage() {
   }, [qsString]);
 
   const errMsg = data?.error || null;
+
+  // ✅ NEW: stronger “P1 and P2 are both filled and different” check
+  const p1Filled = useMemo(() => !!(qs.get("p1") || "").trim(), [qsString]);
+  const p2Filled = useMemo(() => !!(qs.get("p2") || "").trim(), [qsString]);
+
+  const hasFallbackSchedules =
+    Array.isArray(data?.fallback?.schedules) && (data?.fallback?.schedules?.length || 0) >= 2;
+
+  const shouldShowNoOverlapModal =
+    hasSearched &&
+    !loading &&
+    !errMsg &&
+    occCount === 0 &&
+    p1Filled &&
+    p2Filled &&
+    !sameEntityMode &&
+    hasFallbackSchedules;
+
+  // ✅ NEW: auto-open the modal when we hit the “no overlap” condition
+  useEffect(() => {
+    if (shouldShowNoOverlapModal) setShowNoOverlapModal(true);
+    else setShowNoOverlapModal(false);
+  }, [shouldShowNoOverlapModal]);
+
+  // ✅ NEW: ESC to close
+  useEffect(() => {
+    if (!showNoOverlapModal) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setShowNoOverlapModal(false);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showNoOverlapModal]);
 
   async function fetchNearbyPopularOnce(params: {
     occKey: string;
@@ -1070,11 +1083,7 @@ export default function ResultsPage() {
     });
 
     const flightsUrl =
-      originIata &&
-      /^[A-Z]{3}$/.test(originIata) &&
-      destIata &&
-      checkInYMD &&
-      checkOutYMD
+      originIata && destIata && checkInYMD && checkOutYMD
         ? buildExpediaFlightsOnlyUrl({
             fromIata: originIata,
             toIata: destIata,
@@ -1084,11 +1093,7 @@ export default function ResultsPage() {
         : null;
 
     const packagesUrl =
-      originIata &&
-      /^[A-Z]{3}$/.test(originIata) &&
-      (destIata || cityState) &&
-      checkInYMD &&
-      checkOutYMD
+      originIata && (destIata || cityState) && checkInYMD && checkOutYMD
         ? buildExpediaFlightHotelPackageUrl({
             fromAirport: originIata,
             destination: destIata || (cityState as string),
@@ -1285,7 +1290,9 @@ export default function ResultsPage() {
                         const dateStr = formatEventDateMMMDDYYYY(d);
                         const timeStr = formatEventTimeLower(t);
                         const parts = [dateStr, timeStr, venueLabel].filter(Boolean);
-                        return parts.length ? <div className="truncate">{parts.join(" • ")}</div> : null;
+                        return parts.length ? (
+                          <div className="truncate">{parts.join(" • ")}</div>
+                        ) : null;
                       })()}
                     </div>
                   </div>
@@ -1311,13 +1318,15 @@ export default function ResultsPage() {
     );
   }
 
-  function renderFallbackSchedulesOverlay() {
+  // ✅ NEW: this is now a true modal overlay (fixed + backdrop)
+  function renderNoOverlapSchedulesModal() {
+    if (!showNoOverlapModal) return null;
+
     const schedules = data?.fallback?.schedules;
     if (!Array.isArray(schedules) || schedules.length < 2) return null;
 
     const rows = buildMergedFallbackScheduleRows(schedules);
 
-    // derive a decent header location if possible
     const all = rows.map((r) => r.e);
     const cityState = getMostCommonCityState(all);
 
@@ -1325,27 +1334,48 @@ export default function ResultsPage() {
     const p2Label = schedules[1]?.label ? String(schedules[1].label) : "P2";
 
     return (
-      <div className="max-w-5xl mx-auto px-4 py-6">
-        <div className="rounded-3xl overflow-hidden border border-slate-200 bg-white shadow-sm">
-          <div className="px-6 py-5 bg-slate-900 text-white">
-            <div className="text-xl font-extrabold">No overlap occurrences found</div>
-            <div className="mt-1 text-sm text-white/80">
-              Showing both schedules (chronological){cityState ? ` • ${cityState}` : ""}.
-            </div>
+      <div className="fixed inset-0 z-50">
+        {/* Backdrop */}
+        <button
+          type="button"
+          aria-label="Close schedules"
+          className="absolute inset-0 bg-black/50"
+          onClick={() => setShowNoOverlapModal(false)}
+        />
 
-            <div className="mt-4 flex flex-wrap items-center gap-3 text-xs font-extrabold">
-              <div className="flex items-center gap-2">
-                <span className="inline-block h-3 w-3 rounded-sm bg-slate-100 border border-white/30" />
-                <span className="text-white/90">{p1Label}</span>
+        {/* Modal */}
+        <div className="relative mx-auto mt-10 w-[min(980px,92vw)] max-h-[85vh] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+          <div className="px-6 py-5 bg-slate-900 text-white">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <div className="text-xl font-extrabold">No overlap occurrences found</div>
+                <div className="mt-1 text-sm text-white/80 truncate">
+                  Showing both schedules (chronological){cityState ? ` • ${cityState}` : ""}.
+                </div>
+
+                <div className="mt-4 flex flex-wrap items-center gap-3 text-xs font-extrabold">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-block h-3 w-3 rounded-sm bg-slate-100 border border-white/30" />
+                    <span className="text-white/90">{p1Label}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-block h-3 w-3 rounded-sm bg-slate-200 border border-white/30" />
+                    <span className="text-white/90">{p2Label}</span>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="inline-block h-3 w-3 rounded-sm bg-slate-200 border border-white/30" />
-                <span className="text-white/90">{p2Label}</span>
-              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowNoOverlapModal(false)}
+                className="shrink-0 rounded-2xl px-4 py-2 text-xs font-black tracking-wide bg-white text-slate-900 shadow-lg shadow-black/25 ring-1 ring-white/30 hover:-translate-y-px hover:shadow-xl"
+              >
+                CLOSE
+              </button>
             </div>
           </div>
 
-          <div className="p-4 sm:p-6 space-y-3">
+          <div className="p-4 sm:p-6 space-y-3 overflow-auto max-h-[calc(85vh-112px)]">
             {rows.length === 0 ? (
               <div className="rounded-2xl bg-white shadow-md p-6 text-center">
                 <h2 className="text-lg font-semibold text-slate-800">No Results Found</h2>
@@ -1360,15 +1390,22 @@ export default function ResultsPage() {
                 const t = getEventLocalTime(e);
                 const venueLabel = eventVenueCityState(e);
 
-                // P1 light, P2 darker (per your prior preference)
+                // P1 light, P2 darker
                 const rowBg = r.src === "p2" ? "bg-slate-200" : "bg-slate-100";
                 const titleColor = r.src === "p2" ? "text-slate-700" : "text-slate-900";
                 const metaColor = r.src === "p2" ? "text-slate-700" : "text-slate-600";
 
                 return (
                   <div
-                    key={eventId(e) || `${eventSortKey(e)}-${normalizeTitleForDedup(eventTitle(e))}-${idx}`}
-                    className={cx("rounded-2xl border p-4 flex items-center justify-between gap-4", "border-slate-200", rowBg)}
+                    key={
+                      eventId(e) ||
+                      `${eventSortKey(e)}-${normalizeTitleForDedup(eventTitle(e))}-${idx}`
+                    }
+                    className={cx(
+                      "rounded-2xl border p-4 flex items-center justify-between gap-4",
+                      "border-slate-200",
+                      rowBg
+                    )}
                   >
                     <div className="min-w-0">
                       <div className={cx("font-extrabold", titleColor)}>{eventTitle(e)}</div>
@@ -1377,7 +1414,9 @@ export default function ResultsPage() {
                           const dateStr = formatEventDateMMMDDYYYY(d);
                           const timeStr = formatEventTimeLower(t);
                           const parts = [dateStr, timeStr, venueLabel].filter(Boolean);
-                          return parts.length ? <div className="truncate">{parts.join(" • ")}</div> : null;
+                          return parts.length ? (
+                            <div className="truncate">{parts.join(" • ")}</div>
+                          ) : null;
                         })()}
                       </div>
                     </div>
@@ -1424,12 +1463,6 @@ export default function ResultsPage() {
     );
   }
 
-  const hasFallbackSchedules =
-    Array.isArray(data?.fallback?.schedules) && (data?.fallback?.schedules?.length || 0) >= 2;
-
-  const showFallbackOverlay =
-    hasSearched && !loading && !errMsg && occurrencesSorted.length === 0 && !sameEntityMode && hasFallbackSchedules;
-
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
       {toastMsg && (
@@ -1439,6 +1472,9 @@ export default function ResultsPage() {
           </div>
         </div>
       )}
+
+      {/* ✅ NEW: schedule overlay modal */}
+      {renderNoOverlapSchedulesModal()}
 
       <div className="max-w-5xl mx-auto px-4 pt-6 pb-3 flex items-center justify-end">
         <button
@@ -1452,11 +1488,8 @@ export default function ResultsPage() {
       </div>
 
       <div className="pb-10">
-        {/* ✅ When P1 != P2 and no occurrences, show merged fallback schedules (old behavior) */}
-        {showFallbackOverlay ? renderFallbackSchedulesOverlay() : null}
-
-        {/* Otherwise, keep your existing empty-state */}
-        {hasSearched && !loading && !errMsg && occurrencesSorted.length === 0 && !showFallbackOverlay && (
+        {/* If we have 0 occurrences and NO fallback schedules, keep empty-state */}
+        {hasSearched && !loading && !errMsg && occCount === 0 && !shouldShowNoOverlapModal && (
           <div className="max-w-xl mx-auto px-4 py-6">
             <div className="rounded-2xl bg-white shadow-md p-6 text-center">
               <h2 className="text-lg font-semibold text-slate-800">No Results Found</h2>
