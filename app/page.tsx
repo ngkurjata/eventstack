@@ -19,7 +19,6 @@ type MenuItem =
 
 const LS_KEY = "eventstack_search_v1";
 
-// Public (no-email) mode presets. Keep the underlying logic flexible for future signed-in users.
 const PUBLIC_MODE = true;
 const PUBLIC_PRESET = {
   maxDays: 5,
@@ -73,7 +72,6 @@ function buildGroupedListForQuery(
     const matches = opts.filter((o) => o.label.toLowerCase().includes(q)).slice(0, 25);
 
     if (matches.length) {
-      // kept for future ability to show headers, but we don't render them
       items.push({ type: "group", group });
       for (const option of matches) items.push({ type: "item", group, option });
     }
@@ -102,7 +100,7 @@ function useOutsideClick<T extends HTMLElement>(
 
 function Combobox({
   label,
-  required, // kept for future; not rendered as "Required"
+  required,
   optionsAll,
   grouped,
   groups,
@@ -126,18 +124,14 @@ function Combobox({
 
   const [open, setOpen] = useState(false);
 
-  // query drives filtering; inputValue is what user sees/edits
   const [query, setQuery] = useState("");
   const [inputValue, setInputValue] = useState("");
   const [activeIdx, setActiveIdx] = useState<number>(-1);
 
   const selectedLabel = useMemo(() => labelForId(valueId, optionsAll), [valueId, optionsAll]);
 
-  const menuItems = useMemo(() => {
-    return buildGroupedListForQuery(query, grouped, groups);
-  }, [query, grouped, groups]);
+  const menuItems = useMemo(() => buildGroupedListForQuery(query, grouped, groups), [query, grouped, groups]);
 
-  // When selection changes or menu closes, reflect selected label in input.
   useEffect(() => {
     if (!open) {
       setInputValue(selectedLabel);
@@ -146,7 +140,6 @@ function Combobox({
     }
   }, [selectedLabel, open]);
 
-  // If we become disabled, close menu and reset query/active.
   useEffect(() => {
     if (disabled) {
       setOpen(false);
@@ -182,7 +175,6 @@ function Combobox({
     if (disabled) return;
 
     if (!open && (e.key === "ArrowDown" || e.key === "Enter")) {
-      // Only allow opening the menu via keyboard if user has typed at least 1 character.
       if (inputValue.trim().length > 0) {
         setQuery(inputValue);
         setOpen(true);
@@ -196,7 +188,6 @@ function Combobox({
       return;
     }
 
-    // Tab commits highlighted option (if any) and lets the browser move focus naturally
     if (e.key === "Tab") {
       const it = menuItems[activeIdx];
       if (it && it.type === "item") {
@@ -248,12 +239,10 @@ function Combobox({
 
   return (
     <div ref={wrapRef} className="w-full">
-      {/* Header row: label left, help right */}
       <div className="mb-2 flex items-end justify-between gap-3">
         <div className="flex items-baseline gap-2">
           <div className="text-sm font-semibold text-slate-900">{label}</div>
         </div>
-
         {help ? <div className="hidden text-xs text-slate-500 sm:block">{help}</div> : null}
       </div>
 
@@ -322,7 +311,6 @@ function Combobox({
                 <div className="px-3 py-3 text-sm text-slate-500">No matches.</div>
               ) : (
                 menuItems.map((it, idx) => {
-                  // Remove group headers (NHL/NBA/ARTISTS etc.)
                   if (it.type === "group") return null;
 
                   const isActive = idx === activeIdx;
@@ -348,7 +336,6 @@ function Combobox({
                         </div>
                       </div>
 
-                      {/* keep the right-side league label */}
                       <div
                         className={[
                           "shrink-0 text-xs font-bold",
@@ -371,8 +358,7 @@ function Combobox({
   );
 }
 
-/* ==================== Date helpers (client-side only) ==================== */
-
+// ---- Date helpers (client-side only) ----
 function isYMD(s: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(s || ""));
 }
@@ -397,7 +383,6 @@ export default function Page() {
     String(PUBLIC_MODE ? PUBLIC_PRESET.maxRadiusMiles : 100)
   );
 
-  // ✅ NEW: optional date range (YYYY-MM-DD)
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
 
@@ -474,7 +459,6 @@ export default function Page() {
     const qRadius = sp.get("radiusMiles");
     const qOrigin = sp.get("origin") || "";
 
-    // ✅ NEW: URL date filters
     const qStartDate = sp.get("startDate") || "";
     const qEndDate = sp.get("endDate") || "";
 
@@ -536,9 +520,7 @@ export default function Page() {
         p2: String(parsed?.p2 || ""),
         p3: String(parsed?.p3 || ""),
         days: Number.isFinite(Number(parsed?.days)) ? Number(parsed.days) : 3,
-        radiusMiles: Number.isFinite(Number(parsed?.radiusMiles))
-          ? Number(parsed.radiusMiles)
-          : 100,
+        radiusMiles: Number.isFinite(Number(parsed?.radiusMiles)) ? Number(parsed.radiusMiles) : 100,
         origin: String(parsed?.origin || ""),
         startDate: String(parsed?.startDate || ""),
         endDate: String(parsed?.endDate || ""),
@@ -547,6 +529,10 @@ export default function Page() {
       // ignore
     }
   }, [sp]);
+
+  // SINGLE-FAVORITE MODE (client-side): one filled, or both same
+  const singleFavoriteMode =
+    (!!p1 && !p2) || (!p1 && !!p2) || (!!p1 && !!p2 && p1 === p2);
 
   useEffect(() => {
     if (!didInitRef.current) return;
@@ -579,8 +565,6 @@ export default function Page() {
     qs.set("days", String(effective.days));
     qs.set("radiusMiles", String(effective.radiusMiles));
     if (effective.origin) qs.set("origin", effective.origin);
-
-    // ✅ NEW: optional dates into URL
     if (effective.startDate) qs.set("startDate", effective.startDate);
     if (effective.endDate) qs.set("endDate", effective.endDate);
 
@@ -593,11 +577,8 @@ export default function Page() {
     if (p3) setP3("");
   }, [p3]);
 
-  // ✅ CHANGE: allow search if either p1 OR p2 is filled
+  // ✅ allow search with either pick
   const canSearch = Boolean(p1 || p2);
-
-  // Tooltip text: now we only require at least one pick
-  const needsAnyPick = !canSearch;
 
   useEffect(() => {
     if (!loading && canSearch) {
@@ -608,15 +589,15 @@ export default function Page() {
   }, [loading, canSearch]);
 
   function onSearch() {
-    // ✅ CHANGE: only block if both empty
     if (!p1 && !p2) {
-      alert("Pick at least one Favorite (either #1 or #2).");
+      alert("Pick at least one Favorite Team/Artist.");
       return;
     }
 
-    // Airport is optional; flights/buttons will be disabled on results if missing.
     if (!originIata) setOriginErr("");
 
+    // In single-favorite mode, backend ignores days/radius anyway.
+    // We still send clamped values (keeps URLs stable).
     const parsedDays = safeParseInt(daysText, PUBLIC_MODE ? PUBLIC_PRESET.maxDays : 3);
     const effectiveDays = PUBLIC_MODE ? clamp(parsedDays, 1, PUBLIC_PRESET.maxDays) : clamp(parsedDays, 1, 30);
 
@@ -630,20 +611,14 @@ export default function Page() {
     const { start: startNorm, end: endNorm } = normalizeDateRange(startDate, endDate);
 
     const params = new URLSearchParams();
-
-    // ✅ Keep sending whatever user provided; backend mirrors if one is blank.
     if (p1) params.set("p1", p1);
     if (p2) params.set("p2", p2);
-
-    // If user only filled #2, we still send p2 only; backend mirrors.
-    // (Leaving as-is gives a clean UX and keeps URLs honest.)
-
     if (effectiveP3) params.set("p3", effectiveP3);
+
     params.set("days", String(effectiveDays));
     params.set("radiusMiles", String(effectiveRadius));
     params.set("origin", originIata);
 
-    // ✅ NEW: optional date filters
     if (isYMD(startNorm)) params.set("startDate", startNorm);
     if (isYMD(endNorm)) params.set("endDate", endNorm);
 
@@ -665,13 +640,13 @@ export default function Page() {
         <div className="space-y-6">
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="mb-4 flex items-end justify-between gap-3">
-              <div className="text-lg font-extrabold text-slate-900">Pick up to 2 of your favorites</div>
+              <div className="text-lg font-extrabold text-slate-900">Pick 1 or 2 favorites</div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <Combobox
                 label="Favorite Team/Artist #1"
-                required={false}
+                required
                 optionsAll={combined}
                 grouped={grouped}
                 groups={groups}
@@ -682,7 +657,7 @@ export default function Page() {
               />
               <Combobox
                 label="Favorite Team/Artist #2"
-                required={false}
+                required
                 optionsAll={combined}
                 grouped={grouped}
                 groups={groups}
@@ -692,6 +667,16 @@ export default function Page() {
                 disabled={loading}
               />
             </div>
+
+            {singleFavoriteMode ? (
+              <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                <div className="font-extrabold text-slate-900">Single-favorite mode</div>
+                <div className="mt-1">
+                  We’ll group results by <span className="font-semibold">location runs</span> (same city/venue)
+                  and ignore days/radius. Date range filters still apply.
+                </div>
+              </div>
+            ) : null}
 
             {!PUBLIC_MODE && (
               <div className="mt-4">
@@ -712,7 +697,6 @@ export default function Page() {
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="text-lg font-extrabold text-slate-900">Trip constraints</div>
 
-            {/* Optional date range */}
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <label className="block">
                 <div className="mb-2 text-sm font-semibold text-slate-900">Start date (optional)</div>
@@ -723,7 +707,7 @@ export default function Page() {
                   onChange={(e) => setStartDate(e.target.value)}
                 />
                 <div className="mt-2 text-xs text-slate-500">
-                  If set, results include events on/after this date.
+                  If set, results will only include events on/after this date.
                 </div>
               </label>
 
@@ -736,7 +720,7 @@ export default function Page() {
                   onChange={(e) => setEndDate(e.target.value)}
                 />
                 <div className="mt-2 text-xs text-slate-500">
-                  If set, results include events on/before this date.
+                  If set, results will only include events on/before this date.
                 </div>
               </label>
             </div>
@@ -747,16 +731,24 @@ export default function Page() {
                   Max trip length (# of Days)
                 </div>
                 <input
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-[15px] text-slate-900 shadow-sm outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                  disabled={singleFavoriteMode}
+                  className={[
+                    "w-full rounded-xl border px-4 py-3 text-[15px] shadow-sm outline-none",
+                    singleFavoriteMode
+                      ? "bg-slate-50 text-slate-500 border-slate-200 cursor-not-allowed"
+                      : "border-slate-200 bg-white text-slate-900 focus:border-slate-400 focus:ring-4 focus:ring-slate-100",
+                  ].join(" ")}
                   type="text"
                   inputMode="numeric"
                   pattern="[0-9]*"
                   value={daysText}
                   onFocus={(e) => {
+                    if (singleFavoriteMode) return;
                     const el = e.currentTarget as HTMLInputElement | HTMLTextAreaElement | null;
                     requestAnimationFrame(() => el?.select());
                   }}
                   onChange={(e) => {
+                    if (singleFavoriteMode) return;
                     const next = e.target.value;
                     if (next === "") {
                       setDaysText("");
@@ -765,13 +757,18 @@ export default function Page() {
                     if (/^\d+$/.test(next)) setDaysText(next);
                   }}
                   onBlur={() => {
+                    if (singleFavoriteMode) return;
                     const parsed = safeParseInt(daysText, PUBLIC_MODE ? PUBLIC_PRESET.maxDays : 3);
-                    const clamped = PUBLIC_MODE ? clamp(parsed, 1, PUBLIC_PRESET.maxDays) : clamp(parsed, 1, 30);
+                    const clamped = PUBLIC_MODE
+                      ? clamp(parsed, 1, PUBLIC_PRESET.maxDays)
+                      : clamp(parsed, 1, 30);
                     setDaysText(String(clamped));
                   }}
                 />
                 <div className="mt-2 text-xs text-slate-500">
-                  {PUBLIC_MODE
+                  {singleFavoriteMode
+                    ? "Disabled in single-favorite mode (grouping is by location runs)."
+                    : PUBLIC_MODE
                     ? `Cannot be greater than ${PUBLIC_PRESET.maxDays} days.`
                     : "Example: “2” means events within a 2-day window."}
                 </div>
@@ -782,16 +779,24 @@ export default function Page() {
                   Max distance between events (# of Miles)
                 </div>
                 <input
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-[15px] text-slate-900 shadow-sm outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                  disabled={singleFavoriteMode}
+                  className={[
+                    "w-full rounded-xl border px-4 py-3 text-[15px] shadow-sm outline-none",
+                    singleFavoriteMode
+                      ? "bg-slate-50 text-slate-500 border-slate-200 cursor-not-allowed"
+                      : "border-slate-200 bg-white text-slate-900 focus:border-slate-400 focus:ring-4 focus:ring-slate-100",
+                  ].join(" ")}
                   type="text"
                   inputMode="numeric"
                   pattern="[0-9]*"
                   value={radiusText}
                   onFocus={(e) => {
+                    if (singleFavoriteMode) return;
                     const el = e.currentTarget as HTMLInputElement | HTMLTextAreaElement | null;
                     requestAnimationFrame(() => el?.select());
                   }}
                   onChange={(e) => {
+                    if (singleFavoriteMode) return;
                     const next = e.target.value;
                     if (next === "") {
                       setRadiusText("");
@@ -800,6 +805,7 @@ export default function Page() {
                     if (/^\d+$/.test(next)) setRadiusText(next);
                   }}
                   onBlur={() => {
+                    if (singleFavoriteMode) return;
                     const parsed = safeParseInt(radiusText, PUBLIC_MODE ? PUBLIC_PRESET.maxRadiusMiles : 100);
                     const clamped = PUBLIC_MODE
                       ? clamp(parsed, 1, PUBLIC_PRESET.maxRadiusMiles)
@@ -808,7 +814,9 @@ export default function Page() {
                   }}
                 />
                 <div className="mt-2 text-xs text-slate-500">
-                  {PUBLIC_MODE
+                  {singleFavoriteMode
+                    ? "Disabled in single-favorite mode (grouping is by location runs)."
+                    : PUBLIC_MODE
                     ? `Cannot be greater than ${PUBLIC_PRESET.maxRadiusMiles} miles.`
                     : "How far you’re willing to travel between events."}
                 </div>
@@ -838,9 +846,11 @@ export default function Page() {
               onClick={onSearch}
               disabled={!canSearch || loading}
               title={
-                needsAnyPick
-                  ? "Pick at least one Favorite (#1 or #2) to enable Search."
-                  : "Search for occurrences"
+                !canSearch
+                  ? "Pick at least one Favorite to enable Search."
+                  : singleFavoriteMode
+                  ? "Search (single-favorite mode: grouped by location runs)"
+                  : "Search for overlap occurrences"
               }
               className={[
                 "rounded-2xl px-5 py-3 text-sm font-extrabold shadow-sm transition",
