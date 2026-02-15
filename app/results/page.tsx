@@ -152,6 +152,26 @@ function addDaysUTC(ymd: string, deltaDays: number): string | null {
   return `${y}-${m}-${d}`;
 }
 
+function buildCandidateDaysFromMainEvents(mainEvents: any[]) {
+  const daySet = new Set<string>();
+
+  for (const e of mainEvents || []) {
+    const d = getEventLocalDate(e);
+    if (!d) continue;
+
+    for (const delta of [-2, -1, 0, 1, 2]) {
+      const dd = addDaysUTC(d, delta);
+      if (dd) daySet.add(dd);
+    }
+  }
+
+  const days = Array.from(daySet).sort(); // YYYY-MM-DD sorts chronologically
+  const startYMD = days[0] ?? null;
+  const endYMD = days.length ? days[days.length - 1] : startYMD;
+
+  return { daySet, days, startYMD, endYMD };
+}
+
 /* -------------------- Expedia deep links -------------------- */
 
 function buildExpediaHotelSearchUrl(opts: {
@@ -894,15 +914,19 @@ const closestBlurb = buildClosestBlurb(data?.closest, maxDays);
 // ✅ UPDATED: per-occurrence nearby lookup
 // Pull nearby events within 50 miles of *every* main event in the occurrence,
 // then merge + dedupe (overlapping circles create duplicates).
+
 async function fetchNearbyPopularOnce(params: {
   occKey: string;
   anchor: { lat: number; lng: number } | null;
   startYMD: string | null;
   endYMD: string | null;
+  candidateDaySet: Set<string>;
+  candidateDays: string[];
   excludeIds: string[];
   mainEvents: any[];
 }) {
-  const { occKey, anchor, startYMD, endYMD, excludeIds, mainEvents } = params;
+
+const { occKey, anchor, startYMD, endYMD, candidateDaySet, candidateDays, excludeIds, mainEvents } = params;
 
   setPopularCacheByOcc((prev) => {
     const cur = prev[occKey];
@@ -1005,22 +1029,58 @@ for (const { ev, rank } of filteredWithRank) {
   uniqueWithRank.push({ ev, rank });
 }
 
-// 3) Split into sports vs other
-const sportsAll: any[] = [];
-const otherAll: Array<{ ev: any; rank: number }> = [];
+// 3) Keep only events that fall on our candidate days (±2 around every main event day)
+const filteredToCandidateDays = uniqueWithRank.filter(({ ev }) => {
+  const d = getEventLocalDate(ev);
+  return d ? candidateDaySet.has(d) : false;
+});
 
-for (const item of uniqueWithRank) {
-  const tag = getLeagueTagFromEventClient(item.ev);
-  if (tag) sportsAll.push(item.ev);
-  else otherAll.push(item);
+// 4) Bucket by day, preserving earliest “rank” ordering
+const byDay = new Map<string, Array<{ ev: any; rank: number; isSport: boolean }>>();
+
+for (const item of filteredToCandidateDays) {
+  const d = getEventLocalDate(item.ev);
+  if (!d) continue;
+
+  const isSport = !!getLeagueTagFromEventClient(item.ev);
+  const arr = byDay.get(d) || [];
+  arr.push({ ev: item.ev, rank: item.rank, isSport });
+  byDay.set(d, arr);
 }
 
-// 4) Choose top 5 OTHER overall (by earliest “first seen” rank)
-otherAll.sort((a, b) => a.rank - b.rank);
-const otherTop5 = otherAll.slice(0, 5).map((x) => x.ev);
+// 5) Pick up to 2 events per day (sports first within the day), global dedupe across days
+const finalPicked: any[] = [];
+const seenGlobal = new Set<string>();
 
-// 5) Final list: ALL sports + top 5 other, then run your existing deduper one last time
-const finalEvents = dedupeNearbyPopularEvents([...sportsAll, ...otherTop5]);
+for (const day of candidateDays) {
+  const arr = byDay.get(day) || [];
+  if (!arr.length) continue;
+
+  // Sort by rank (earliest returned first), but prefer sports when ranks are close
+  arr.sort((a, b) => {
+    if (a.isSport !== b.isSport) return a.isSport ? -1 : 1;
+    return a.rank - b.rank;
+  });
+
+  let picked = 0;
+
+  for (const { ev } of arr) {
+    const id = eventId(ev);
+    const key =
+      id || `${eventSortKey(ev)}|${eventVenueKey(ev)}|${normalizeTitleForDedup(eventTitle(ev))}`;
+
+    if (seenGlobal.has(key)) continue;
+
+    finalPicked.push(ev);
+    seenGlobal.add(key);
+
+    picked++;
+    if (picked >= 2) break;
+  }
+}
+
+// One last pass through your existing deduper (extra safety)
+const finalEvents = dedupeNearbyPopularEvents(finalPicked);
 
 setPopularCacheByOcc((prev) => ({
   ...prev,
@@ -1056,19 +1116,20 @@ function toggleOtherPopular(
       if (next && canFetchNearby) {
         const entry = popularCacheByOcc[occKey];
         if (!(entry?.loaded || entry?.loading)) {
-          const nearbyStartYMD = startYMD ? addDaysUTC(startYMD, -1) : null;
-const nearbyEndYMD = endYMD ? addDaysUTC(endYMD, +1) : null;
+          
+const { daySet, days, startYMD: fetchStart, endYMD: fetchEnd } =
+  buildCandidateDaysFromMainEvents(mainEvents);
 
 fetchNearbyPopularOnce({
   occKey,
   anchor,
-  startYMD: nearbyStartYMD,
-  endYMD: nearbyEndYMD,
+  startYMD: fetchStart,
+  endYMD: fetchEnd,
+  candidateDaySet: daySet,
+  candidateDays: days,
   excludeIds,
   mainEvents,
 });
-
-
 
         }
       }
