@@ -47,11 +47,9 @@ function clampInt(n: any, min: number, max: number, fallback: number) {
   return Math.min(max, Math.max(min, Math.floor(x)));
 }
 
-/* -------------------- Nearby-per-event presets -------------------- */
+/* -------------------- Nearby presets -------------------- */
 
 const NEARBY_RADIUS_MILES = 50;
-const NEARBY_LIMIT_PER_EVENT = 2;
-const NEARBY_DAY_PAD = 1; // +/- 1 day around each event date
 
 /* -------------------- Query helpers -------------------- */
 
@@ -676,9 +674,7 @@ export default function ResultsPage() {
     error?: string;
   };
 
-  const [popularCacheByOcc, setPopularCacheByOcc] = useState<Record<string, PopularCacheEntry>>(
-    {}
-  );
+  const [popularCacheByOcc, setPopularCacheByOcc] = useState<Record<string, PopularCacheEntry>>({});
 
   const radiusMiles = useMemo(() => {
     const raw = qs.get("radiusMiles");
@@ -818,7 +814,7 @@ export default function ResultsPage() {
 
   const errMsg = data?.error || null;
 
-  // ✅ UPDATED: per-event nearby lookup (±1 day, 50 miles, 2 results per anchor)
+  // ✅ UPDATED: per-occurrence nearby lookup (occurrence date range, 50 miles, ALL league games + top 5 other)
   async function fetchNearbyPopularOnce(params: {
     occKey: string;
     anchor: { lat: number; lng: number } | null;
@@ -827,7 +823,7 @@ export default function ResultsPage() {
     excludeIds: string[];
     mainEvents: any[];
   }) {
-    const { occKey, anchor, excludeIds, mainEvents } = params;
+    const { occKey, anchor, startYMD, endYMD, excludeIds, mainEvents } = params;
 
     setPopularCacheByOcc((prev) => {
       const cur = prev[occKey];
@@ -838,32 +834,19 @@ export default function ResultsPage() {
     try {
       const excludeSet = new Set(excludeIds);
 
-      const queries = (mainEvents || [])
-        .map((e) => {
-          const d = getEventLocalDate(e);
-          if (!d) return null;
+      // Pick one lat/lng for the occurrence:
+      // 1) prefer occ anchor (already computed), else 2) first main event with coords
+      const ll =
+        anchor ||
+        (() => {
+          for (const e of mainEvents || []) {
+            const got = getEventLatLon(e);
+            if (got) return { lat: got.lat, lng: got.lon }; // got is {lat, lon}
+          }
+          return null;
+        })();
 
-          const ll = getEventLatLon(e);
-          const useLat = ll ? ll.lat : anchor?.lat;
-          const useLng = ll ? ll.lon : anchor?.lng;
-          if (useLat == null || useLng == null) return null;
-
-          const startDate = addDaysUTC(d, -NEARBY_DAY_PAD) || d;
-          const endDate = addDaysUTC(d, +NEARBY_DAY_PAD) || d;
-
-          return { lat: useLat, lng: useLng, startDate, endDate };
-        })
-        .filter(Boolean) as Array<{ lat: number; lng: number; startDate: string; endDate: string }>;
-
-      const seenQ = new Set<string>();
-      const uniqueQueries = queries.filter((q) => {
-        const k = `${q.lat.toFixed(3)}|${q.lng.toFixed(3)}|${q.startDate}|${q.endDate}`;
-        if (seenQ.has(k)) return false;
-        seenQ.add(k);
-        return true;
-      });
-
-      if (uniqueQueries.length === 0) {
+      if (!ll || !startYMD || !endYMD) {
         setPopularCacheByOcc((prev) => ({
           ...prev,
           [occKey]: { loading: false, loaded: true, events: [] },
@@ -871,38 +854,32 @@ export default function ResultsPage() {
         return;
       }
 
-      const results = await Promise.all(
-        uniqueQueries.map(async (q) => {
-          const res = await fetch("/api/nearby", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              lat: q.lat,
-              lng: q.lng,
-              startDate: q.startDate,
-              endDate: q.endDate,
-              radiusMiles: NEARBY_RADIUS_MILES,
-              limit: NEARBY_LIMIT_PER_EVENT,
-              excludeIds: Array.from(excludeSet),
-            }),
-          });
+      const res = await fetch("/api/nearby", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lat: ll.lat,
+          lng: ll.lng,
+          startDate: startYMD, // occurrence start (inclusive)
+          endDate: endYMD, // occurrence end (inclusive)
+          radiusMiles: NEARBY_RADIUS_MILES,
+          excludeIds: Array.from(excludeSet),
+          sportsLeagues: ["MLB", "NHL", "NBA", "MLS", "NFL", "CFL"],
+          otherLimit: 5,
+        }),
+      });
 
-          const json = await res.json().catch(() => ({}));
+      const json = await res.json().catch(() => ({}));
 
-          const events =
-            (Array.isArray(json?.events) && json.events) ||
-            (Array.isArray(json?.popular) && json.popular) ||
-            (Array.isArray(json?.nearby) && json.nearby) ||
-            (Array.isArray(json?.results) && json.results) ||
-            (Array.isArray(json?._embedded?.events) && json._embedded.events) ||
-            [];
+      const events =
+        (Array.isArray(json?.events) && json.events) ||
+        (Array.isArray(json?.popular) && json.popular) ||
+        (Array.isArray(json?.nearby) && json.nearby) ||
+        (Array.isArray(json?.results) && json.results) ||
+        (Array.isArray(json?._embedded?.events) && json._embedded.events) ||
+        [];
 
-          return events;
-        })
-      );
-
-      const merged = results.flat();
-      const deduped = dedupeNearbyPopularEvents(merged).filter((e: any) => {
+      const deduped = dedupeNearbyPopularEvents(events).filter((e: any) => {
         const id = eventId(e);
         return id ? !excludeSet.has(id) : true;
       });
@@ -1060,9 +1037,7 @@ export default function ResultsPage() {
 
   function renderOccurrenceBlock(occ: any, keySeed: string) {
     const eventsDeduped = dedupeEventsWithinOccurrence(occ.events);
-    const popularDeduped = dedupeNearbyPopularEvents(occ.popular);
-
-    const allEvents = [...eventsDeduped, ...popularDeduped];
+    const allEvents = [...eventsDeduped];
 
     const startMeta = occ?.meta?.startYMD || null;
     const endMeta = occ?.meta?.endYMD || null;
@@ -1100,20 +1075,18 @@ export default function ResultsPage() {
     const cachedPopular = Array.isArray(cacheEntry?.events) ? cacheEntry!.events : [];
     const cachedPopularDeduped = dedupeNearbyPopularEvents(cachedPopular);
 
-    const basePopular = (cacheEntry?.loaded ? cachedPopularDeduped : popularDeduped)
+    const basePopular = cachedPopularDeduped
       .filter((e: any) => !!eventUrl(e))
       .filter((e: any) => {
         const id = eventId(e);
         return id ? !mainIds.has(id) : true;
       });
 
+    // ✅ Updated for per-occurrence flow
     const canFetchNearby =
-      main.some((e) => {
-        const d = getEventLocalDate(e);
-        if (!d) return false;
-        const ll = getEventLatLon(e);
-        return !!ll || !!anchor;
-      }) && main.length > 0;
+      !!startYMD &&
+      !!endYMD &&
+      (main.some((e) => !!getEventLatLon(e)) || !!anchor);
 
     const hasOtherPopular = basePopular.length > 0 || canFetchNearby;
     const showOtherPopular = !!showPopularByOcc[occKey];
@@ -1126,9 +1099,12 @@ export default function ResultsPage() {
         ? buildExpediaHotelSearchUrl({ destinationLabel: cityState, checkInYMD, checkOutYMD })
         : null;
 
+    // ✅ Include fetched nearby events as candidates for airport inference
+    const allEventsForAirport = [...eventsDeduped, ...basePopular];
+
     const { destIata } = resolveBestDestinationIata({
       preferredCityState: cityState,
-      eventsForCandidates: allEvents,
+      eventsForCandidates: allEventsForAirport,
       country,
       airports,
     });
@@ -1188,7 +1164,7 @@ export default function ResultsPage() {
                   startYMD: start,
                   endYMD: end,
                   fallbackTitles: main.map((e: any) => eventTitle(e)),
-                  eventsForLookup: allEvents,
+                  eventsForLookup: showOtherPopular ? allEventsForAirport : allEvents,
                 });
               }}
               title="Share this occurrence"
@@ -1219,7 +1195,7 @@ export default function ResultsPage() {
                       startYMD: start,
                       endYMD: end,
                       fallbackTitles: main.map((e: any) => eventTitle(e)),
-                      eventsForLookup: allEvents,
+                      eventsForLookup: showOtherPopular ? allEventsForAirport : allEvents,
                     });
                   }}
                   title="Share this occurrence"
