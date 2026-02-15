@@ -130,7 +130,10 @@ function Combobox({
 
   const selectedLabel = useMemo(() => labelForId(valueId, optionsAll), [valueId, optionsAll]);
 
-  const menuItems = useMemo(() => buildGroupedListForQuery(query, grouped, groups), [query, grouped, groups]);
+  const menuItems = useMemo(
+    () => buildGroupedListForQuery(query, grouped, groups),
+    [query, grouped, groups]
+  );
 
   useEffect(() => {
     if (!open) {
@@ -320,9 +323,7 @@ function Combobox({
                       key={it.option.id}
                       className={[
                         "mt-1 flex cursor-pointer items-center justify-between gap-3 rounded-xl px-3 py-2.5",
-                        isActive
-                          ? "bg-slate-900 text-white"
-                          : "bg-white text-slate-900 hover:bg-slate-50",
+                        isActive ? "bg-slate-900 text-white" : "bg-white text-slate-900 hover:bg-slate-50",
                       ].join(" ")}
                       onMouseEnter={() => setActiveIdx(idx)}
                       onMouseDown={(e) => {
@@ -462,9 +463,7 @@ export default function Page() {
     const qStartDate = sp.get("startDate") || "";
     const qEndDate = sp.get("endDate") || "";
 
-    const hasAnyUrlState = Boolean(
-      qp1 || qp2 || qp3 || qDays || qRadius || qOrigin || qStartDate || qEndDate
-    );
+    const hasAnyUrlState = Boolean(qp1 || qp2 || qp3 || qDays || qRadius || qOrigin || qStartDate || qEndDate);
 
     const applyState = (next: {
       p1: string;
@@ -531,8 +530,10 @@ export default function Page() {
   }, [sp]);
 
   // SINGLE-FAVORITE MODE (client-side): one filled, or both same
-  const singleFavoriteMode =
-    (!!p1 && !p2) || (!p1 && !!p2) || (!!p1 && !!p2 && p1 === p2);
+  const singleFavoriteMode = (!!p1 && !p2) || (!p1 && !!p2) || (!!p1 && !!p2 && p1 === p2);
+
+  // Show overlap constraints ONLY when user picked two DIFFERENT favorites
+  const showOverlapConstraints = Boolean(p1 && p2 && p1 !== p2);
 
   useEffect(() => {
     if (!didInitRef.current) return;
@@ -599,7 +600,9 @@ export default function Page() {
     // In single-favorite mode, backend ignores days/radius anyway.
     // We still send clamped values (keeps URLs stable).
     const parsedDays = safeParseInt(daysText, PUBLIC_MODE ? PUBLIC_PRESET.maxDays : 3);
-    const effectiveDays = PUBLIC_MODE ? clamp(parsedDays, 1, PUBLIC_PRESET.maxDays) : clamp(parsedDays, 1, 30);
+    const effectiveDays = PUBLIC_MODE
+      ? clamp(parsedDays, 1, PUBLIC_PRESET.maxDays)
+      : clamp(parsedDays, 1, 30);
 
     const parsedRadius = safeParseInt(radiusText, PUBLIC_MODE ? PUBLIC_PRESET.maxRadiusMiles : 100);
     const effectiveRadius = PUBLIC_MODE
@@ -630,10 +633,10 @@ export default function Page() {
       <div className="mx-auto max-w-3xl px-4 py-10 sm:py-14">
         <header className="mb-8">
           <h1 className="text-center text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
-            Plan an epic trip ...
+            Find and book an epic trip!
           </h1>
           <p className="mt-7 text-center text-sm text-slate-600 sm:text-base">
-            We help users find epic trip opportunities based on their favorite teams and artists.
+            We help users quickly find and book epic trip opportunities based on their favorite teams and artists.
           </p>
         </header>
 
@@ -668,16 +671,6 @@ export default function Page() {
               />
             </div>
 
-            {singleFavoriteMode ? (
-              <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                <div className="font-extrabold text-slate-900">Single-favorite mode</div>
-                <div className="mt-1">
-                  We’ll group results by <span className="font-semibold">location runs</span> (same city/venue)
-                  and ignore days/radius. Date range filters still apply.
-                </div>
-              </div>
-            ) : null}
-
             {!PUBLIC_MODE && (
               <div className="mt-4">
                 <Combobox
@@ -696,6 +689,13 @@ export default function Page() {
 
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="text-lg font-extrabold text-slate-900">Trip constraints</div>
+
+            {/* Optional UX polish (recommended) */}
+            {!showOverlapConstraints ? (
+              <div className="mt-2 text-sm text-slate-600">
+                Pick two different favorites to set max trip length and distance between events.
+              </div>
+            ) : null}
 
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <label className="block">
@@ -725,103 +725,100 @@ export default function Page() {
               </label>
             </div>
 
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              <label className="block">
-                <div className="mb-2 text-sm font-semibold text-slate-900">
-                  Max trip length (# of Days)
-                </div>
-                <input
-                  disabled={singleFavoriteMode}
-                  className={[
-                    "w-full rounded-xl border px-4 py-3 text-[15px] shadow-sm outline-none",
-                    singleFavoriteMode
-                      ? "bg-slate-50 text-slate-500 border-slate-200 cursor-not-allowed"
-                      : "border-slate-200 bg-white text-slate-900 focus:border-slate-400 focus:ring-4 focus:ring-slate-100",
-                  ].join(" ")}
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={daysText}
-                  onFocus={(e) => {
-                    if (singleFavoriteMode) return;
-                    const el = e.currentTarget as HTMLInputElement | HTMLTextAreaElement | null;
-                    requestAnimationFrame(() => el?.select());
-                  }}
-                  onChange={(e) => {
-                    if (singleFavoriteMode) return;
-                    const next = e.target.value;
-                    if (next === "") {
-                      setDaysText("");
-                      return;
-                    }
-                    if (/^\d+$/.test(next)) setDaysText(next);
-                  }}
-                  onBlur={() => {
-                    if (singleFavoriteMode) return;
-                    const parsed = safeParseInt(daysText, PUBLIC_MODE ? PUBLIC_PRESET.maxDays : 3);
-                    const clamped = PUBLIC_MODE
-                      ? clamp(parsed, 1, PUBLIC_PRESET.maxDays)
-                      : clamp(parsed, 1, 30);
-                    setDaysText(String(clamped));
-                  }}
-                />
-                <div className="mt-2 text-xs text-slate-500">
-                  {singleFavoriteMode
-                    ? "Disabled in single-favorite mode (grouping is by location runs)."
-                    : PUBLIC_MODE
-                    ? `Cannot be greater than ${PUBLIC_PRESET.maxDays} days.`
-                    : "Example: “2” means events within a 2-day window."}
-                </div>
-              </label>
+            {/* Overlap-only constraints: only show when P1 and P2 are BOTH filled and NOT equal */}
+            {showOverlapConstraints ? (
+              <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                <label className="block">
+                  <div className="mb-2 text-sm font-semibold text-slate-900">
+                    Max trip length (# of Days)
+                  </div>
+                  <input
+                    disabled={singleFavoriteMode}
+                    className={[
+                      "w-full rounded-xl border px-4 py-3 text-[15px] shadow-sm outline-none",
+                      singleFavoriteMode
+                        ? "bg-slate-50 text-slate-500 border-slate-200 cursor-not-allowed"
+                        : "border-slate-200 bg-white text-slate-900 focus:border-slate-400 focus:ring-4 focus:ring-slate-100",
+                    ].join(" ")}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={daysText}
+                    onFocus={(e) => {
+                      if (singleFavoriteMode) return;
+                      const el = e.currentTarget as HTMLInputElement | HTMLTextAreaElement | null;
+                      requestAnimationFrame(() => el?.select());
+                    }}
+                    onChange={(e) => {
+                      if (singleFavoriteMode) return;
+                      const next = e.target.value;
+                      if (next === "") {
+                        setDaysText("");
+                        return;
+                      }
+                      if (/^\d+$/.test(next)) setDaysText(next);
+                    }}
+                    onBlur={() => {
+                      if (singleFavoriteMode) return;
+                      const parsed = safeParseInt(daysText, PUBLIC_MODE ? PUBLIC_PRESET.maxDays : 3);
+                      const clamped = PUBLIC_MODE ? clamp(parsed, 1, PUBLIC_PRESET.maxDays) : clamp(parsed, 1, 30);
+                      setDaysText(String(clamped));
+                    }}
+                  />
+                  <div className="mt-2 text-xs text-slate-500">
+                    {PUBLIC_MODE
+                      ? `Cannot be greater than ${PUBLIC_PRESET.maxDays} days.`
+                      : "Example: “2” means events within a 2-day window."}
+                  </div>
+                </label>
 
-              <label className="block">
-                <div className="mb-2 text-sm font-semibold text-slate-900">
-                  Max distance between events (# of Miles)
-                </div>
-                <input
-                  disabled={singleFavoriteMode}
-                  className={[
-                    "w-full rounded-xl border px-4 py-3 text-[15px] shadow-sm outline-none",
-                    singleFavoriteMode
-                      ? "bg-slate-50 text-slate-500 border-slate-200 cursor-not-allowed"
-                      : "border-slate-200 bg-white text-slate-900 focus:border-slate-400 focus:ring-4 focus:ring-slate-100",
-                  ].join(" ")}
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={radiusText}
-                  onFocus={(e) => {
-                    if (singleFavoriteMode) return;
-                    const el = e.currentTarget as HTMLInputElement | HTMLTextAreaElement | null;
-                    requestAnimationFrame(() => el?.select());
-                  }}
-                  onChange={(e) => {
-                    if (singleFavoriteMode) return;
-                    const next = e.target.value;
-                    if (next === "") {
-                      setRadiusText("");
-                      return;
-                    }
-                    if (/^\d+$/.test(next)) setRadiusText(next);
-                  }}
-                  onBlur={() => {
-                    if (singleFavoriteMode) return;
-                    const parsed = safeParseInt(radiusText, PUBLIC_MODE ? PUBLIC_PRESET.maxRadiusMiles : 100);
-                    const clamped = PUBLIC_MODE
-                      ? clamp(parsed, 1, PUBLIC_PRESET.maxRadiusMiles)
-                      : clamp(parsed, 1, 2000);
-                    setRadiusText(String(clamped));
-                  }}
-                />
-                <div className="mt-2 text-xs text-slate-500">
-                  {singleFavoriteMode
-                    ? "Disabled in single-favorite mode (grouping is by location runs)."
-                    : PUBLIC_MODE
-                    ? `Cannot be greater than ${PUBLIC_PRESET.maxRadiusMiles} miles.`
-                    : "How far you’re willing to travel between events."}
-                </div>
-              </label>
-            </div>
+                <label className="block">
+                  <div className="mb-2 text-sm font-semibold text-slate-900">
+                    Max distance between events (# of Miles)
+                  </div>
+                  <input
+                    disabled={singleFavoriteMode}
+                    className={[
+                      "w-full rounded-xl border px-4 py-3 text-[15px] shadow-sm outline-none",
+                      singleFavoriteMode
+                        ? "bg-slate-50 text-slate-500 border-slate-200 cursor-not-allowed"
+                        : "border-slate-200 bg-white text-slate-900 focus:border-slate-400 focus:ring-4 focus:ring-slate-100",
+                    ].join(" ")}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={radiusText}
+                    onFocus={(e) => {
+                      if (singleFavoriteMode) return;
+                      const el = e.currentTarget as HTMLInputElement | HTMLTextAreaElement | null;
+                      requestAnimationFrame(() => el?.select());
+                    }}
+                    onChange={(e) => {
+                      if (singleFavoriteMode) return;
+                      const next = e.target.value;
+                      if (next === "") {
+                        setRadiusText("");
+                        return;
+                      }
+                      if (/^\d+$/.test(next)) setRadiusText(next);
+                    }}
+                    onBlur={() => {
+                      if (singleFavoriteMode) return;
+                      const parsed = safeParseInt(radiusText, PUBLIC_MODE ? PUBLIC_PRESET.maxRadiusMiles : 100);
+                      const clamped = PUBLIC_MODE
+                        ? clamp(parsed, 1, PUBLIC_PRESET.maxRadiusMiles)
+                        : clamp(parsed, 1, 2000);
+                      setRadiusText(String(clamped));
+                    }}
+                  />
+                  <div className="mt-2 text-xs text-slate-500">
+                    {PUBLIC_MODE
+                      ? `Cannot be greater than ${PUBLIC_PRESET.maxRadiusMiles} miles.`
+                      : "How far you’re willing to travel between events."}
+                  </div>
+                </label>
+              </div>
+            ) : null}
           </div>
 
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
@@ -845,13 +842,7 @@ export default function Page() {
               type="button"
               onClick={onSearch}
               disabled={!canSearch || loading}
-              title={
-                !canSearch
-                  ? "Pick at least one Favorite to enable Search."
-                  : singleFavoriteMode
-                  ? "Search (single-favorite mode: grouped by location runs)"
-                  : "Search for overlap occurrences"
-              }
+              title={!canSearch ? "Pick at least one Favorite to enable Search." : "Search"}
               className={[
                 "rounded-2xl px-5 py-3 text-sm font-extrabold shadow-sm transition",
                 searchPulse ? "animate-pulse" : "",
