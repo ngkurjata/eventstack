@@ -633,6 +633,47 @@ function samePick(p1Raw: string | null, p2Raw: string | null) {
   return false;
 }
 
+function buildClosestBlurb(
+  closest: ApiResponse["closest"] | undefined,
+  fallbackWithinDays: number
+) {
+  const c = closest;
+  if (!c?.p1 || !c?.p2) return null;
+
+  const miles = Number(c.miles);
+  if (!Number.isFinite(miles)) return null;
+
+  const withinDays =
+    Number.isFinite(Number(c.withinDays)) ? Number(c.withinDays) : fallbackWithinDays;
+
+  const p1Label = String(c.p1.label || "").trim() || "Selection 1";
+  const p2Label = String(c.p2.label || "").trim() || "Selection 2";
+
+  const p1City = String(c.p1.city || "").trim();
+  const p1Region = String(c.p1.region || "").trim();
+  const p2City = String(c.p2.city || "").trim();
+  const p2Region = String(c.p2.region || "").trim();
+
+  const p1Loc = [p1City, p1Region].filter(Boolean).join(", ");
+  const p2Loc = [p2City, p2Region].filter(Boolean).join(", ");
+
+  const p1Date = formatYMDPretty(c.p1.date || null);
+  const p2Date = formatYMDPretty(c.p2.date || null);
+
+  const milesRounded = Math.round(miles);
+
+  const tailParts: string[] = [];
+  if (p1Loc && p1Date) tailParts.push(`${p1Label} are in ${p1Loc} on ${p1Date}`);
+  else if (p1Date) tailParts.push(`${p1Label} play on ${p1Date}`);
+
+  if (p2Loc && p2Date) tailParts.push(`${p2Label} is in ${p2Loc} on ${p2Date}`);
+  else if (p2Date) tailParts.push(`${p2Label} plays on ${p2Date}`);
+
+  const detail = tailParts.length ? ` — which is when ${tailParts.join(" and ")}.` : ".";
+
+  return `Unfortunately, the closest ${p1Label} and ${p2Label} get within ${withinDays} days of each other is ${milesRounded} miles${detail}`;
+}
+
 /* ==================== PAGE ==================== */
 
 export default function ResultsPage() {
@@ -696,6 +737,9 @@ export default function ResultsPage() {
     }
     return clampInt(raw ?? 5, 1, 30, 5);
   }, [qsString]);
+
+const closestBlurb = buildClosestBlurb(data?.closest, maxDays);
+
 
   // Determine if we're in "single pick" mode (P1=P2, including links where one is blank)
   const sameEntityMode = useMemo(() => {
@@ -814,49 +858,11 @@ export default function ResultsPage() {
 
   const errMsg = data?.error || null;
 
-// ✅ Build the “closest pair” sentence for the No Results card (if provided by API)
-const closestBlurb = useMemo(() => {
-  const c = data?.closest;
-  if (!c?.p1 || !c?.p2) return null;
 
-  const miles = Number(c.miles);
-  if (!Number.isFinite(miles)) return null;
 
-  const withinDays =
-    Number.isFinite(Number(c.withinDays)) ? Number(c.withinDays) : maxDays;
 
-  const p1Label = String(c.p1.label || "").trim() || "Selection 1";
-  const p2Label = String(c.p2.label || "").trim() || "Selection 2";
 
-  const p1City = String(c.p1.city || "").trim();
-  const p1Region = String(c.p1.region || "").trim();
-  const p2City = String(c.p2.city || "").trim();
-  const p2Region = String(c.p2.region || "").trim();
 
-  const p1Loc = [p1City, p1Region].filter(Boolean).join(", ");
-  const p2Loc = [p2City, p2Region].filter(Boolean).join(", ");
-
-  const p1Date = formatYMDPretty(c.p1.date || null);
-  const p2Date = formatYMDPretty(c.p2.date || null);
-
-  const milesRounded = Math.round(miles);
-
-  const tailParts: string[] = [];
-  if (p1Loc && p1Date)
-    tailParts.push(`${p1Label} are in ${p1Loc} on ${p1Date}`);
-  else if (p1Date)
-    tailParts.push(`${p1Label} play on ${p1Date}`);
-
-  if (p2Loc && p2Date)
-    tailParts.push(`${p2Label} is in ${p2Loc} on ${p2Date}`);
-  else if (p2Date)
-    tailParts.push(`${p2Label} plays on ${p2Date}`);
-
-  const detail =
-    tailParts.length ? ` — which is when ${tailParts.join(" and ")}.` : ".";
-
-  return `Unfortunately, the closest ${p1Label} and ${p2Label} get within ${withinDays} days of each other is ${milesRounded} miles${detail}`;
-}, [data, maxDays]);
 
   // ✅ UPDATED: per-occurrence nearby lookup (occurrence date range, 50 miles, ALL league games + top 5 other)
   async function fetchNearbyPopularOnce(params: {
