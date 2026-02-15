@@ -590,43 +590,50 @@ export default function Page() {
   }, [loading, canSearch]);
 
   function onSearch() {
-    if (!p1 && !p2) {
-      alert("Pick at least one Favorite Team/Artist.");
-      return;
-    }
-
-    if (!originIata) setOriginErr("");
-
-    // In single-favorite mode, backend ignores days/radius anyway.
-    // We still send clamped values (keeps URLs stable).
-    const parsedDays = safeParseInt(daysText, PUBLIC_MODE ? PUBLIC_PRESET.maxDays : 3);
-    const effectiveDays = PUBLIC_MODE
-      ? clamp(parsedDays, 1, PUBLIC_PRESET.maxDays)
-      : clamp(parsedDays, 1, 30);
-
-    const parsedRadius = safeParseInt(radiusText, PUBLIC_MODE ? PUBLIC_PRESET.maxRadiusMiles : 100);
-    const effectiveRadius = PUBLIC_MODE
-      ? clamp(parsedRadius, 1, PUBLIC_PRESET.maxRadiusMiles)
-      : clamp(parsedRadius, 1, 2000);
-
-    const effectiveP3 = PUBLIC_MODE ? "" : p3;
-
-    const { start: startNorm, end: endNorm } = normalizeDateRange(startDate, endDate);
-
-    const params = new URLSearchParams();
-    if (p1) params.set("p1", p1);
-    if (p2) params.set("p2", p2);
-    if (effectiveP3) params.set("p3", effectiveP3);
-
-    params.set("days", String(effectiveDays));
-    params.set("radiusMiles", String(effectiveRadius));
-    params.set("origin", originIata);
-
-    if (isYMD(startNorm)) params.set("startDate", startNorm);
-    if (isYMD(endNorm)) params.set("endDate", endNorm);
-
-    router.push(`/results?${params.toString()}`);
+  if (!p1 && !p2) {
+    alert("Pick at least one Favorite Team/Artist.");
+    return;
   }
+
+  if (!originIata) setOriginErr("");
+
+  // Always send two favorites to results.
+  // If user picked only one, duplicate it so backend logic is consistent.
+  const effectiveP1 = p1 || p2;
+  const effectiveP2 = p2 || p1;
+
+  const parsedDays = safeParseInt(daysText, PUBLIC_MODE ? PUBLIC_PRESET.maxDays : 3);
+  const effectiveDays = PUBLIC_MODE
+    ? clamp(parsedDays, 1, PUBLIC_PRESET.maxDays)
+    : clamp(parsedDays, 1, 30);
+
+  const parsedRadius = safeParseInt(radiusText, PUBLIC_MODE ? PUBLIC_PRESET.maxRadiusMiles : 100);
+  const effectiveRadius = PUBLIC_MODE
+    ? clamp(parsedRadius, 1, PUBLIC_PRESET.maxRadiusMiles)
+    : clamp(parsedRadius, 1, 2000);
+
+  const effectiveP3 = PUBLIC_MODE ? "" : p3;
+
+  const { start: startNorm, end: endNorm } = normalizeDateRange(startDate, endDate);
+
+  const params = new URLSearchParams();
+
+  // IMPORTANT: always set both
+  params.set("p1", effectiveP1);
+  params.set("p2", effectiveP2);
+
+  if (effectiveP3) params.set("p3", effectiveP3);
+
+  params.set("days", String(effectiveDays));
+  params.set("radiusMiles", String(effectiveRadius));
+  params.set("origin", originIata);
+
+  if (isYMD(startNorm)) params.set("startDate", startNorm);
+  if (isYMD(endNorm)) params.set("endDate", endNorm);
+
+  router.push(`/results?${params.toString()}`);
+}
+
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
@@ -689,13 +696,6 @@ export default function Page() {
 
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="text-lg font-extrabold text-slate-900">Trip constraints</div>
-
-            {/* Optional UX polish (recommended) */}
-            {!showOverlapConstraints ? (
-              <div className="mt-2 text-sm text-slate-600">
-                Pick two different favorites to set max trip length and distance between events.
-              </div>
-            ) : null}
 
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <label className="block">
