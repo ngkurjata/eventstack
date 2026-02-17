@@ -1,4 +1,4 @@
-// app/api/search/route.js
+// FILE: app/api/search/route.js
 import { NextResponse } from "next/server";
 
 const TM_BASE = "https://app.ticketmaster.com/discovery/v2";
@@ -7,10 +7,14 @@ const TM_EVENTS = `${TM_BASE}/events.json`;
 const TM_KEY = process.env.TICKETMASTER_API_KEY;
 
 // Safety caps (serverless/runtime protection)
-const HARD_ANCHOR_EVENT_CAP = 250;
+const HARD_ANCHOR_EVENT_CAP = 600; // bump so P1 schedule is reliably complete
 const HARD_NEARBY_EVENT_CAP = 600;
 const DEFAULT_RADIUS_MILES = 180;
 const DEFAULT_TRIP_DAYS = 7;
+
+// Paging controls (TM max size ~200)
+const PAGE_SIZE = 200;
+const MAX_PAGES = 8; // 8 * 200 = 1600 raw; we stop early if caps hit
 
 /* -------------------- Allowed genre lists (sanitization) -------------------- */
 
@@ -114,9 +118,7 @@ function sanitizePickList(rawList, allowed) {
         .map((s) => String(s || "").trim())
         .map((s) => {
           if (allowedSet.has(s)) return s;
-          const hit = allowed.find((a) =>
-            s.toLowerCase().includes(String(a).toLowerCase())
-          );
+          const hit = allowed.find((a) => s.toLowerCase().includes(String(a).toLowerCase()));
           return hit || "";
         })
         .filter(Boolean)
@@ -164,7 +166,6 @@ function eventLatLon(e) {
 function eventVenueId(e) {
   return e?._embedded?.venues?.[0]?.id ?? null;
 }
-
 function eventVenueName(e) {
   return e?._embedded?.venues?.[0]?.name ?? null;
 }
@@ -174,6 +175,46 @@ function eventSegment(e) {
   if (seg.includes("music")) return "music";
   if (seg.includes("sports")) return "sports";
   return "other";
+}
+
+/**
+ * Fallback when coordinates are missing:
+ * 1) Same venueId => accept
+ * 2) Same city/region => accept
+ */
+function sameVenueOrCityRegion(anchorEvent, candidateEvent) {
+  const av = eventVenueId(anchorEvent);
+  const bv = eventVenueId(candidateEvent);
+  if (av && bv && String(av) === String(bv)) return true;
+
+  const ac = norm(eventCity(anchorEvent));
+  const ar = norm(eventRegion(anchorEvent));
+  const bc = norm(eventCity(candidateEvent));
+  const br = norm(eventRegion(candidateEvent));
+
+  if (!ac || !bc) return false;
+  if (ac !== bc) return false;
+  if (ar && br) return ar === br;
+  return true;
+}
+
+function normalizeBaseTitle(name) {
+  let s = String(name || "");
+
+  s = s.replace(/\*[^*]*\*/g, " ");
+  s = s.replace(/[*•|]+/g, " ");
+  s = s.replace(/\(([^)]*)\)/g, " ");
+
+  s = s.replace(
+    /\b(vip|package|pass|experience|suite|club|premium|hospitality|meet\s*and\s*greet|m&g|pre[\s-]?game|post[\s-]?game|fan\s*experience|special\s*offer|offer|pinstripe|seating)\b/gi,
+    " "
+  );
+
+  s = s.replace(/@/g, " vs ");
+  s = s.replace(/\bvs\.?\b/gi, "vs");
+  s = s.replace(/\bv\.?\b/gi, "vs");
+
+  return norm(s);
 }
 
 function gameKey(e) {
@@ -189,11 +230,10 @@ function gameKey(e) {
   let v;
   if (seg === "music") {
     const ll = eventLatLon(e);
-    const latR = ll ? Math.round(ll.lat * 1000) / 1000 : null; // ~0.001 deg
+    const latR = ll ? Math.round(ll.lat * 1000) / 1000 : null;
     const lonR = ll ? Math.round(ll.lon * 1000) / 1000 : null;
     v = ll ? `${latR}|${lonR}` : `${norm(city)}|${norm(region)}|${norm(venueName)}`;
   } else {
-    // For sports/other, keep your current behavior (venueId is useful for stadium precision)
     v = venueId ? venueId : `${norm(city)}|${norm(region)}`;
   }
 
@@ -216,17 +256,6 @@ function eventGenre(e) {
   if (pl === "other" || pl === "miscellaneous") return null;
 
   return pick;
-}
-
-function eventGenreBlob(e) {
-  const cls = Array.isArray(e?.classifications) ? e.classifications : [];
-  const c0 = cls[0] || null;
-
-  const parts = [c0?.segment?.name, c0?.genre?.name, c0?.subGenre?.name]
-    .map((x) => String(x || "").trim())
-    .filter(Boolean);
-
-  return norm(parts.join(" "));
 }
 
 function isExcludedFromMatching(e) {
@@ -271,28 +300,6 @@ function looksLikeTeamGameEvent(e) {
   return hasMatchupMarker || hasTwoAttractions;
 }
 
-/**
- * Normalize game-level title so we can collapse TM product variants.
- */
-function normalizeBaseTitle(name) {
-  let s = String(name || "");
-
-  s = s.replace(/\*[^*]*\*/g, " ");
-  s = s.replace(/[*•|]+/g, " ");
-  s = s.replace(/\(([^)]*)\)/g, " ");
-
-  s = s.replace(
-    /\b(vip|package|pass|experience|suite|club|premium|hospitality|meet\s*and\s*greet|m&g|pre[\s-]?game|post[\s-]?game|fan\s*experience|special\s*offer|offer|pinstripe|seating)\b/gi,
-    " "
-  );
-
-  s = s.replace(/@/g, " vs ");
-  s = s.replace(/\bvs\.?\b/gi, "vs");
-  s = s.replace(/\bv\.?\b/gi, "vs");
-
-  return norm(s);
-}
-
 function sanitizeDisplayName(name) {
   const raw = String(name || "Event");
   return raw
@@ -333,10 +340,6 @@ function eventTMId(e) {
   return id ? id : null;
 }
 
-/**
- * Prefer the "cleanest" TM event variant for a given dedupe key.
- * (Same idea as trip-matches.)
- */
 function chooseBetterTMVariant(a, b) {
   const an = String(a?.name || "");
   const bn = String(b?.name || "");
@@ -363,22 +366,17 @@ function chooseBetterTMVariant(a, b) {
 function dedupeKey(e) {
   const seg = eventSegment(e);
 
-  // MUSIC: TM can produce multiple event IDs for the same show (genre/classification wrappers).
-  // Prefer our occurrence key to collapse them.
   if (seg === "music") {
     const gk = gameKey(e);
     if (gk) return `gk:${gk}`;
 
-    // fallback only if gameKey can't be built
     const tmId = eventTMId(e);
     return tmId ? `tm:${tmId}` : null;
   }
 
-  // SPORTS/OTHER: prefer TM event id if present (usually stable and avoids weird wrapper dupes)
   const tmId = eventTMId(e);
   if (tmId) return `tm:${tmId}`;
 
-  // fallback
   const gk = gameKey(e);
   return gk ? `gk:${gk}` : null;
 }
@@ -407,9 +405,7 @@ function sortEvents(events) {
     const ad = eventLocalDate(a) || "9999-12-31";
     const bd = eventLocalDate(b) || "9999-12-31";
     if (ad !== bd) return ad < bd ? -1 : 1;
-    return normalizeBaseTitle(eventName(a)).localeCompare(
-      normalizeBaseTitle(eventName(b))
-    );
+    return normalizeBaseTitle(eventName(a)).localeCompare(normalizeBaseTitle(eventName(b)));
   });
 }
 
@@ -440,7 +436,7 @@ function parsePickId(raw) {
   return { kind, raw: s };
 }
 
-// -------------------- Ticketmaster fetch --------------------
+// -------------------- Ticketmaster fetch (paged) --------------------
 
 async function fetchTMEvents(params) {
   if (!TM_KEY) return { ok: false, events: [], error: "Missing TICKETMASTER_API_KEY" };
@@ -466,108 +462,63 @@ async function fetchTMEvents(params) {
   }
 }
 
-async function fetchEventsForCountries(baseParams, countryCodes) {
+async function fetchAllPagesForCountries(baseParams, countryCodes, hardCap) {
+  const codes = Array.isArray(countryCodes) && countryCodes.length ? countryCodes : ["US", "CA"];
+
   const merged = [];
   const debug = [];
 
-  for (const cc of countryCodes) {
-    const p = new URLSearchParams(baseParams.toString());
-    p.set("countryCode", cc);
+  for (const cc of codes) {
+    let page = 0;
+    let done = false;
+    let fetchedForCountry = 0;
 
-    const r = await fetchTMEvents(p);
-    debug.push({
-      country: cc,
-      ok: !!r.ok,
-      count: Array.isArray(r.events) ? r.events.length : 0,
-    });
+    while (!done && page < MAX_PAGES && merged.length < hardCap) {
+      const p = new URLSearchParams(baseParams.toString());
+      p.set("countryCode", cc);
+      p.set("size", String(PAGE_SIZE));
+      p.set("page", String(page));
 
-    if (Array.isArray(r.events) && r.events.length) merged.push(...r.events);
+      const r = await fetchTMEvents(p);
+      const rawEvents = Array.isArray(r.events) ? r.events : [];
+
+      fetchedForCountry += rawEvents.length;
+      if (rawEvents.length) merged.push(...rawEvents);
+
+      // Stop conditions
+      if (!r.ok) {
+        debug.push({ country: cc, ok: false, page, count: rawEvents.length });
+        break;
+      }
+
+      const pageInfo = r.raw?.page || null;
+      const totalPages = Number(pageInfo?.totalPages);
+      const number = Number(pageInfo?.number);
+
+      debug.push({ country: cc, ok: true, page, count: rawEvents.length });
+
+      if (Number.isFinite(totalPages) && Number.isFinite(number) && number >= totalPages - 1) done = true;
+      if (rawEvents.length < PAGE_SIZE) done = true;
+
+      page += 1;
+    }
+
+    // small guard: if TM returns nothing immediately, no need to keep paging
+    if (fetchedForCountry === 0) {
+      // continue to next country
+    }
   }
 
   const sorted = sortEvents(merged);
   return { events: dedupeEvents(sorted), perCountry: debug };
 }
 
-async function fetchCandidatesByClassificationNames(baseParams, countryCodes, classNames) {
-  const merged = [];
-  const debug = [];
-
-  for (const name of classNames || []) {
-    const p = new URLSearchParams(baseParams.toString());
-    p.set("classificationName", String(name));
-
-    const r = await fetchEventsForCountries(p, countryCodes);
-
-    debug.push({
-      classificationName: name,
-      perCountry: r.perCountry,
-      count: Array.isArray(r.events) ? r.events.length : 0,
-    });
-
-    if (Array.isArray(r.events) && r.events.length) merged.push(...r.events);
-  }
-
-  const sorted = sortEvents(merged);
-  return { events: dedupeEvents(sorted), perGenre: debug };
-}
-
 // -------------------- core logic --------------------
 
-function computeTripHeader(events) {
-  const dates = [...new Set((events || []).map(eventLocalDate).filter(Boolean))].sort();
-  const startYMD = dates[0] || null;
-  const endYMD = dates.length ? dates[dates.length - 1] : startYMD;
-
-  const locSet = new Set();
-  for (const e of events || []) {
-    const cs = [eventCity(e), eventRegion(e)].filter(Boolean).join(", ");
-    if (cs) locSet.add(cs);
-  }
-
-  return { startYMD, endYMD, locations: Array.from(locSet) };
-}
-
 function hashStr(s) {
-  // djb2-ish, stable and fast
   let h = 5381;
   for (let i = 0; i < s.length; i++) h = ((h << 5) + h) ^ s.charCodeAt(i);
-  // force unsigned + shorten
   return (h >>> 0).toString(36);
-}
-
-function scoreEvent(e, { anchor, secondaryAttractionId, musicGenres, sportsGenres, radiusMiles }) {
-  let score = 0;
-
-  const ll = eventLatLon(e);
-  if (anchor && ll) {
-    const d = haversineMiles(anchor, ll);
-    const closeness = Math.max(0, 1 - d / Math.max(1, radiusMiles));
-    score += closeness * 50;
-  } else {
-    score += 10;
-  }
-
-  const blob = eventGenreBlob(e);
-  const wantsAnyGenre = (musicGenres?.length || 0) + (sportsGenres?.length || 0) > 0;
-
-  let genreHit = false;
-  if (wantsAnyGenre) {
-    for (const mg of musicGenres || []) if (blob.includes(norm(mg))) genreHit = true;
-    for (const sg of sportsGenres || []) if (blob.includes(norm(sg))) genreHit = true;
-    if (genreHit) score += 35;
-  } else {
-    score += 5;
-  }
-
-  if (secondaryAttractionId) {
-    const atts = e?._embedded?.attractions;
-    const hasSecondary = Array.isArray(atts)
-      ? atts.some((a) => String(a?.id || "") === String(secondaryAttractionId))
-      : false;
-    if (hasSecondary) score += 50;
-  }
-
-  return Math.round(score);
 }
 
 function eventMatchesSecondary(e, secondaryAttractionId) {
@@ -577,39 +528,8 @@ function eventMatchesSecondary(e, secondaryAttractionId) {
   return atts.some((a) => String(a?.id || "") === String(secondaryAttractionId));
 }
 
-function eventMatchesAnyGenre(e, musicGenres, sportsGenres) {
-  const wantsAnyGenre = (musicGenres?.length || 0) + (sportsGenres?.length || 0) > 0;
-  if (!wantsAnyGenre) return true;
-
-  const blob = eventGenreBlob(e);
-  for (const mg of musicGenres || []) if (blob.includes(norm(mg))) return true;
-  for (const sg of sportsGenres || []) if (blob.includes(norm(sg))) return true;
-  return false;
-}
-
-function pickTripLatLon(anchorEvent, sortedEvents) {
-  const a = eventLatLon(anchorEvent);
-  if (a) return a;
-
-  for (const e of sortedEvents || []) {
-    const ll = eventLatLon(e);
-    if (ll) return ll;
-  }
-
-  return null;
-}
-
-function buildPrimaryRows({
-  anchors,
-  candidates,
-  radiusMiles,
-  tripDays,
-  secondaryAttractionId,
-  musicGenres,
-  sportsGenres,
-}) {
+function buildPrimaryRows({ anchors, candidates, radiusMiles, tripDays, secondaryAttractionId }) {
   const halfWindowDays = Math.floor(tripDays / 2);
-  const wantsAnyGenre = (musicGenres?.length || 0) + (sportsGenres?.length || 0) > 0;
 
   // index candidates by date for fast window lookup
   const byDate = new Map();
@@ -630,11 +550,11 @@ function buildPrimaryRows({
 
     const anchorLL = eventLatLon(anchorEvent);
 
-    // de-dupe anchors (Ticketmaster can sometimes return duplicates)
     const aKey =
       dedupeKey(anchorEvent) ||
       gameKey(anchorEvent) ||
       `${anchorDate}|${eventName(anchorEvent) || ""}`;
+
     if (seenAnchorKey.has(aKey)) continue;
     seenAnchorKey.add(aKey);
 
@@ -652,24 +572,23 @@ function buildPrimaryRows({
       d = next;
     }
 
-    // distance + exclusion filters
+    // distance filters (for P2 overlap)
     const near = [];
     for (const e of windowEvents) {
       if (!eventUrl(e)) continue;
-      if (isExcludedFromMatching(e)) continue;
 
       const ll = eventLatLon(e);
       if (anchorLL && ll) {
         if (haversineMiles(anchorLL, ll) <= radiusMiles) near.push(e);
-      } else {
-        near.push(e);
+        continue;
       }
+
+      if (sameVenueOrCityRegion(anchorEvent, e)) near.push(e);
     }
 
-    // SAFETY: never let the anchor itself appear in secondary/matching pools
+    // SAFETY: never let the anchor itself appear in secondary pool
     const anchorDedupe = dedupeKey(anchorEvent) || null;
 
-    // secondary matches (for shading + inclusion on expand)
     const secondaryRaw = secondaryAttractionId
       ? near.filter((e) => {
           if (anchorDedupe) {
@@ -680,57 +599,34 @@ function buildPrimaryRows({
         })
       : [];
 
-    // genre matches (your “matching events”), ONLY if user picked genres
-    const matchingRaw = wantsAnyGenre
-      ? near.filter((e) => {
-          if (anchorDedupe) {
-            const k = dedupeKey(e);
-            if (k && k === anchorDedupe) return false;
-          }
-          return eventMatchesAnyGenre(e, musicGenres, sportsGenres);
-        })
-      : [];
-
-    // de-dupe and sort
     const secondaryEvents = sortEvents(dedupeEvents(secondaryRaw)).map((e) => {
       const baseName = sanitizeDisplayName(eventName(e));
       const promo = extractPromoLabel(e);
+      const ll = eventLatLon(e);
       return {
         date: eventLocalDate(e),
         name: promo ? `${baseName} — ${promo}` : baseName,
         location: [eventCity(e), eventRegion(e)].filter(Boolean).join(", "),
         genre: eventGenre(e),
         url: eventUrl(e),
-        __raw: e,
-      };
-    });
-
-    const matchingEvents = sortEvents(dedupeEvents(matchingRaw)).map((e) => {
-      const baseName = sanitizeDisplayName(eventName(e));
-      const promo = extractPromoLabel(e);
-      return {
-        date: eventLocalDate(e),
-        name: promo ? `${baseName} — ${promo}` : baseName,
-        location: [eventCity(e), eventRegion(e)].filter(Boolean).join(", "),
-        genre: eventGenre(e),
-        url: eventUrl(e),
-        __raw: e,
+        ...(ll ? { lat: ll.lat, lon: ll.lon } : {}),
       };
     });
 
     const anchorBaseName = sanitizeDisplayName(eventName(anchorEvent));
     const anchorPromo = extractPromoLabel(anchorEvent);
 
-    const anchor = {
-      date: anchorDate,
-      name: anchorPromo ? `${anchorBaseName} — ${anchorPromo}` : anchorBaseName,
-      location: [eventCity(anchorEvent), eventRegion(anchorEvent)]
-        .filter(Boolean)
-        .join(", "),
-      genre: eventGenre(anchorEvent),
-      url: eventUrl(anchorEvent),
-      __raw: anchorEvent,
-    };
+    const anchor = (() => {
+      const ll = eventLatLon(anchorEvent);
+      return {
+        date: anchorDate,
+        name: anchorPromo ? `${anchorBaseName} — ${anchorPromo}` : anchorBaseName,
+        location: [eventCity(anchorEvent), eventRegion(anchorEvent)].filter(Boolean).join(", "),
+        genre: eventGenre(anchorEvent),
+        url: eventUrl(anchorEvent),
+        ...(ll ? { lat: ll.lat, lon: ll.lon } : {}),
+      };
+    })();
 
     const hasCrossover = (secondaryEvents?.length || 0) > 0;
 
@@ -741,13 +637,11 @@ function buildPrimaryRows({
       anchor,
       hasCrossover,
       secondaryEvents,
-      matchingEvents,
     });
 
-    if (rows.length >= 600) break; // hard safety
+    if (rows.length >= 600) break;
   }
 
-  // Keep primary rows chronological; tie-breaker: crossover first
   rows.sort((a, b) => {
     const ad = a.anchor?.date || "9999-12-31";
     const bd = b.anchor?.date || "9999-12-31";
@@ -760,157 +654,6 @@ function buildPrimaryRows({
   return rows;
 }
 
-function buildTrips({
-  anchors,
-  candidates,
-  radiusMiles,
-  tripDays,
-  secondaryAttractionId,
-  musicGenres,
-  sportsGenres,
-}) {
-  const halfWindowDays = Math.floor(tripDays / 2);
-  const wantsAnyGenre = (musicGenres?.length || 0) + (sportsGenres?.length || 0) > 0;
-
-  // Only show nearby candidates in the main trip table when P2 is set.
-  const includeCandidatesInTripEvents = !!secondaryAttractionId;
-
-  // If user selected any genres, require at least one nearby genre hit to return a trip.
-  const requireGenreHit = wantsAnyGenre;
-
-  // index candidates by date
-  const byDate = new Map();
-  for (const e of candidates || []) {
-    const d = eventLocalDate(e);
-    if (!d) continue;
-    const arr = byDate.get(d) || [];
-    arr.push(e);
-    byDate.set(d, arr);
-  }
-
-  const trips = [];
-  const seenTripSig = new Set();
-
-  for (const anchorEvent of anchors || []) {
-    const anchorDate = eventLocalDate(anchorEvent);
-    if (!anchorDate) continue;
-
-    const anchorLL = eventLatLon(anchorEvent);
-
-    const windowStart = addDaysYMD(anchorDate, -halfWindowDays);
-    const windowEnd = addDaysYMD(anchorDate, +halfWindowDays);
-    if (!windowStart || !windowEnd) continue;
-
-    // gather window events
-    const windowEvents = [];
-    for (let d = windowStart; d <= windowEnd; ) {
-      const list = byDate.get(d) || [];
-      windowEvents.push(...list);
-      const next = addDaysYMD(d, 1);
-      if (!next) break;
-      d = next;
-    }
-
-    // distance filter
-    const near = [];
-    for (const e of windowEvents) {
-      if (!eventUrl(e)) continue;
-      if (isExcludedFromMatching(e)) continue;
-      const ll = eventLatLon(e);
-      if (anchorLL && ll) {
-        if (haversineMiles(anchorLL, ll) <= radiusMiles) near.push(e);
-      } else {
-        near.push(e);
-      }
-    }
-
-    // pools
-    const eligiblePool = dedupeEvents([anchorEvent, ...near]);
-    const eligibleSorted = sortEvents(eligiblePool);
-
-    const displayPool = includeCandidatesInTripEvents ? eligibleSorted : [anchorEvent];
-    const displaySorted = sortEvents(dedupeEvents(displayPool));
-
-    // eligibility gating
-    const secondaryOk = secondaryAttractionId
-      ? eligibleSorted.some((e) => eventMatchesSecondary(e, secondaryAttractionId))
-      : true;
-
-    const genreOk = requireGenreHit
-      ? near.some((e) => eventMatchesAnyGenre(e, musicGenres, sportsGenres))
-      : true;
-
-    if (!secondaryOk) continue;
-    if (!genreOk) continue;
-
-    // dedupe trips
-    const sig = eligibleSorted
-      .map((e) => dedupeKey(e) || gameKey(e) || "")
-      .join("~");
-    if (seenTripSig.has(sig)) continue;
-    seenTripSig.add(sig);
-    const sigHash = hashStr(sig);
-
-    const tripLL = pickTripLatLon(anchorEvent, eligibleSorted);
-
-    const scoredEvents = displaySorted.map((e) => {
-      const score = scoreEvent(e, {
-        anchor: anchorLL ? { lat: anchorLL.lat, lon: anchorLL.lon } : null,
-        secondaryAttractionId,
-        musicGenres,
-        sportsGenres,
-        radiusMiles,
-      });
-
-      const baseName = sanitizeDisplayName(eventName(e));
-      const promo = extractPromoLabel(e);
-
-      return {
-        date: eventLocalDate(e),
-        name: promo ? `${baseName} — ${promo}` : baseName,
-        location: [eventCity(e), eventRegion(e)].filter(Boolean).join(", "),
-        genre: eventGenre(e),
-        score,
-        url: eventUrl(e),
-        __raw: e,
-      };
-    });
-
-    const header = includeCandidatesInTripEvents
-      ? computeTripHeader(displaySorted)
-      : {
-          startYMD: windowStart,
-          endYMD: windowEnd,
-          locations: [
-            [eventCity(anchorEvent), eventRegion(anchorEvent)].filter(Boolean).join(", "),
-          ].filter(Boolean),
-        };
-
-    trips.push({
-      startYMD: header.startYMD,
-      endYMD: header.endYMD,
-      locations: header.locations,
-      events: scoredEvents,
-      ...(tripLL ? { lat: tripLL.lat, lon: tripLL.lon } : {}),
-      tripKey: `${gameKey(anchorEvent)}|${radiusMiles}|${tripDays}|${sigHash}`,
-    });
-
-    if (trips.length >= 300) break;
-  }
-
-  trips.sort((a, b) => {
-    const as = a.startYMD || "9999-12-31";
-    const bs = b.startYMD || "9999-12-31";
-    if (as !== bs) return as < bs ? -1 : 1;
-
-    const aMax = Math.max(...(a.events || []).map((e) => Number(e.score) || 0), 0);
-    const bMax = Math.max(...(b.events || []).map((e) => Number(e.score) || 0), 0);
-    return bMax - aMax;
-  });
-
-  return trips;
-}
-
 // -------------------- handler --------------------
 
 export async function GET(req) {
@@ -920,10 +663,12 @@ export async function GET(req) {
     const primaryId = searchParams.get("primaryId");
     const secondaryId = searchParams.get("secondaryId");
 
-    const musicGenres = sanitizePickList(searchParams.getAll("musicGenres"), MUSIC_ALLOWED);
-    const sportsGenres = sanitizePickList(searchParams.getAll("sportsGenres"), SPORTS_ALLOWED);
+    // Keep these (even though rows mode doesn't use genres) so your UI can still pass them through
+    sanitizePickList(searchParams.getAll("musicGenres"), MUSIC_ALLOWED);
+    sanitizePickList(searchParams.getAll("sportsGenres"), SPORTS_ALLOWED);
 
     const mode = (searchParams.get("mode") || "trips").toLowerCase(); // "rows" | "trips"
+    const isRowsMode = mode === "rows";
 
     const tripDays = clampInt(searchParams.get("tripDays"), 1, 30, DEFAULT_TRIP_DAYS);
 
@@ -936,19 +681,21 @@ export async function GET(req) {
       else radiusMiles = 180;
     }
 
-    // support both start/end and startYMD/endYMD just in case
-    const startYMD =
-      isYMD(searchParams.get("start")) ? searchParams.get("start") :
-      isYMD(searchParams.get("startYMD")) ? searchParams.get("startYMD") :
-      null;
+    const startYMD = isYMD(searchParams.get("start"))
+      ? searchParams.get("start")
+      : isYMD(searchParams.get("startYMD"))
+      ? searchParams.get("startYMD")
+      : null;
 
-    const endYMD =
-      isYMD(searchParams.get("end")) ? searchParams.get("end") :
-      isYMD(searchParams.get("endYMD")) ? searchParams.get("endYMD") :
-      null;
+    const endYMD = isYMD(searchParams.get("end"))
+      ? searchParams.get("end")
+      : isYMD(searchParams.get("endYMD"))
+      ? searchParams.get("endYMD")
+      : null;
 
     const defaultStart = startYMD || todayUTCYMD();
-    const defaultEnd = endYMD || addDaysYMD(defaultStart, 300);
+    // make default window large so "entire schedule" doesn't cut off early
+    const defaultEnd = endYMD || addDaysYMD(defaultStart, 420);
 
     const countryCodeRaw = searchParams.get("countryCode") || "US,CA";
     const countryCodes = normalizeCountryCodes(countryCodeRaw);
@@ -957,87 +704,77 @@ export async function GET(req) {
     const secondary = parsePickId(secondaryId);
 
     const primaryAttractionId =
-      primary?.kind === "team" ? primary?.attractionId :
-      primary?.kind === "artist" ? primary?.attractionId :
-      null;
+      primary?.kind === "team"
+        ? primary?.attractionId
+        : primary?.kind === "artist"
+        ? primary?.attractionId
+        : null;
 
     const secondaryAttractionId =
-      secondary?.kind === "team" ? secondary?.attractionId :
-      secondary?.kind === "artist" ? secondary?.attractionId :
-      null;
+      secondary?.kind === "team"
+        ? secondary?.attractionId
+        : secondary?.kind === "artist"
+        ? secondary?.attractionId
+        : null;
 
-    const hasSecondaryInput = !!String(secondaryId || "").trim();
-    const wantsAnyGenre = (musicGenres?.length || 0) + (sportsGenres?.length || 0) > 0;
-
-    const singlePrimaryNoInterests = !hasSecondaryInput && !wantsAnyGenre;
     const halfWindowDays = Math.floor(tripDays / 2);
 
     const debug = {
       inputs: {
         primaryId: primaryId || null,
         secondaryId: secondaryId || null,
-        musicGenres,
-        sportsGenres,
         tripDays,
         halfWindowDays,
         radiusMiles,
         startYMD,
         endYMD,
         countryCode: countryCodes.join(","),
+        mode,
       },
       counts: {
         anchorsFetched: 0,
         anchorOccurrences: 0,
         anchorsUsed: 0,
-        trips: 0,
-        rows: 0, // ✅ (3/A) declare upfront
+        rows: 0,
       },
       notes: [
-        "Anchors are deduped to occurrences (prevents premium seating duplicates from producing multiple trips).",
-        "Nearby candidates are also deduped to occurrences before filtering/scoring.",
-        "Eligibility requires secondary hit if secondaryId provided; requires at least one genre hit if genres selected.",
-        "Hard anchor cap applied to protect serverless runtime.",
-        "OPTION A enabled: events are fetched per-country (US then CA) and merged.",
-        "Trip-level lat/lon is derived from anchor venue coords when available.",
-        "Deduping prefers Ticketmaster event id; fallback key is localDate + (music: rounded lat/lon, else: venueId or city/region) + normalized base title.",
-        "Genre matching uses a blob of segment+genre+subGenre to avoid 'Golf' being missed when it's in a different field.",
+        "Rows mode: always returns the full P1 schedule (paged), and highlights P1 rows that have any P2 events within radius+window.",
+        "Genre matching is NOT computed here (client fetches it lazily via /api/trip-matches only when genres are selected).",
+        "Anchors are deduped to occurrences to prevent premium seating duplicates from producing multiple rows.",
       ],
       tm: {},
     };
 
     if (!TM_KEY) {
-      return NextResponse.json(
-        { count: 0, potentialTrips: [], error: "Missing TICKETMASTER_API_KEY", debug },
-        { status: 500 }
-      );
+      return NextResponse.json({ count: 0, rows: [], error: "Missing TICKETMASTER_API_KEY", debug }, { status: 500 });
     }
 
     if (!primaryAttractionId) {
       return NextResponse.json(
-        {
-          count: 0,
-          potentialTrips: [],
-          debug,
-          error: "primaryId missing attractionId (expects team/artist IDs with attractionId).",
-        },
+        { count: 0, rows: [], debug, error: "primaryId missing attractionId (expects team/artist IDs with attractionId)." },
         { status: 400 }
       );
     }
 
-    // -------------------- Fetch anchor events (primary) --------------------
+    if (!isRowsMode) {
+      return NextResponse.json(
+        { error: "This /api/search build is optimized for mode=rows.", debug },
+        { status: 400 }
+      );
+    }
+
+    // -------------------- Fetch anchor events (primary) (PAGED) --------------------
     const anchorParams = new URLSearchParams();
-    anchorParams.set("size", "200");
     anchorParams.set("sort", "date,asc");
     anchorParams.set("attractionId", String(primaryAttractionId));
     anchorParams.set("startDateTime", `${defaultStart}T00:00:00Z`);
     anchorParams.set("endDateTime", `${defaultEnd}T23:59:59Z`);
 
-    const anchorFetch = await fetchEventsForCountries(anchorParams, countryCodes);
+    const anchorFetch = await fetchAllPagesForCountries(anchorParams, countryCodes, HARD_ANCHOR_EVENT_CAP);
     debug.tm.anchorPerCountry = anchorFetch.perCountry;
 
     let anchorsAll = sortEvents(anchorFetch.events);
 
-    // Filter TEAM schedules only
     if (primary?.kind === "team") {
       anchorsAll = anchorsAll.filter(looksLikeTeamGameEvent);
     }
@@ -1049,6 +786,7 @@ export async function GET(req) {
     const anchors = [];
     for (const e of anchorsAll) {
       const sig = dedupeKey(e) || gameKey(e);
+      if (!sig) continue;
       if (anchorOccSeen.has(sig)) continue;
       anchorOccSeen.add(sig);
       anchors.push(e);
@@ -1056,133 +794,61 @@ export async function GET(req) {
     debug.counts.anchorOccurrences = anchors.length;
 
     if (anchors.length === 0) {
-      return NextResponse.json({ count: 0, potentialTrips: [], debug });
+      return NextResponse.json({ count: 0, rows: [], debug });
     }
 
-    // -------------------- Fetch candidate events --------------------
+    // -------------------- Fetch P2 schedule for overlap shading (PAGED) --------------------
     let candidatesAll = [];
 
-    if (singlePrimaryNoInterests) {
-      debug.notes.push(
-        "Single-primary + no-interest mode: skipping candidate fetch so matching events are empty."
-      );
+    if (!secondaryAttractionId) {
       debug.tm.candidatePerCountry = [];
+      debug.notes.push("Rows mode: no secondary selected, skipping candidate fetch.");
     } else {
       const candidateParams = new URLSearchParams();
-candidateParams.set("size", "200");
-candidateParams.set("sort", "date,asc");
+      candidateParams.set("sort", "date,asc");
 
-const firstAnchor = eventLocalDate(anchors[0]);
-const lastAnchor = eventLocalDate(anchors[anchors.length - 1]);
+      const firstAnchor = eventLocalDate(anchors[0]);
+      const lastAnchor = eventLocalDate(anchors[anchors.length - 1]);
 
-const bandStart = firstAnchor
-  ? addDaysYMD(firstAnchor, -halfWindowDays)
-  : defaultStart;
+      const bandStart = firstAnchor ? addDaysYMD(firstAnchor, -halfWindowDays) : defaultStart;
+      const bandEnd = lastAnchor ? addDaysYMD(lastAnchor, +halfWindowDays) : defaultEnd;
 
-const bandEnd = lastAnchor
-  ? addDaysYMD(lastAnchor, +halfWindowDays)
-  : defaultEnd;
+      if (bandStart) candidateParams.set("startDateTime", `${bandStart}T00:00:00Z`);
+      if (bandEnd) candidateParams.set("endDateTime", `${bandEnd}T23:59:59Z`);
+      candidateParams.set("attractionId", String(secondaryAttractionId));
 
-if (bandStart) candidateParams.set("startDateTime", `${bandStart}T00:00:00Z`);
-if (bandEnd) candidateParams.set("endDateTime", `${bandEnd}T23:59:59Z`);
+      debug.tm.candidateBand = { bandStart, bandEnd, attractionId: secondaryAttractionId };
 
-let mergedCandidates = [];
+      const p2Fetch = await fetchAllPagesForCountries(candidateParams, countryCodes, HARD_NEARBY_EVENT_CAP);
+      debug.tm.candidatePerCountry = p2Fetch.perCountry;
 
-// 1) Secondary schedule pool (if P2 exists)
-if (secondaryAttractionId) {
-  const p2Params = new URLSearchParams(candidateParams.toString());
-  p2Params.set("attractionId", String(secondaryAttractionId));
+      let p2Events = p2Fetch.events || [];
+      if (secondary?.kind === "team") {
+        p2Events = p2Events.filter(looksLikeTeamGameEvent);
+      }
 
-  debug.tm.candidateBand = { bandStart, bandEnd, attractionId: secondaryAttractionId };
-
-  const p2Fetch = await fetchEventsForCountries(p2Params, countryCodes);
-  debug.tm.candidatePerCountry = p2Fetch.perCountry;
-
-  let p2Events = p2Fetch.events || [];
-
-  if (secondary?.kind === "team") {
-    p2Events = p2Events.filter(looksLikeTeamGameEvent);
-  }
-
-  mergedCandidates.push(...p2Events);
-}
-
-// 2) Genre pool (if any genres selected)
-const classNames = [...(musicGenres || []), ...(sportsGenres || [])];
-if (classNames.length > 0) {
-  debug.tm.genreBand = { bandStart, bandEnd, classificationNames: classNames };
-
-  const byGenre = await fetchCandidatesByClassificationNames(candidateParams, countryCodes, classNames);
-  debug.tm.genrePerGenre = byGenre.perGenre;
-
-  mergedCandidates.push(...(byGenre.events || []));
-}
-
-// Exclude Other/unclassified, then dedupe, then cap
-candidatesAll = dedupeEvents((mergedCandidates || []).filter((e) => !isExcludedFromMatching(e)));
-
-if (candidatesAll.length > HARD_NEARBY_EVENT_CAP) {
-  candidatesAll = sortEvents(candidatesAll).slice(0, HARD_NEARBY_EVENT_CAP);
-}
-
-      // Exclude Other/unclassified, then dedupe, then cap
-      candidatesAll = dedupeEvents((candidatesAll || []).filter((e) => !isExcludedFromMatching(e)));
+      // NOTE: we do NOT apply isExcludedFromMatching here aggressively, because some sports variants
+      // can have funky classification fields; overlap shading should be tolerant.
+      candidatesAll = dedupeEvents(p2Events);
 
       if (candidatesAll.length > HARD_NEARBY_EVENT_CAP) {
         candidatesAll = sortEvents(candidatesAll).slice(0, HARD_NEARBY_EVENT_CAP);
       }
     }
 
-    // -------------------- Build response --------------------
-    if (mode === "rows") {
-      const rows = buildPrimaryRows({
-        anchors,
-        candidates: candidatesAll,
-        radiusMiles,
-        tripDays,
-        secondaryAttractionId: secondaryAttractionId || null,
-        musicGenres,
-        sportsGenres,
-      });
-
-      debug.counts.anchorsUsed = anchors.length;
-      debug.counts.rows = rows.length;
-
-      return NextResponse.json({
-        count: rows.length,
-        rows,
-        debug,
-      });
-    }
-
-    // default: legacy trips view
-    const potentialTrips = buildTrips({
+    const rows = buildPrimaryRows({
       anchors,
       candidates: candidatesAll,
       radiusMiles,
       tripDays,
       secondaryAttractionId: secondaryAttractionId || null,
-      musicGenres,
-      sportsGenres,
     });
 
     debug.counts.anchorsUsed = anchors.length;
-    debug.counts.trips = potentialTrips.length;
+    debug.counts.rows = rows.length;
 
-    return NextResponse.json({
-      count: potentialTrips.length,
-      potentialTrips,
-      debug,
-    });
+    return NextResponse.json({ count: rows.length, rows, debug });
   } catch (e) {
-    // ✅ (2/B) ensures handler always closes cleanly and returns a consistent error payload
-    return NextResponse.json(
-      {
-        count: 0,
-        potentialTrips: [],
-        error: String(e?.message || e),
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ count: 0, rows: [], error: String(e?.message || e) }, { status: 500 });
   }
 }

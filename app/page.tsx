@@ -3,7 +3,6 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AirportPicker, type Airport } from "./components/AirportPicker";
 
 type CombinedOption = {
   id: string;
@@ -35,49 +34,48 @@ const TRIP_DAYS_OPTIONS: Array<3 | 5 | 7> = [3, 5, 7];
 
 /* Genre lists (UI buttons) */
 const MUSIC_GENRES = [
-  "Alternative",
-  "Blues",
-  "Children’s Music",
-  "Classical",
-  "Comedy",
+    "Comedy",
+  "Rock",
+  "Pop",
   "Country",
-  "Dance / Electronic",
-  "Folk",
   "Hip-Hop / Rap",
-  "Holiday",
-  "Jazz",
+  "R&B",
+  "Dance / Electronic",
+  "Alternative",
   "Latin",
   "Metal",
-  "New Age",
-  "Other",
-  "Pop",
-  "R&B",
+  "Jazz",
+  "Folk",
+  "Classical",
+  "Blues",
   "Reggae",
-  "Religious",
-  "Rock",
   "World",
+  "Religious",
+  "Holiday",
+  "Children’s Music",
+  "New Age",
 ] as const;
 
+
 const SPORTS_GENRES = [
-  "Baseball",
-  "Basketball",
-  "Boxing",
-  "Cricket",
-  "Equestrian",
   "Football",
-  "Golf",
+  "Basketball",
+  "Baseball",
   "Hockey",
+  "Soccer",
+  "Golf",
+  "Tennis",
+  "Motorsports",
+  "Wrestling",
   "Lacrosse",
   "Martial Arts",
-  "Miscellaneous",
-  "Motorsports",
-  "Rodeo",
-  "Soccer",
-  "Tennis",
   "Volleyball",
-  "Wrestling",
-  "Other",
+  "Boxing",
+  "Rodeo",
+  "Cricket",
+  "Equestrian",
 ] as const;
+
 
 function sanitizeGenreList(input: string[], allowed: readonly string[]) {
   const allowedSet = new Set(allowed.map((x) => String(x)));
@@ -305,12 +303,11 @@ function Combobox({
 
   return (
     <div ref={wrapRef} className="w-full">
-      <div className="mb-2 flex items-end justify-between gap-3">
-        <div className="flex items-baseline gap-2">
-          <div className="text-sm font-semibold text-slate-900">{label}</div>
-        </div>
-        {help ? <div className="hidden text-xs text-slate-500 sm:block">{help}</div> : null}
-      </div>
+      <div className="mb-2">
+  <div className="text-sm font-semibold text-slate-900">{label}</div>
+  {help ? <div className="mt-1 text-xs text-slate-500">{help}</div> : null}
+</div>
+
 
       <div className="relative">
         <input
@@ -414,8 +411,6 @@ function Combobox({
           </div>
         )}
       </div>
-
-      {help ? <div className="mt-2 text-xs text-slate-500 sm:hidden">{help}</div> : null}
     </div>
   );
 }
@@ -426,9 +421,10 @@ function Pill({ label, selected, onClick }: { label: string; selected: boolean; 
       type="button"
       onClick={onClick}
       className={[
-        "rounded-2xl px-3 py-2 text-xs font-extrabold transition border",
-        selected ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50",
-      ].join(" ")}
+  "w-full rounded-2xl px-3 py-2 text-xs font-extrabold transition border text-center",
+  selected ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50",
+].join(" ")}
+
     >
       {label}
     </button>
@@ -461,6 +457,14 @@ function attractionIdFromOption(opt: CombinedOption | undefined | null): string 
   return "";
 }
 
+function radiusMilesForTripDays(tripDays: 3 | 5 | 7) {
+  // Keep in sync with /api/search route.js defaulting:
+  // <=3 => 60, <=5 => 120, else => 180
+  if (tripDays <= 3) return 60;
+  if (tripDays <= 5) return 120;
+  return 180;
+}
+
 export default function Page() {
   const router = useRouter();
   const sp = useSearchParams();
@@ -478,10 +482,6 @@ export default function Page() {
 
   const [musicGenres, setMusicGenres] = useState<string[]>([]);
   const [sportsGenres, setSportsGenres] = useState<string[]>([]);
-
-  const [airports, setAirports] = useState<Airport[]>([]);
-  const [originIata, setOriginIata] = useState<string>("");
-  const [originErr, setOriginErr] = useState<string>("");
 
   const didInitRef = useRef(false);
   const [searchPulse, setSearchPulse] = useState(false);
@@ -519,25 +519,7 @@ export default function Page() {
     };
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/airports.min.json")
-      .then((r) => r.json())
-      .then((list: Airport[]) => {
-        if (cancelled) return;
-        setAirports(Array.isArray(list) ? list : []);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setAirports([]);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const { map: grouped, groups } = useMemo(() => groupOptions(combined), [combined]);
+    const { map: grouped, groups } = useMemo(() => groupOptions(combined), [combined]);
 
   const optionById = (id: string) => combined.find((o) => o.id === id);
 
@@ -601,7 +583,6 @@ export default function Page() {
     const qPrimary = sp.get("primaryId") || "";
     const qSecondary = sp.get("secondaryId") || "";
     const qTripDays = safeParseInt(sp.get("tripDays"), 3);
-    const qOrigin = sp.get("origin") || "";
 
     const qStart = sp.get("start") || "";
     const qEnd = sp.get("end") || "";
@@ -621,44 +602,46 @@ export default function Page() {
 
     const qMusicGenresClean = sanitizeGenreList(qMusicGenres, MUSIC_GENRES);
     const qSportsGenresClean = sanitizeGenreList(qSportsGenres, SPORTS_GENRES);
-
-    const hasAnyUrlState = Boolean(
-      qPrimary || qSecondary || sp.get("tripDays") || qOrigin || qStart || qEnd || qMusicGenres.length || qSportsGenres.length
-    );
+const hasAnyUrlState = Boolean(
+  qPrimary ||
+  qSecondary ||
+  sp.get("tripDays") ||
+  qStart ||
+  qEnd ||
+  qMusicGenres.length ||
+  qSportsGenres.length
+);
 
     const coerceTripDays = (n: number): 3 | 5 | 7 => (n === 5 ? 5 : n === 7 ? 7 : 3);
 
     const applyState = (next: {
-      primaryId: string;
-      secondaryId: string;
-      tripDays: 3 | 5 | 7;
-      origin: string;
-      start: string;
-      end: string;
-      musicGenres: string[];
-      sportsGenres: string[];
-    }) => {
-      setPrimaryId(next.primaryId);
-      setSecondaryId(next.secondaryId);
-      setTripDays(next.tripDays);
-      setOriginIata(next.origin.trim().toUpperCase());
-      setStartDate(isYMD(next.start) ? next.start : "");
-      setEndDate(isYMD(next.end) ? next.end : "");
-      setMusicGenres(next.musicGenres);
-      setSportsGenres(next.sportsGenres);
-    };
+  primaryId: string;
+  secondaryId: string;
+  tripDays: 3 | 5 | 7;
+  start: string;
+  end: string;
+  musicGenres: string[];
+  sportsGenres: string[];
+}) => {
+  setPrimaryId(next.primaryId);
+  setSecondaryId(next.secondaryId);
+  setTripDays(next.tripDays);
+  setStartDate(isYMD(next.start) ? next.start : "");
+  setEndDate(isYMD(next.end) ? next.end : "");
+  setMusicGenres(next.musicGenres);
+  setSportsGenres(next.sportsGenres);
+};
 
     if (hasAnyUrlState) {
       applyState({
-        primaryId: qPrimary,
-        secondaryId: qSecondary,
-        tripDays: coerceTripDays(qTripDays),
-        origin: qOrigin,
-        start: qStart,
-        end: qEnd,
-        musicGenres: qMusicGenresClean,
-        sportsGenres: qSportsGenresClean,
-      });
+  primaryId: qPrimary,
+  secondaryId: qSecondary,
+  tripDays: coerceTripDays(qTripDays),
+  start: qStart,
+  end: qEnd,
+  musicGenres: qMusicGenresClean,
+  sportsGenres: qSportsGenresClean,
+});
       return;
     }
 
@@ -667,16 +650,16 @@ export default function Page() {
       if (!raw) return;
       const parsed = JSON.parse(raw);
 
-      applyState({
-        primaryId: String(parsed?.primaryId || ""),
-        secondaryId: String(parsed?.secondaryId || ""),
-        tripDays: coerceTripDays(Number(parsed?.tripDays || 3)),
-        origin: String(parsed?.origin || ""),
-        start: String(parsed?.start || ""),
-        end: String(parsed?.end || ""),
-        musicGenres: sanitizeGenreList(Array.isArray(parsed?.musicGenres) ? parsed.musicGenres : [], MUSIC_GENRES),
-        sportsGenres: sanitizeGenreList(Array.isArray(parsed?.sportsGenres) ? parsed.sportsGenres : [], SPORTS_GENRES),
-      });
+applyState({
+  primaryId: String(parsed?.primaryId || ""),
+  secondaryId: String(parsed?.secondaryId || ""),
+  tripDays: coerceTripDays(Number(parsed?.tripDays || 3)),
+  start: String(parsed?.start || ""),
+  end: String(parsed?.end || ""),
+  musicGenres: sanitizeGenreList(Array.isArray(parsed?.musicGenres) ? parsed.musicGenres : [], MUSIC_GENRES),
+  sportsGenres: sanitizeGenreList(Array.isArray(parsed?.sportsGenres) ? parsed.sportsGenres : [], SPORTS_GENRES),
+});
+
     } catch {
       // ignore
     }
@@ -694,7 +677,6 @@ export default function Page() {
       primaryId,
       secondaryId,
       tripDays,
-      origin: originIata,
       start: isYMD(startNorm) ? startNorm : "",
       end: isYMD(endNorm) ? endNorm : "",
       musicGenres: musicGenresClean,
@@ -709,7 +691,6 @@ export default function Page() {
     if (effective.primaryId) qs.set("primaryId", effective.primaryId);
     if (effective.secondaryId) qs.set("secondaryId", effective.secondaryId);
     qs.set("tripDays", String(effective.tripDays));
-    if (effective.origin) qs.set("origin", effective.origin);
     if (effective.start) qs.set("start", effective.start);
     if (effective.end) qs.set("end", effective.end);
     for (const g of effective.musicGenres) qs.append("musicGenres", g);
@@ -717,7 +698,7 @@ export default function Page() {
 
     const next = qs.toString() ? `/?${qs.toString()}` : "/";
     window.history.replaceState(null, "", next);
-  }, [primaryId, secondaryId, tripDays, originIata, startDate, endDate, musicGenres, sportsGenres]);
+}, [primaryId, secondaryId, tripDays, startDate, endDate, musicGenres, sportsGenres]);
 
   const canSearch = Boolean(primaryId) && !primaryNoEvents;
 
@@ -740,15 +721,12 @@ export default function Page() {
     }
     if (primaryNoEvents) return;
 
-    setOriginErr("");
-
     const { start: startNorm, end: endNorm } = normalizeDateRange(startDate, endDate);
 
     const params = new URLSearchParams();
     params.set("primaryId", primaryId);
     if (secondaryId) params.set("secondaryId", secondaryId);
     params.set("tripDays", String(tripDays));
-    if (originIata) params.set("origin", originIata);
     if (isYMD(startNorm)) params.set("start", startNorm);
     if (isYMD(endNorm)) params.set("end", endNorm);
     for (const g of sanitizeGenreList(musicGenres, MUSIC_GENRES)) params.append("musicGenres", g);
@@ -762,20 +740,23 @@ export default function Page() {
       <div className="mx-auto max-w-3xl px-4 py-10 sm:py-14">
         <header className="mb-8">
           <h1 className="text-center text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">Find an epic trip!</h1>
-          <p className="mt-7 text-center text-sm text-slate-600 sm:text-base">
-            We help users find and book epic trips built around live events featuring their favorite teams and artists.
+          <p className="mt-7 text-center text-sm text-slate-600 sm:text-lg">
+            We help users find and book epic trips built around live events featuring their favorite sports teams and/or musical artists.
           </p>
         </header>
 
         <div className="space-y-6">
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-            <div className="mb-4 flex items-end justify-between gap-3">
-              <div className="text-lg font-extrabold text-slate-900">Pick your favorites</div>
-            </div>
+            <div className="mb-4">
+  <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 text-center">
+    Favorites
+  </div>
+</div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+
+<div className="grid gap-4">
               <Combobox
-                label="Primary favorite (required)"
+                label="Primary*"
                 optionsAll={combined}
                 grouped={grouped}
                 groups={groups}
@@ -789,12 +770,17 @@ export default function Page() {
                   if (secondaryId && v === secondaryId) setSecondaryId("");
                   ensureAvailability(v, "primary");
                 }}
-                help="This is the anchor for each potential trip."
+                help="We'll show you trip options based on their schedule."
                 disabled={loading}
               />
-
+{primaryId && primaryNoEvents ? (
+              <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-900">
+                {" "}
+                <span className="font-extrabold">{labelForId(primaryId, combined) || "this selection"}</span> have no live events scheduled.
+              </div>
+            ) : null}
               <Combobox
-                label="Secondary favorite (nice-to-have)"
+                label="Secondary (optional)"
                 optionsAll={combined}
                 grouped={grouped}
                 groups={groups}
@@ -811,112 +797,108 @@ export default function Page() {
                   setSecondaryId(v);
                   ensureAvailability(v, "secondary");
                 }}
-                help="Trips must include at least one event with this attraction (if set)."
+                help="If such an opportunity exists, we'll show you when and where your Secondary has an event near your Primary."
                 disabled={loading}
               />
             </div>
 
-            {primaryId && primaryNoEvents ? (
-              <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-900">
-                No upcoming events are listed for{" "}
-                <span className="font-extrabold">{labelForId(primaryId, combined) || "this selection"}</span>. If the
-                schedule hasn’t been released yet, check back later.
-              </div>
-            ) : null}
+            
 
-            {secondaryId ? (
-              <div className="mt-3 text-xs text-slate-600">
-                Secondary selected: <span className="font-extrabold text-slate-900">{labelForId(secondaryId, combined)}</span>
-              </div>
-            ) : (
-              <div className="mt-3 text-xs text-slate-500">
-                Leaving Secondary blank will build trips around the Primary plus your selected genres (if any).
-              </div>
-            )}
-          </div>
+                      </div>
 
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-            <div className="text-lg font-extrabold text-slate-900">Trip constraints</div>
+            <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 text-center">Trip Length & Dates</div>
 
             <div className="mt-4">
-              <div className="mb-2 text-sm font-semibold text-slate-900">Trip length</div>
-              <div className="flex flex-wrap gap-2">
-                {TRIP_DAYS_OPTIONS.map((d) => (
-                  <Pill key={d} label={`${d} days`} selected={tripDays === d} onClick={() => setTripDays(d)} />
-                ))}
-              </div>
-              <div className="mt-2 text-xs text-slate-500">
-                3 days = ±1 day and 60 miles. 5 days = ±2 days and 120 miles. 7 days = ±3 days and 180 miles.
-              </div>
+              <div className="mb-2 text-sm font-semibold text-slate-900">Length (select one)</div>
+              <div className="grid grid-cols-3 gap-2">
+  {TRIP_DAYS_OPTIONS.map((d) => {
+  const half = Math.floor(d / 2); // 3=>1, 5=>2, 7=>3
+  return (
+    <Pill
+      key={d}
+      label={`${d} days (±${half})`}
+      selected={tripDays === d}
+      onClick={() => setTripDays(d)}
+    />
+  );
+})}
+
+
+
+
+</div>
+
+              <div className="mt-2" />
             </div>
 
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               <label className="block">
-                <div className="mb-2 text-sm font-semibold text-slate-900">Start date (optional)</div>
+                <div className="mb-2 text-sm font-semibold text-slate-900">Start Date (optional)</div>
                 <input
                   className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-[15px] text-slate-900 shadow-sm outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
                 />
-                <div className="mt-2 text-xs text-slate-500">If set, anchor (primary) events will only be on/after this date.</div>
+                <div className="mt-2 text-center text-xs text-slate-500">Only trips starting after this date will be considered.</div>
               </label>
 
               <label className="block">
-                <div className="mb-2 text-sm font-semibold text-slate-900">End date (optional)</div>
+                <div className="mb-2 text-sm font-semibold text-slate-900">End Date (optional)</div>
                 <input
                   className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-[15px] text-slate-900 shadow-sm outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                 />
-                <div className="mt-2 text-xs text-slate-500">If set, anchor (primary) events will only be on/before this date.</div>
+                <div className="mt-2 text-center text-xs text-slate-500">Only trips ending before this date will be considered.</div>
               </label>
             </div>
           </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-            <div className="text-lg font-extrabold text-slate-900">What else are you into?</div>
+<div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+<div className="text-2xl sm:text-3xl font-extrabold text-slate-900 text-center">
+    Other Interests
+  </div>
 
-            <div className="mt-4">
-              <div className="mb-2 text-sm font-semibold text-slate-900">Music genres</div>
-              <div className="flex flex-wrap gap-2">
-                {MUSIC_GENRES.map((g) => (
-                  <Pill key={g} label={g} selected={musicGenres.includes(g)} onClick={() => toggleList(setMusicGenres, musicGenres, g)} />
-                ))}
-              </div>
-            </div>
+  <div className="mt-2 text-xs text-slate-500 text-center">
+    These help us find other events near your Primary that might be of interest to you.
+  </div>
 
-            <div className="mt-6">
-              <div className="mb-2 text-sm font-semibold text-slate-900">Sports genres</div>
-              <div className="flex flex-wrap gap-2">
-                {SPORTS_GENRES.map((g) => (
-                  <Pill key={g} label={g} selected={sportsGenres.includes(g)} onClick={() => toggleList(setSportsGenres, sportsGenres, g)} />
-                ))}
-              </div>
-            </div>
+  <div className="mt-6 grid gap-8 md:grid-cols-2">
+    {/* Sports column */}
+    <div>
+      <div className="mb-3 text-center text-base font-extrabold text-slate-900">Sports</div>
+      <div className="grid gap-2">
+        {SPORTS_GENRES.map((g) => (
+          <Pill
+            key={g}
+            label={g}
+            selected={sportsGenres.includes(g)}
+            onClick={() => toggleList(setSportsGenres, sportsGenres, g)}
+          />
+        ))}
+      </div>
+    </div>
 
-            <div className="mt-4 text-xs text-slate-500">
-              Select none if you only care about the Primary (and Secondary, if set). Select some to include other events near your Primary within the trip window.
-            </div>
-          </div>
-
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-            <AirportPicker
-              airports={airports}
-              valueIata={originIata}
-              onPick={(iata) => {
-                setOriginErr("");
-                setOriginIata(iata);
-              }}
-            />
-            {originErr ? (
-              <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-900">
-                {originErr}
-              </div>
-            ) : null}
-          </div>
-
+    {/* Music column */}
+    <div>
+      <div className="mb-3 text-center text-base font-extrabold text-slate-900">Music</div>
+      <div className="grid gap-2">
+        {MUSIC_GENRES.map((g) => (
+          <Pill
+            key={g}
+            label={g}
+            selected={musicGenres.includes(g)}
+            onClick={() => toggleList(setMusicGenres, musicGenres, g)}
+          />
+        ))}
+      </div>
+    </div>
+  </div>
+</div>
+        
           <div className="flex items-center justify-center">
             <button
               type="button"
