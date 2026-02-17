@@ -358,10 +358,10 @@ export default function ResultsPage() {
             const matchingErr = matchingErrByRow[r.rowKey] || null;
 
             const allEvents: { kind: AllKind; e: RowEvent }[] = [
-              { kind: "primary", e: a },
-              ...secondary.map((e) => ({ kind: "secondary" as const, e })),
-              ...matching.map((e) => ({ kind: "matching" as const, e })),
-            ].sort((x, y) => (x.e?.date || "").localeCompare(y.e?.date || ""));
+  { kind: "primary" as const, e: a },
+  ...secondary.map((e) => ({ kind: "secondary" as const, e })),
+  ...matching.map((e) => ({ kind: "matching" as const, e })),
+].sort((x, y) => (x.e?.date || "").localeCompare(y.e?.date || ""));
 
             function buildTrip() {
               const selectedKeys = selectedByRow[r.rowKey] || {};
