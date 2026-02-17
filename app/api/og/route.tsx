@@ -49,9 +49,13 @@ export async function GET(req: Request) {
   const dateLine =
     start && end ? (start === end ? startText : `${startText} - ${endText}`) : startText || endText || "";
 
-  const titles = Array.isArray(payload?.fallbackTitles)
-    ? payload.fallbackTitles.filter(Boolean).slice(0, 4)
-    : [];
+ const titles = Array.isArray(payload?.events)
+  ? payload.events
+      .map((e: any) => e?.name)
+      .filter(Boolean)
+      .slice(0, 4)
+  : [];
+
 
   return new ImageResponse(
     (

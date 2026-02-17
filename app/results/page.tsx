@@ -37,7 +37,7 @@ type TripMatchesEvent = {
   tmID?: string | null;
   name: string;
   url?: string | null;
-  dateLocal?: string | null; // ISO date-time or null
+  dateLocal?: string | null;
   venue?: string | null;
   city?: string | null;
   region?: string | null;
@@ -80,18 +80,10 @@ function prettyYMD(ymd?: string | null) {
   return `${m} ${d}, ${y}`;
 }
 
-/**
- * Stable-ish key for selection + dedupe on UI side.
- * (Used for checkbox state + within-list dedupe)
- */
 function eventKey(e: RowEvent) {
   return [e.date || "", e.location || "", e.name || "", e.url || ""].join("|");
 }
 
-/**
- * Strong identity key for dedupe across lists.
- * Prefer URL; otherwise date+name+location (normalized).
- */
 function eventIdentityKey(e: RowEvent) {
   const url = String(e?.url || "").trim();
   if (url) return `url:${url}`;
@@ -103,7 +95,6 @@ function eventIdentityKey(e: RowEvent) {
   return `sig:${date}|${name}|${loc}`;
 }
 
-/** Keep the build-trip URL small */
 function slimEvent(e: any): RowEvent {
   return {
     date: e?.date ?? null,
@@ -112,14 +103,6 @@ function slimEvent(e: any): RowEvent {
     genre: e?.genre ?? null,
     url: e?.url ?? null,
   };
-}
-
-function b64urlEncode(str: string) {
-  const bytes = new TextEncoder().encode(str);
-  let bin = "";
-  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-  const b64 = btoa(bin);
-  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
 function hasAnySelectedGenres(sp: ReturnType<typeof useSearchParams>) {
@@ -178,10 +161,8 @@ export default function ResultsPage() {
   const [rows, setRows] = useState<PrimaryRow[]>([]);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
-  // Selection state (per expanded row)
   const [selectedByRow, setSelectedByRow] = useState<Record<string, Record<string, boolean>>>({});
 
-  // Lazy matching cache + state (genre-only matches)
   const [matchingByRow, setMatchingByRow] = useState<Record<string, RowEvent[]>>({});
   const [matchingLoadingByRow, setMatchingLoadingByRow] = useState<Record<string, boolean>>({});
   const [matchingErrByRow, setMatchingErrByRow] = useState<Record<string, string | null>>({});
@@ -245,7 +226,6 @@ export default function ResultsPage() {
   async function fetchGenreMatchingForRow(row: PrimaryRow) {
     const rowKey = row.rowKey;
 
-    // Only fetch matching events if ANY genre is selected
     const wantsGenres = hasAnySelectedGenres(sp);
     if (!wantsGenres) {
       setMatchingByRow((prev) => ({ ...prev, [rowKey]: [] }));
@@ -253,11 +233,9 @@ export default function ResultsPage() {
       return;
     }
 
-    // Already cached or already loading
     if (matchingByRow[rowKey]) return;
     if (matchingLoadingByRow[rowKey]) return;
 
-    // Need coords to use /api/trip-matches
     const lat = row.anchor?.lat;
     const lon = row.anchor?.lon;
     if (lat == null || lon == null) {
@@ -302,14 +280,12 @@ export default function ResultsPage() {
 
       const raw = Array.isArray(json?.events) ? json.events : [];
 
-      // Build block-list: anchor + secondary (so they never show up as genre matches)
       const blocked = new Set<string>();
       blocked.add(eventIdentityKey(row.anchor));
       for (const se of Array.isArray(row.secondaryEvents) ? row.secondaryEvents : []) {
         blocked.add(eventIdentityKey(se));
       }
 
-      // Also dedupe within the genre list itself
       const seen = new Set<string>();
 
       const mapped: RowEvent[] = raw
@@ -325,12 +301,11 @@ export default function ResultsPage() {
           } as RowEvent;
         })
         .filter((ev) => {
-          // hide any blank-date events entirely
           if (!hasNonEmpty(ev.date)) return false;
 
           const idk = eventIdentityKey(ev);
-          if (blocked.has(idk)) return false; // ✅ primary/secondary never reappear as genre event
-          if (seen.has(idk)) return false; // ✅ no dupes within matching list
+          if (blocked.has(idk)) return false;
+          if (seen.has(idk)) return false;
           seen.add(idk);
           return true;
         });
@@ -349,7 +324,6 @@ export default function ResultsPage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
-      {/* Top bar */}
       <div className="mb-6 flex items-center justify-between gap-3">
         <div className="text-lg font-black tracking-tight text-slate-900">Results</div>
         <button
@@ -361,7 +335,6 @@ export default function ResultsPage() {
         </button>
       </div>
 
-      {/* States */}
       {loading && <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-700">Loading…</div>}
 
       {!loading && err && <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-800">{err}</div>}
@@ -370,7 +343,6 @@ export default function ResultsPage() {
         <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-700">No primary events found for this search.</div>
       )}
 
-      {/* Primary rows */}
       {!loading && !err && hasAnyRows && (
         <div className="space-y-3">
           {rows.map((r) => {
@@ -385,9 +357,8 @@ export default function ResultsPage() {
             const matchingLoading = !!matchingLoadingByRow[r.rowKey];
             const matchingErr = matchingErrByRow[r.rowKey] || null;
 
-            // (Matching already filtered against anchor+secondary in fetchGenreMatchingForRow)
             const allEvents: { kind: AllKind; e: RowEvent }[] = [
-{ kind: "primary" as const, e: a },
+              { kind: "primary", e: a },
               ...secondary.map((e) => ({ kind: "secondary" as const, e })),
               ...matching.map((e) => ({ kind: "matching" as const, e })),
             ].sort((x, y) => (x.e?.date || "").localeCompare(y.e?.date || ""));
@@ -404,35 +375,9 @@ export default function ResultsPage() {
               window.open(`/build-trip?data=${encoded}`, "_blank", "noopener,noreferrer");
             }
 
-function shareTrip() {
-  const selectedKeys = selectedByRow[r.rowKey] || {};
-  const allSelectable = allEvents.map((x) => x.e);
-  const picked = allSelectable.filter((ev) => selectedKeys[eventKey(ev)]);
-
-  const finalPicked = (picked.length ? picked : [a]).map(slimEvent);
-
-  // Pull trip window from the row (this is what your matching logic uses too)
-  const startYMD = (r.windowStart || a.date || null) ? String((r.windowStart || a.date)!).slice(0, 10) : null;
-  const endYMD = (r.windowEnd || a.date || null) ? String((r.windowEnd || a.date)!).slice(0, 10) : null;
-
-  const payload = {
-    rowKey: r.rowKey,
-    cityState: a.location || "",
-    startYMD,
-    endYMD,
-    fallbackTitles: finalPicked.map((e) => e.name).filter(Boolean),
-    anchor: slimEvent(a),
-    events: finalPicked,
-  };
-
-  const encoded = encodeURIComponent(b64urlEncode(JSON.stringify(payload)));
-  window.open(`/share?o=${encoded}`, "_blank", "noopener,noreferrer");
-}
-
             async function openRow() {
               setExpandedKey(r.rowKey);
 
-              // default-select primary + all secondaries
               setSelectedByRow((prev) => {
                 if (prev[r.rowKey]) return prev;
 
@@ -451,7 +396,6 @@ function shareTrip() {
                 key={r.rowKey}
                 className={cx("rounded-2xl border border-slate-200 overflow-hidden", isOpen ? "bg-slate-200 shadow-sm" : "bg-white")}
               >
-                {/* PRIMARY ROW */}
                 <div
                   role="button"
                   tabIndex={0}
@@ -490,7 +434,6 @@ function shareTrip() {
                   </div>
                 </div>
 
-                {/* EXPANDED */}
                 {isOpen && (
                   <div className="px-4 py-4 sm:px-5 bg-white border-t border-slate-200">
                     {(matchingLoading || matchingErr) && (
