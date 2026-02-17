@@ -387,7 +387,7 @@ export default function ResultsPage() {
 
             // (Matching already filtered against anchor+secondary in fetchGenreMatchingForRow)
             const allEvents: { kind: AllKind; e: RowEvent }[] = [
-              { kind: "primary", e: a },
+{ kind: "primary" as const, e: a },
               ...secondary.map((e) => ({ kind: "secondary" as const, e })),
               ...matching.map((e) => ({ kind: "matching" as const, e })),
             ].sort((x, y) => (x.e?.date || "").localeCompare(y.e?.date || ""));
