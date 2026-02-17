@@ -302,22 +302,28 @@ function openExpediaFlights(originIata: string, destIataOrCity: string, departYM
   window.open(url, "_blank", "noopener,noreferrer");
 }
 
-function openExpediaFlightHotelBundle(originIata: string, destination: string, departYMD: string | null, returnYMD: string | null) {
+function openExpediaPackages(originIata: string, destination: string, departYMD: string | null, returnYMD: string | null) {
+  const o = String(originIata || "").trim().toUpperCase();
+  const d = String(destination || "").trim();
+
+  // Expedia package deeplinks expect ISO dates in the PATH.
+  // If either date is missing, fall back to "dateless" markers.
+  const from = departYMD || "0000-00-00";
+  const to = returnYMD || "0000-00-00";
+
   const qs = new URLSearchParams();
-  qs.set("packageType", "fh");
-  qs.set("tripType", "ROUND_TRIP");
-  qs.set("adults", "1");
-  qs.set("cabinClass", "COACH");
-  qs.set("directFlights", "false");
-  qs.set("partialStay", "false");
-  qs.set("searchProduct", "hotel");
+  // Required per Expedia package deeplink docs
+  if (o) qs.set("FromAirport", o);
+  if (d) qs.set("Destination", d);
 
-  if (destination) qs.set("destination", destination);
-  if (departYMD) qs.set("startDate", departYMD);
-  if (returnYMD) qs.set("endDate", returnYMD);
-  if (originIata) qs.set("origin", originIata.toUpperCase());
+  // Reasonable defaults
+  qs.set("NumRoom", "1");
+  qs.set("NumAdult", "1");
+  qs.set("langid", "1033");
 
-  const url = `https://www.expedia.com/Hotel-Search?${qs.toString()}`;
+  // Official package search URL structure:
+  // https://www.expedia.com/go/package/search/FlightHotel/{FromDate}/{ToDate}?FromAirport=SEA&Destination=dallas...
+  const url = `https://www.expedia.com/go/package/search/FlightHotel/${from}/${to}?${qs.toString()}`;
   window.open(url, "_blank", "noopener,noreferrer");
 }
 
@@ -342,6 +348,13 @@ export default function BuildTripPage() {
   const [airports, setAirports] = useState<Airport[]>([]);
   const initialAirport = useMemo(() => String(data?.airport || "").toUpperCase(), [data]);
   const [airportIata, setAirportIata] = useState<string>(initialAirport);
+
+  const [copiedToast, setCopiedToast] = useState<string | null>(null);
+
+function showCopiedToast(msg = "Copied!") {
+  setCopiedToast(msg);
+  window.setTimeout(() => setCopiedToast(null), 2200);
+}
 
   useEffect(() => setAirportIata(initialAirport), [initialAirport]);
 
@@ -381,7 +394,14 @@ export default function BuildTripPage() {
   const hasOrigin = Boolean(airportIata && airportIata.trim());
 
   const payloadForShare: BuildTripPayload = useMemo(() => {
-    const cityState = metro.metroLabel ? `${metro.metroLabel} Area` : cities[0] || "Trip location";
+    const cityState = metro.metroLabel
+  ? cities.length > 1
+    ? `${metro.metroLabel} Area`
+    : metro.metroLabel
+  : cities[0] || "Trip location";
+
+    
+    
     return {
       ...(data || {}),
       airport: airportIata,
@@ -426,70 +446,89 @@ export default function BuildTripPage() {
           <button
             type="button"
             onClick={async () => {
-              const shareUrl = buildShareUrl(payloadForShare);
-              const full = `${window.location.origin}${shareUrl}`;
+  const shareUrl = buildShareUrl(payloadForShare);
+  const full = `${window.location.origin}${shareUrl}`;
 
-              const city = payloadForShare.cityState || "Trip location";
+  const city = payloadForShare.cityState || "Trip location";
 
-              const startYMD = payloadForShare.startYMD || null;
-              const endYMD = payloadForShare.endYMD || null;
+  const startYMD = payloadForShare.startYMD || null;
+  const endYMD = payloadForShare.endYMD || null;
 
-              const startText = fmtYMDPretty(startYMD);
-              const endText = fmtYMDPretty(endYMD);
+  const startText = fmtYMDPretty(startYMD);
+  const endText = fmtYMDPretty(endYMD);
 
-              let dateLine = "";
-              if (startYMD && endYMD) {
-                dateLine = startYMD === endYMD ? startText : `${startText} - ${endText}`;
-              } else {
-                dateLine = startText || endText || "";
-              }
+  let dateLine = "";
+  if (startYMD && endYMD) {
+    dateLine = startYMD === endYMD ? startText : `${startText} - ${endText}`;
+  } else {
+    dateLine = startText || endText || "";
+  }
 
-              const htmlTitles = (payloadForShare.fallbackTitles || [])
-                .filter(Boolean)
-                .map((t) => `✅ ${String(t)}`)
-                .join("<br/>");
+  const textTitles = (payloadForShare.fallbackTitles || [])
+    .filter(Boolean)
+    .map((t) => `✅ ${String(t)}`)
+    .join("\n");
 
-              const textTitles = (payloadForShare.fallbackTitles || [])
-                .filter(Boolean)
-                .map((t) => `✅ ${String(t)}`)
-                .join("\n");
+  const textMessage = [
+    "Hear me out…",
+    city,
+    dateLine,
+    "",
+    textTitles,
+    "",
+    "We should do this… right!?",
+  ]
+    .filter(Boolean)
+    .join("\n");
 
-              const textMessage = [
-                "Hear me out…",
-                city,
-                dateLine,
-                "",
-                textTitles,
-                "",
-                "We should do this… right!?",
-                "",
-                full,
-              ]
-                .filter(Boolean)
-                .join("\n");
+  // 1) Prefer native share sheet (Text / Mail / WhatsApp / etc.)
+  try {
+    if (navigator.share) {
+      await navigator.share({
+        title: "EventStack Trip Idea",
+        url: full,
+      });
+      return; // done
+    }
+  } catch (e) {
+    // User cancel throws in some browsers — ignore and fall back.
+  }
 
-              const htmlMessage = `
-                <div>
-                  <p><a href="${full}" style="font-weight:700; text-decoration:none;">Hear me out…</a></p>
-                  <p><strong>${city}</strong><br/>${dateLine}</p>
-                  <p>${htmlTitles}</p>
-                  <p><strong>We should do this… right!?</strong></p>
-                </div>
-              `;
+  // 2) Fallback: copy to clipboard (plain text; HTML is optional)
+  try {
+    const htmlTitles = (payloadForShare.fallbackTitles || [])
+      .filter(Boolean)
+      .map((t) => `✅ ${String(t)}`)
+      .join("<br/>");
 
-              try {
-                await navigator.clipboard.write([
-                  new ClipboardItem({
-                    "text/plain": new Blob([textMessage], { type: "text/plain" }),
-                    "text/html": new Blob([htmlMessage], { type: "text/html" }),
-                  }),
-                ]);
-              } catch {
-                await navigator.clipboard.writeText(textMessage);
-              }
-            }}
+    const htmlMessage = `
+      <div>
+        <p><a href="${full}" style="font-weight:700; text-decoration:none;">Hear me out…</a></p>
+        <p><strong>${city}</strong><br/>${dateLine}</p>
+        <p>${htmlTitles}</p>
+        <p><strong>We should do this… right!?</strong></p>
+        <p>${full}</p>
+      </div>
+    `;
+
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        "text/plain": new Blob([[textMessage, "", full].join("\n")], { type: "text/plain" }),
+        "text/html": new Blob([htmlMessage], { type: "text/html" }),
+      }),
+    ]);
+
+    showCopiedToast("Copied share text + link");
+
+  } catch {
+    await navigator.clipboard.writeText([[textMessage], "", full].join("\n"));
+    showCopiedToast("Copied share link");
+
+  }
+}}
+
             className="rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-black text-slate-700 hover:bg-slate-50"
-            title="Copy share link"
+title="Share this trip"
           >
             Share trip
           </button>
@@ -595,9 +634,12 @@ export default function BuildTripPage() {
                 type="button"
                 disabled={!hasOrigin}
                 onClick={() => {
-                  if (!hasOrigin) return;
-                  openExpediaFlightHotelBundle(airportIata, destinationQuery, checkin, checkout);
-                }}
+  if (!hasOrigin) return;
+  // Prefer airport code when available; otherwise fall back to "City, ST"
+  const dest = metro.destIata || destinationQuery;
+  openExpediaPackages(airportIata, dest, checkin, checkout);
+}}
+
                 className={cx(
                   "rounded-2xl px-4 py-3 text-sm font-black transition",
                   hasOrigin ? "bg-slate-900 text-white hover:bg-slate-800" : "bg-slate-200 text-slate-400 cursor-not-allowed"
@@ -608,6 +650,15 @@ export default function BuildTripPage() {
             </div>
           </div>
         </section>
+{copiedToast && (
+          <div className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2">
+            <div className="rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-black text-white shadow-lg">
+              {copiedToast}
+            </div>
+          </div>
+        )}
+
+
       </div>
     </main>
   );

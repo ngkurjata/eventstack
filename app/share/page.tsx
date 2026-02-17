@@ -1,52 +1,63 @@
-// FILE: app/share/page.tsx
-"use client";
-
-import React, { useEffect, useMemo } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import ShareRedirectClient from "./ShareRedirectClient";
 
-/* -------------------- Base64url decode -------------------- */
-
-function b64urlDecode(b64url: string) {
+function b64urlDecodeToString(b64url: string) {
   const b64 = b64url.replace(/-/g, "+").replace(/_/g, "/");
   const pad = b64.length % 4 === 0 ? "" : "=".repeat(4 - (b64.length % 4));
-  const bin = atob(b64 + pad);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return new TextDecoder().decode(bytes);
+  const bin = Buffer.from(b64 + pad, "base64");
+  return bin.toString("utf8");
 }
 
-/* -------------------- Page -------------------- */
+function safeParsePayload(o: string) {
+  try {
+    const decodedParam = decodeURIComponent(o);
+    const json = b64urlDecodeToString(decodedParam);
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
 
-export default function SharePage() {
-  const router = useRouter();
-  const sp = useSearchParams();
-  const encoded = sp.get("o") || "";
+export async function generateMetadata({ searchParams }: { searchParams: any }) {
+  const o = String(searchParams?.o || "");
+  const payload = o ? safeParsePayload(o) : null;
 
-  const payload = useMemo(() => {
-    if (!encoded) return null;
-    try {
-      const decodedParam = decodeURIComponent(encoded);
-      const json = b64urlDecode(decodedParam);
-      return JSON.parse(json);
-    } catch {
-      return null;
-    }
-  }, [encoded]);
+  const title = payload?.cityState ? `EventStack trip: ${payload.cityState}` : "EventStack trip idea";
+  const description = "Open this EventStack trip idea.";
 
-  // Redirect to the real Trip Hub (build-trip page) for a single canonical UI.
-  useEffect(() => {
-    if (!payload) return;
+  const ogImage = o ? `/api/og?o=${encodeURIComponent(o)}` : "/api/og";
 
-    // build-trip expects ?data=<encodeURIComponent(JSON.stringify(payload))>
-    const dataParam = encodeURIComponent(JSON.stringify(payload));
-    router.replace(`/build-trip?data=${dataParam}`);
-  }, [payload, router]);
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      images: [{ url: ogImage, width: 1200, height: 630 }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [ogImage],
+    },
+  };
+}
+
+export default function SharePage({ searchParams }: { searchParams: any }) {
+  const o = String(searchParams?.o || "");
+  const payload = o ? safeParsePayload(o) : null;
+
+  const buildTripUrl = payload
+    ? `/build-trip?data=${encodeURIComponent(JSON.stringify(payload))}`
+    : "/";
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white p-6">
+      {/* Client redirect for humans */}
+      {payload ? <ShareRedirectClient to={buildTripUrl} /> : null}
+
       <div className="max-w-3xl mx-auto">
-        {/* CTA header */}
         <div className="rounded-2xl bg-white shadow-sm border border-slate-200 p-5">
           <h1 className="text-2xl font-semibold">Someone shared an EventStack trip idea with you</h1>
           <p className="mt-2 text-slate-600">
@@ -55,10 +66,10 @@ export default function SharePage() {
 
           <div className="mt-4 flex gap-3 flex-wrap">
             <Link
-              href="/"
+              href={payload ? buildTripUrl : "/"}
               className="inline-flex items-center rounded-xl px-4 py-2 bg-slate-900 text-white"
             >
-              Try it yourself
+              {payload ? "Open Trip Hub" : "Try it yourself"}
             </Link>
             <Link
               href="/"
@@ -69,7 +80,6 @@ export default function SharePage() {
           </div>
         </div>
 
-        {/* Status */}
         <div className="mt-6 rounded-2xl bg-white border border-slate-200 p-5">
           {!payload ? (
             <>
@@ -81,17 +91,7 @@ export default function SharePage() {
           ) : (
             <>
               <h2 className="text-lg font-semibold">Opening the trip…</h2>
-              <p className="mt-2 text-slate-600">Redirecting you to the Trip Hub.</p>
-
-              {/* If redirect is blocked for any reason, provide a manual link */}
-              <div className="mt-4">
-                <Link
-                  href={`/build-trip?data=${encodeURIComponent(JSON.stringify(payload))}`}
-                  className="inline-flex items-center rounded-xl px-4 py-2 bg-slate-900 text-white"
-                >
-                  Open Trip Hub
-                </Link>
-              </div>
+              <p className="mt-2 text-slate-600">If nothing happens, tap the button above.</p>
             </>
           )}
         </div>
