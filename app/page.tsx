@@ -11,23 +11,27 @@ type CombinedOption = {
   group: string; // NHL/NBA/MLB/NFL/MLS/CFL/Artists
   kind: "team" | "artist";
   league?: string;
+
+  // Optional: if your /api/options provides one of these, we'll use it.
+  attractionId?: string; // Ticketmaster attractionId
+  tmAttractionId?: string; // alternate name
 };
 
 type MenuItem =
   | { type: "group"; group: string }
   | { type: "item"; group: string; option: CombinedOption };
 
-const LS_KEY = "eventstack_search_v3_primary_secondary_genres";
+type AvailabilityRecord = {
+  hasUpcomingEvents: boolean;
+  nextEventDate: string | null;
+  checkedAt?: string;
+  warning?: string;
+};
 
-/* Public mode constraints (keep flexible for later) */
-const PUBLIC_MODE = true;
+const LS_KEY = "eventstack_search_v3_primary_secondary_genres";
 
 /* Trip-length presets per your new model */
 const TRIP_DAYS_OPTIONS: Array<3 | 5 | 7> = [3, 5, 7];
-
-const PUBLIC_PRESET = {
-  maxSelections: 2, // primary + secondary
-} as const;
 
 /* Genre lists (UI buttons) */
 const MUSIC_GENRES = [
@@ -77,16 +81,12 @@ const SPORTS_GENRES = [
 
 function sanitizeGenreList(input: string[], allowed: readonly string[]) {
   const allowedSet = new Set(allowed.map((x) => String(x)));
-
   return Array.from(
     new Set(
       (Array.isArray(input) ? input : [])
         .map((s) => String(s || "").trim())
         .map((s) => {
-          // exact match
           if (allowedSet.has(s)) return s;
-
-          // recover: find allowed token contained inside the string
           const hit = Array.from(allowedSet).find((a) => s.toLowerCase().includes(a.toLowerCase()));
           return hit || "";
         })
@@ -154,13 +154,10 @@ function buildGroupedListForQuery(
 }
 
 function cleanupLegacyLocalStorage() {
-  // keep as a no-op (you can remove older keys later if you want)
+  // keep as a no-op
 }
 
-function useOutsideClick<T extends HTMLElement>(
-  ref: React.RefObject<T | null>,
-  onOutside: () => void
-) {
+function useOutsideClick<T extends HTMLElement>(ref: React.RefObject<T | null>, onOutside: () => void) {
   useEffect(() => {
     function handler(e: MouseEvent) {
       const el = ref.current;
@@ -195,17 +192,12 @@ function Combobox({
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const [open, setOpen] = useState(false);
-
   const [query, setQuery] = useState("");
   const [inputValue, setInputValue] = useState("");
   const [activeIdx, setActiveIdx] = useState<number>(-1);
 
   const selectedLabel = useMemo(() => labelForId(valueId, optionsAll), [valueId, optionsAll]);
-
-  const menuItems = useMemo(
-    () => buildGroupedListForQuery(query, grouped, groups),
-    [query, grouped, groups]
-  );
+  const menuItems = useMemo(() => buildGroupedListForQuery(query, grouped, groups), [query, grouped, groups]);
 
   useEffect(() => {
     if (!open) {
@@ -296,8 +288,7 @@ function Combobox({
       e.preventDefault();
       if (selectableIndexes.length === 0) return;
       const pos = selectableIndexes.indexOf(activeIdx);
-      const prev =
-        pos <= 0 ? selectableIndexes[selectableIndexes.length - 1] : selectableIndexes[pos - 1];
+      const prev = pos <= 0 ? selectableIndexes[selectableIndexes.length - 1] : selectableIndexes[pos - 1];
       setActiveIdx(prev);
       return;
     }
@@ -395,9 +386,7 @@ function Combobox({
                       key={it.option.id}
                       className={[
                         "mt-1 flex cursor-pointer items-center justify-between gap-3 rounded-xl px-3 py-2.5",
-                        isActive
-                          ? "bg-slate-900 text-white"
-                          : "bg-white text-slate-900 hover:bg-slate-50",
+                        isActive ? "bg-slate-900 text-white" : "bg-white text-slate-900 hover:bg-slate-50",
                       ].join(" ")}
                       onMouseEnter={() => setActiveIdx(idx)}
                       onMouseDown={(e) => {
@@ -406,9 +395,7 @@ function Combobox({
                       }}
                     >
                       <div className="min-w-0">
-                        <div className="truncate text-sm font-extrabold leading-tight">
-                          {it.option.label}
-                        </div>
+                        <div className="truncate text-sm font-extrabold leading-tight">{it.option.label}</div>
                       </div>
 
                       <div
@@ -433,29 +420,45 @@ function Combobox({
   );
 }
 
-function Pill({
-  label,
-  selected,
-  onClick,
-}: {
-  label: string;
-  selected: boolean;
-  onClick: () => void;
-}) {
+function Pill({ label, selected, onClick }: { label: string; selected: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={[
         "rounded-2xl px-3 py-2 text-xs font-extrabold transition border",
-        selected
-          ? "bg-slate-900 text-white border-slate-900"
-          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50",
+        selected ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50",
       ].join(" ")}
     >
       {label}
     </button>
   );
+}
+
+/* -------------------- Ticketmaster attractionId extraction -------------------- */
+
+function attractionIdFromOption(opt: CombinedOption | undefined | null): string {
+  if (!opt) return "";
+
+  // Prefer explicit field
+  const direct = String(opt.attractionId || opt.tmAttractionId || "").trim();
+  if (direct) return direct;
+
+  const raw = String(opt.id || "").trim();
+
+  // team:<LEAGUE>:<ATTRACTION_ID>:<NAME...>
+  if (raw.startsWith("team:")) {
+    const parts = raw.split(":");
+    return String(parts[2] || "").trim();
+  }
+
+  // artist:<ATTRACTION_ID>:<NAME...>
+  if (raw.startsWith("artist:")) {
+    const parts = raw.split(":");
+    return String(parts[1] || "").trim();
+  }
+
+  return "";
 }
 
 export default function Page() {
@@ -466,28 +469,26 @@ export default function Page() {
   const [loadError, setLoadError] = useState("");
   const [combined, setCombined] = useState<CombinedOption[]>([]);
 
-  // New model: primary + secondary
   const [primaryId, setPrimaryId] = useState("");
   const [secondaryId, setSecondaryId] = useState("");
 
-  // New model: tripDays is discrete
   const [tripDays, setTripDays] = useState<3 | 5 | 7>(3);
-
-  // Optional anchor date bounds
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
 
-  // Genre selections
   const [musicGenres, setMusicGenres] = useState<string[]>([]);
   const [sportsGenres, setSportsGenres] = useState<string[]>([]);
 
-  // Airport (keep your existing picker)
   const [airports, setAirports] = useState<Airport[]>([]);
   const [originIata, setOriginIata] = useState<string>("");
   const [originErr, setOriginErr] = useState<string>("");
 
   const didInitRef = useRef(false);
   const [searchPulse, setSearchPulse] = useState(false);
+
+  // Keyed by Ticketmaster attractionId
+  const [availabilityByKey, setAvailabilityByKey] = useState<Record<string, AvailabilityRecord>>({});
+  const [primaryNoEvents, setPrimaryNoEvents] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -538,7 +539,59 @@ export default function Page() {
 
   const { map: grouped, groups } = useMemo(() => groupOptions(combined), [combined]);
 
-  // Initialize from URL first, else localStorage
+  const optionById = (id: string) => combined.find((o) => o.id === id);
+
+  async function ensureAvailability(optionId: string, slot: "primary" | "secondary") {
+    if (!optionId) {
+      if (slot === "primary") setPrimaryNoEvents(false);
+      return;
+    }
+
+    const opt = optionById(optionId);
+    const tmAttractionId = attractionIdFromOption(opt);
+
+    // If we can't extract an attractionId, fail open (no warning, no block)
+    if (!tmAttractionId) {
+      if (slot === "primary") setPrimaryNoEvents(false);
+      return;
+    }
+
+    // Session cache
+    const cached = availabilityByKey[tmAttractionId];
+    if (cached) {
+      if (slot === "primary") setPrimaryNoEvents(!cached.hasUpcomingEvents);
+      if (slot === "secondary" && !cached.hasUpcomingEvents) setSecondaryId("");
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/availability?id=${encodeURIComponent(tmAttractionId)}`, { cache: "no-store" });
+      const data = await res.json();
+
+      const rec = (data && data[tmAttractionId]) as AvailabilityRecord | undefined;
+
+      // If API didn't return our key, fail open (do NOT cache as truth)
+      if (!rec) {
+        if (slot === "primary") setPrimaryNoEvents(false);
+        return;
+      }
+
+      const normalized: AvailabilityRecord = {
+        hasUpcomingEvents: !!rec.hasUpcomingEvents,
+        nextEventDate: rec.nextEventDate ?? null,
+        checkedAt: rec.checkedAt ?? new Date().toISOString(),
+        warning: rec.warning,
+      };
+
+      setAvailabilityByKey((prev) => ({ ...prev, [tmAttractionId]: normalized }));
+
+      if (slot === "primary") setPrimaryNoEvents(!normalized.hasUpcomingEvents);
+      if (slot === "secondary" && !normalized.hasUpcomingEvents) setSecondaryId("");
+    } catch {
+      if (slot === "primary") setPrimaryNoEvents(false);
+    }
+  }
+
   useEffect(() => {
     if (didInitRef.current) return;
     didInitRef.current = true;
@@ -566,19 +619,14 @@ export default function Page() {
         .filter(Boolean)
     );
 
-const qMusicGenresClean = sanitizeGenreList(qMusicGenres, MUSIC_GENRES);
-const qSportsGenresClean = sanitizeGenreList(qSportsGenres, SPORTS_GENRES);
+    const qMusicGenresClean = sanitizeGenreList(qMusicGenres, MUSIC_GENRES);
+    const qSportsGenresClean = sanitizeGenreList(qSportsGenres, SPORTS_GENRES);
 
     const hasAnyUrlState = Boolean(
-      qPrimary ||
-        qSecondary ||
-        sp.get("tripDays") ||
-        qOrigin ||
-        qStart ||
-        qEnd ||
-        qMusicGenres.length ||
-        qSportsGenres.length
+      qPrimary || qSecondary || sp.get("tripDays") || qOrigin || qStart || qEnd || qMusicGenres.length || qSportsGenres.length
     );
+
+    const coerceTripDays = (n: number): 3 | 5 | 7 => (n === 5 ? 5 : n === 7 ? 7 : 3);
 
     const applyState = (next: {
       primaryId: string;
@@ -592,18 +640,13 @@ const qSportsGenresClean = sanitizeGenreList(qSportsGenres, SPORTS_GENRES);
     }) => {
       setPrimaryId(next.primaryId);
       setSecondaryId(next.secondaryId);
-
       setTripDays(next.tripDays);
-
       setOriginIata(next.origin.trim().toUpperCase());
       setStartDate(isYMD(next.start) ? next.start : "");
       setEndDate(isYMD(next.end) ? next.end : "");
-
       setMusicGenres(next.musicGenres);
       setSportsGenres(next.sportsGenres);
     };
-
-    const coerceTripDays = (n: number): 3 | 5 | 7 => (n === 5 ? 5 : n === 7 ? 7 : 3);
 
     if (hasAnyUrlState) {
       applyState({
@@ -614,8 +657,7 @@ const qSportsGenresClean = sanitizeGenreList(qSportsGenres, SPORTS_GENRES);
         start: qStart,
         end: qEnd,
         musicGenres: qMusicGenresClean,
-sportsGenres: qSportsGenresClean,
-
+        sportsGenres: qSportsGenresClean,
       });
       return;
     }
@@ -633,21 +675,20 @@ sportsGenres: qSportsGenresClean,
         start: String(parsed?.start || ""),
         end: String(parsed?.end || ""),
         musicGenres: sanitizeGenreList(Array.isArray(parsed?.musicGenres) ? parsed.musicGenres : [], MUSIC_GENRES),
-sportsGenres: sanitizeGenreList(Array.isArray(parsed?.sportsGenres) ? parsed.sportsGenres : [], SPORTS_GENRES),
+        sportsGenres: sanitizeGenreList(Array.isArray(parsed?.sportsGenres) ? parsed.sportsGenres : [], SPORTS_GENRES),
       });
     } catch {
       // ignore
     }
   }, [sp]);
 
-  // Persist to LS + URL (nice for shareable links to the search state)
   useEffect(() => {
     if (!didInitRef.current) return;
 
     const { start: startNorm, end: endNorm } = normalizeDateRange(startDate, endDate);
 
-const musicGenresClean = sanitizeGenreList(musicGenres, MUSIC_GENRES);
-const sportsGenresClean = sanitizeGenreList(sportsGenres, SPORTS_GENRES);
+    const musicGenresClean = sanitizeGenreList(musicGenres, MUSIC_GENRES);
+    const sportsGenresClean = sanitizeGenreList(sportsGenres, SPORTS_GENRES);
 
     const effective = {
       primaryId,
@@ -657,7 +698,7 @@ const sportsGenresClean = sanitizeGenreList(sportsGenres, SPORTS_GENRES);
       start: isYMD(startNorm) ? startNorm : "",
       end: isYMD(endNorm) ? endNorm : "",
       musicGenres: musicGenresClean,
-sportsGenres: sportsGenresClean,
+      sportsGenres: sportsGenresClean,
     };
 
     try {
@@ -671,7 +712,6 @@ sportsGenres: sportsGenresClean,
     if (effective.origin) qs.set("origin", effective.origin);
     if (effective.start) qs.set("start", effective.start);
     if (effective.end) qs.set("end", effective.end);
-
     for (const g of effective.musicGenres) qs.append("musicGenres", g);
     for (const g of effective.sportsGenres) qs.append("sportsGenres", g);
 
@@ -679,7 +719,7 @@ sportsGenres: sportsGenresClean,
     window.history.replaceState(null, "", next);
   }, [primaryId, secondaryId, tripDays, originIata, startDate, endDate, musicGenres, sportsGenres]);
 
-  const canSearch = Boolean(primaryId);
+  const canSearch = Boolean(primaryId) && !primaryNoEvents;
 
   useEffect(() => {
     if (!loading && canSearch) {
@@ -698,6 +738,8 @@ sportsGenres: sportsGenresClean,
       alert("Pick a Primary favorite (team or artist).");
       return;
     }
+    if (primaryNoEvents) return;
+
     setOriginErr("");
 
     const { start: startNorm, end: endNorm } = normalizeDateRange(startDate, endDate);
@@ -705,17 +747,12 @@ sportsGenres: sportsGenresClean,
     const params = new URLSearchParams();
     params.set("primaryId", primaryId);
     if (secondaryId) params.set("secondaryId", secondaryId);
-
     params.set("tripDays", String(tripDays));
-
     if (originIata) params.set("origin", originIata);
-
     if (isYMD(startNorm)) params.set("start", startNorm);
     if (isYMD(endNorm)) params.set("end", endNorm);
-
-    // repeatable params (backend supports repeatable and/or CSV)
     for (const g of sanitizeGenreList(musicGenres, MUSIC_GENRES)) params.append("musicGenres", g);
-for (const g of sanitizeGenreList(sportsGenres, SPORTS_GENRES)) params.append("sportsGenres", g);
+    for (const g of sanitizeGenreList(sportsGenres, SPORTS_GENRES)) params.append("sportsGenres", g);
 
     router.push(`/results?${params.toString()}`);
   }
@@ -724,17 +761,13 @@ for (const g of sanitizeGenreList(sportsGenres, SPORTS_GENRES)) params.append("s
     <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
       <div className="mx-auto max-w-3xl px-4 py-10 sm:py-14">
         <header className="mb-8">
-          <h1 className="text-center text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
-            Find an epic trip!
-          </h1>
+          <h1 className="text-center text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">Find an epic trip!</h1>
           <p className="mt-7 text-center text-sm text-slate-600 sm:text-base">
-            We help users find and book epic trips built around live events featuring their favorite
-            teams and artists.
+            We help users find and book epic trips built around live events featuring their favorite teams and artists.
           </p>
         </header>
 
         <div className="space-y-6">
-          {/* Favorites */}
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="mb-4 flex items-end justify-between gap-3">
               <div className="text-lg font-extrabold text-slate-900">Pick your favorites</div>
@@ -749,8 +782,12 @@ for (const g of sanitizeGenreList(sportsGenres, SPORTS_GENRES)) params.append("s
                 valueId={primaryId}
                 setValueId={(v) => {
                   setPrimaryId(v);
-                  // If secondary matches primary, clear secondary (prevents accidental “require secondary hit”)
-                  if (secondaryId && v && v === secondaryId) setSecondaryId("");
+                  if (!v) {
+                    setPrimaryNoEvents(false);
+                    return;
+                  }
+                  if (secondaryId && v === secondaryId) setSecondaryId("");
+                  ensureAvailability(v, "primary");
                 }}
                 help="This is the anchor for each potential trip."
                 disabled={loading}
@@ -763,34 +800,41 @@ for (const g of sanitizeGenreList(sportsGenres, SPORTS_GENRES)) params.append("s
                 groups={groups}
                 valueId={secondaryId}
                 setValueId={(v) => {
-                  // Don’t allow selecting same as primary
-                  if (v && primaryId && v === primaryId) {
+                  if (!v) {
+                    setSecondaryId("");
+                    return;
+                  }
+                  if (primaryId && v === primaryId) {
                     setSecondaryId("");
                     return;
                   }
                   setSecondaryId(v);
+                  ensureAvailability(v, "secondary");
                 }}
                 help="Trips must include at least one event with this attraction (if set)."
                 disabled={loading}
               />
             </div>
 
+            {primaryId && primaryNoEvents ? (
+              <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-900">
+                No upcoming events are listed for{" "}
+                <span className="font-extrabold">{labelForId(primaryId, combined) || "this selection"}</span>. If the
+                schedule hasn’t been released yet, check back later.
+              </div>
+            ) : null}
+
             {secondaryId ? (
               <div className="mt-3 text-xs text-slate-600">
-                Secondary selected:{" "}
-                <span className="font-extrabold text-slate-900">
-                  {labelForId(secondaryId, combined)}
-                </span>
+                Secondary selected: <span className="font-extrabold text-slate-900">{labelForId(secondaryId, combined)}</span>
               </div>
             ) : (
               <div className="mt-3 text-xs text-slate-500">
-                Leaving Secondary blank will build trips around the Primary plus your selected genres
-                (if any).
+                Leaving Secondary blank will build trips around the Primary plus your selected genres (if any).
               </div>
             )}
           </div>
 
-          {/* Trip constraints */}
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="text-lg font-extrabold text-slate-900">Trip constraints</div>
 
@@ -798,17 +842,11 @@ for (const g of sanitizeGenreList(sportsGenres, SPORTS_GENRES)) params.append("s
               <div className="mb-2 text-sm font-semibold text-slate-900">Trip length</div>
               <div className="flex flex-wrap gap-2">
                 {TRIP_DAYS_OPTIONS.map((d) => (
-                  <Pill
-                    key={d}
-                    label={`${d} days`}
-                    selected={tripDays === d}
-                    onClick={() => setTripDays(d)}
-                  />
+                  <Pill key={d} label={`${d} days`} selected={tripDays === d} onClick={() => setTripDays(d)} />
                 ))}
               </div>
               <div className="mt-2 text-xs text-slate-500">
-                3 days = ±1 day and 60 miles. 5 days = ±2 days and 120 miles. 7 days = ±3 days and
-                180 miles.
+                3 days = ±1 day and 60 miles. 5 days = ±2 days and 120 miles. 7 days = ±3 days and 180 miles.
               </div>
             </div>
 
@@ -821,9 +859,7 @@ for (const g of sanitizeGenreList(sportsGenres, SPORTS_GENRES)) params.append("s
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
                 />
-                <div className="mt-2 text-xs text-slate-500">
-                  If set, anchor (primary) events will only be on/after this date.
-                </div>
+                <div className="mt-2 text-xs text-slate-500">If set, anchor (primary) events will only be on/after this date.</div>
               </label>
 
               <label className="block">
@@ -834,14 +870,11 @@ for (const g of sanitizeGenreList(sportsGenres, SPORTS_GENRES)) params.append("s
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                 />
-                <div className="mt-2 text-xs text-slate-500">
-                  If set, anchor (primary) events will only be on/before this date.
-                </div>
+                <div className="mt-2 text-xs text-slate-500">If set, anchor (primary) events will only be on/before this date.</div>
               </label>
             </div>
           </div>
 
-          {/* What else interests you */}
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="text-lg font-extrabold text-slate-900">What else are you into?</div>
 
@@ -849,12 +882,7 @@ for (const g of sanitizeGenreList(sportsGenres, SPORTS_GENRES)) params.append("s
               <div className="mb-2 text-sm font-semibold text-slate-900">Music genres</div>
               <div className="flex flex-wrap gap-2">
                 {MUSIC_GENRES.map((g) => (
-                  <Pill
-                    key={g}
-                    label={g}
-                    selected={musicGenres.includes(g)}
-                    onClick={() => toggleList(setMusicGenres, musicGenres, g)}
-                  />
+                  <Pill key={g} label={g} selected={musicGenres.includes(g)} onClick={() => toggleList(setMusicGenres, musicGenres, g)} />
                 ))}
               </div>
             </div>
@@ -863,23 +891,16 @@ for (const g of sanitizeGenreList(sportsGenres, SPORTS_GENRES)) params.append("s
               <div className="mb-2 text-sm font-semibold text-slate-900">Sports genres</div>
               <div className="flex flex-wrap gap-2">
                 {SPORTS_GENRES.map((g) => (
-                  <Pill
-                    key={g}
-                    label={g}
-                    selected={sportsGenres.includes(g)}
-                    onClick={() => toggleList(setSportsGenres, sportsGenres, g)}
-                  />
+                  <Pill key={g} label={g} selected={sportsGenres.includes(g)} onClick={() => toggleList(setSportsGenres, sportsGenres, g)} />
                 ))}
               </div>
             </div>
 
             <div className="mt-4 text-xs text-slate-500">
-              Select none if you only care about the Primary (and Secondary, if set). Select some to
-              include other events near your Primary within the trip window.
+              Select none if you only care about the Primary (and Secondary, if set). Select some to include other events near your Primary within the trip window.
             </div>
           </div>
 
-          {/* Airport (unchanged) */}
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <AirportPicker
               airports={airports}
@@ -896,19 +917,22 @@ for (const g of sanitizeGenreList(sportsGenres, SPORTS_GENRES)) params.append("s
             ) : null}
           </div>
 
-          {/* Search */}
           <div className="flex items-center justify-center">
             <button
               type="button"
               onClick={onSearch}
               disabled={!canSearch || loading}
-              title={!canSearch ? "Pick a Primary favorite to enable Search." : "Search"}
+              title={
+                !primaryId
+                  ? "Pick a Primary favorite to enable Search."
+                  : primaryNoEvents
+                  ? "This Primary has no upcoming events listed."
+                  : "Search"
+              }
               className={[
                 "rounded-2xl px-5 py-3 text-sm font-extrabold shadow-sm transition",
                 searchPulse ? "animate-pulse" : "",
-                canSearch && !loading
-                  ? "bg-slate-900 text-white hover:bg-slate-800"
-                  : "bg-slate-200 text-slate-500 cursor-not-allowed",
+                canSearch && !loading ? "bg-slate-900 text-white hover:bg-slate-800" : "bg-slate-200 text-slate-500 cursor-not-allowed",
               ].join(" ")}
             >
               Search
@@ -916,9 +940,7 @@ for (const g of sanitizeGenreList(sportsGenres, SPORTS_GENRES)) params.append("s
           </div>
         </div>
 
-        {loadError ? (
-          <div className="mt-6 text-center text-xs text-rose-700">{loadError}</div>
-        ) : null}
+        {loadError ? <div className="mt-6 text-center text-xs text-rose-700">{loadError}</div> : null}
       </div>
     </main>
   );

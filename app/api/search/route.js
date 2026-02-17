@@ -165,6 +165,42 @@ function eventVenueId(e) {
   return e?._embedded?.venues?.[0]?.id ?? null;
 }
 
+function eventVenueName(e) {
+  return e?._embedded?.venues?.[0]?.name ?? null;
+}
+
+function eventSegment(e) {
+  const seg = String(e?.classifications?.[0]?.segment?.name || "").toLowerCase();
+  if (seg.includes("music")) return "music";
+  if (seg.includes("sports")) return "sports";
+  return "other";
+}
+
+function gameKey(e) {
+  const d = eventLocalDate(e) || "";
+
+  const city = eventCity(e) || "";
+  const region = eventRegion(e) || "";
+  const venueId = eventVenueId(e) || "";
+  const venueName = eventVenueName(e) || "";
+
+  const seg = eventSegment(e);
+
+  let v;
+  if (seg === "music") {
+    const ll = eventLatLon(e);
+    const latR = ll ? Math.round(ll.lat * 1000) / 1000 : null; // ~0.001 deg
+    const lonR = ll ? Math.round(ll.lon * 1000) / 1000 : null;
+    v = ll ? `${latR}|${lonR}` : `${norm(city)}|${norm(region)}|${norm(venueName)}`;
+  } else {
+    // For sports/other, keep your current behavior (venueId is useful for stadium precision)
+    v = venueId ? venueId : `${norm(city)}|${norm(region)}`;
+  }
+
+  const t = normalizeBaseTitle(eventName(e));
+  return `${d}|${v}|${t}`;
+}
+
 function eventGenre(e) {
   const cls = Array.isArray(e?.classifications) ? e.classifications : [];
   const c0 = cls[0] || null;
@@ -279,13 +315,6 @@ function extractPromoLabel(e) {
   return null;
 }
 
-function gameKey(e) {
-  const d = eventLocalDate(e) || "";
-  const v = eventVenueId(e) || `${norm(eventCity(e) || "")}|${norm(eventRegion(e) || "")}`;
-  const t = normalizeBaseTitle(eventName(e));
-  return `${d}|${v}|${t}`;
-}
-
 function haversineMiles(a, b) {
   const R = 3958.7613;
   const toRad = (x) => (x * Math.PI) / 180;
@@ -299,22 +328,82 @@ function haversineMiles(a, b) {
   return 2 * R * Math.asin(Math.min(1, Math.sqrt(s)));
 }
 
+function eventTMId(e) {
+  const id = String(e?.id || "").trim();
+  return id ? id : null;
+}
+
+/**
+ * Prefer the "cleanest" TM event variant for a given dedupe key.
+ * (Same idea as trip-matches.)
+ */
+function chooseBetterTMVariant(a, b) {
+  const an = String(a?.name || "");
+  const bn = String(b?.name || "");
+
+  const aStars = /\*/.test(an);
+  const bStars = /\*/.test(bn);
+  if (aStars !== bStars) return aStars ? b : a;
+
+  const aParen = /\([^)]*\)/.test(an);
+  const bParen = /\([^)]*\)/.test(bn);
+  if (aParen !== bParen) return aParen ? b : a;
+
+  const aLen = normalizeBaseTitle(an).length;
+  const bLen = normalizeBaseTitle(bn).length;
+  if (aLen !== bLen) return aLen < bLen ? a : b;
+
+  const aUrl = !!a?.url;
+  const bUrl = !!b?.url;
+  if (aUrl !== bUrl) return aUrl ? a : b;
+
+  return a;
+}
+
+function dedupeKey(e) {
+  const seg = eventSegment(e);
+
+  // MUSIC: TM can produce multiple event IDs for the same show (genre/classification wrappers).
+  // Prefer our occurrence key to collapse them.
+  if (seg === "music") {
+    const gk = gameKey(e);
+    if (gk) return `gk:${gk}`;
+
+    // fallback only if gameKey can't be built
+    const tmId = eventTMId(e);
+    return tmId ? `tm:${tmId}` : null;
+  }
+
+  // SPORTS/OTHER: prefer TM event id if present (usually stable and avoids weird wrapper dupes)
+  const tmId = eventTMId(e);
+  if (tmId) return `tm:${tmId}`;
+
+  // fallback
+  const gk = gameKey(e);
+  return gk ? `gk:${gk}` : null;
+}
+
+
+
 function dedupeEvents(events) {
   const byKey = new Map();
+
   for (const e of events || []) {
-    const key = gameKey(e);
+    const key = dedupeKey(e);
     if (!key) continue;
+
     const existing = byKey.get(key);
     if (!existing) {
       byKey.set(key, e);
       continue;
     }
-    const currScore = normalizeBaseTitle(eventName(existing)).length;
-    const nextScore = normalizeBaseTitle(eventName(e)).length;
-    if (nextScore < currScore) byKey.set(key, e);
+
+    byKey.set(key, chooseBetterTMVariant(existing, e));
   }
+
   return Array.from(byKey.values());
 }
+
 
 function sortEvents(events) {
   return [...(events || [])].sort((a, b) => {
@@ -433,6 +522,14 @@ function computeTripHeader(events) {
   }
 
   return { startYMD, endYMD, locations: Array.from(locSet) };
+}
+
+function hashStr(s) {
+  // djb2-ish, stable and fast
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h) ^ s.charCodeAt(i);
+  // force unsigned + shorten
+  return (h >>> 0).toString(36);
 }
 
 function scoreEvent(e, { anchor, secondaryAttractionId, musicGenres, sportsGenres, radiusMiles }) {
@@ -583,10 +680,10 @@ function buildTrips({
     if (!genreOk) continue;
 
     // dedupe trips
-    const sig = eligibleSorted.map((e) => gameKey(e)).join("~");
+const sig = eligibleSorted.map((e) => dedupeKey(e) || gameKey(e) || "").join("~");
     if (seenTripSig.has(sig)) continue;
     seenTripSig.add(sig);
-
+const sigHash = hashStr(sig);
     const tripLL = pickTripLatLon(anchorEvent, eligibleSorted);
 
     const scoredEvents = displaySorted.map((e) => {
@@ -628,7 +725,7 @@ function buildTrips({
       locations: header.locations,
       events: scoredEvents,
       ...(tripLL ? { lat: tripLL.lat, lon: tripLL.lon } : {}),
-      tripKey: `${gameKey(anchorEvent)}|${radiusMiles}|${tripDays}`,
+tripKey: `${gameKey(anchorEvent)}|${radiusMiles}|${tripDays}|${sigHash}`,
     });
 
     if (trips.length >= 300) break;
@@ -732,7 +829,7 @@ export async function GET(req) {
         "Hard anchor cap applied to protect serverless runtime.",
         "OPTION A enabled: events are fetched per-country (US then CA) and merged.",
         "Trip-level lat/lon is derived from anchor venue coords when available.",
-        "Game-instance dedupe key: localDate + venueId + normalized base title.",
+"Deduping prefers Ticketmaster event id; fallback key is localDate + (music: rounded lat/lon, else: venueId or city/region) + normalized base title.",
         "Genre matching uses a blob of segment+genre+subGenre to avoid 'Golf' being missed when it's in a different field.",
       ],
       tm: {},
@@ -781,10 +878,11 @@ export async function GET(req) {
     const anchorOccSeen = new Set();
     const anchors = [];
     for (const e of anchorsAll) {
-      const sig = gameKey(e);
-      if (anchorOccSeen.has(sig)) continue;
-      anchorOccSeen.add(sig);
-      anchors.push(e);
+      const sig = dedupeKey(e) || gameKey(e);
+if (anchorOccSeen.has(sig)) continue;
+anchorOccSeen.add(sig);
+anchors.push(e);
+
     }
     debug.counts.anchorOccurrences = anchors.length;
 
@@ -846,6 +944,10 @@ export async function GET(req) {
         candidatesAll = sortEvents(candidatesAll).slice(0, HARD_NEARBY_EVENT_CAP);
       }
     }
+
+
+
+
 
     // -------------------- Build trips --------------------
     const potentialTrips = buildTrips({
