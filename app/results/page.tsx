@@ -114,6 +114,14 @@ function slimEvent(e: any): RowEvent {
   };
 }
 
+function b64urlEncode(str: string) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = "";
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  const b64 = btoa(bin);
+  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
 function hasAnySelectedGenres(sp: ReturnType<typeof useSearchParams>) {
   const mg = sp.getAll("musicGenres").filter(Boolean);
   const sg = sp.getAll("sportsGenres").filter(Boolean);
@@ -395,6 +403,31 @@ export default function ResultsPage() {
               const encoded = encodeURIComponent(JSON.stringify(payload));
               window.open(`/build-trip?data=${encoded}`, "_blank", "noopener,noreferrer");
             }
+
+function shareTrip() {
+  const selectedKeys = selectedByRow[r.rowKey] || {};
+  const allSelectable = allEvents.map((x) => x.e);
+  const picked = allSelectable.filter((ev) => selectedKeys[eventKey(ev)]);
+
+  const finalPicked = (picked.length ? picked : [a]).map(slimEvent);
+
+  // Pull trip window from the row (this is what your matching logic uses too)
+  const startYMD = (r.windowStart || a.date || null) ? String((r.windowStart || a.date)!).slice(0, 10) : null;
+  const endYMD = (r.windowEnd || a.date || null) ? String((r.windowEnd || a.date)!).slice(0, 10) : null;
+
+  const payload = {
+    rowKey: r.rowKey,
+    cityState: a.location || "",
+    startYMD,
+    endYMD,
+    fallbackTitles: finalPicked.map((e) => e.name).filter(Boolean),
+    anchor: slimEvent(a),
+    events: finalPicked,
+  };
+
+  const encoded = encodeURIComponent(b64urlEncode(JSON.stringify(payload)));
+  window.open(`/share?o=${encoded}`, "_blank", "noopener,noreferrer");
+}
 
             async function openRow() {
               setExpandedKey(r.rowKey);

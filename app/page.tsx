@@ -688,16 +688,26 @@ applyState({
     } catch {}
 
     const qs = new URLSearchParams();
-    if (effective.primaryId) qs.set("primaryId", effective.primaryId);
-    if (effective.secondaryId) qs.set("secondaryId", effective.secondaryId);
-    qs.set("tripDays", String(effective.tripDays));
-    if (effective.start) qs.set("start", effective.start);
-    if (effective.end) qs.set("end", effective.end);
-    for (const g of effective.musicGenres) qs.append("musicGenres", g);
-    for (const g of effective.sportsGenres) qs.append("sportsGenres", g);
+if (effective.primaryId) qs.set("primaryId", effective.primaryId);
+if (effective.secondaryId) qs.set("secondaryId", effective.secondaryId);
 
-    const next = qs.toString() ? `/?${qs.toString()}` : "/";
-    window.history.replaceState(null, "", next);
+qs.set("tripDays", String(effective.tripDays));
+
+// IMPORTANT: make radiusMiles explicit so /results -> /api/matching-events stays consistent
+qs.set("radiusMiles", String(radiusMilesForTripDays(effective.tripDays)));
+
+// Default countries (until you add a UI selector)
+qs.set("countryCode", "US,CA");
+
+if (effective.start) qs.set("start", effective.start);
+if (effective.end) qs.set("end", effective.end);
+
+for (const g of effective.musicGenres) qs.append("musicGenres", g);
+for (const g of effective.sportsGenres) qs.append("sportsGenres", g);
+
+const next = qs.toString() ? `/?${qs.toString()}` : "/";
+window.history.replaceState(null, "", next);
+
 }, [primaryId, secondaryId, tripDays, startDate, endDate, musicGenres, sportsGenres]);
 
   const canSearch = Boolean(primaryId) && !primaryNoEvents;
@@ -724,15 +734,25 @@ applyState({
     const { start: startNorm, end: endNorm } = normalizeDateRange(startDate, endDate);
 
     const params = new URLSearchParams();
-    params.set("primaryId", primaryId);
-    if (secondaryId) params.set("secondaryId", secondaryId);
-    params.set("tripDays", String(tripDays));
-    if (isYMD(startNorm)) params.set("start", startNorm);
-    if (isYMD(endNorm)) params.set("end", endNorm);
-    for (const g of sanitizeGenreList(musicGenres, MUSIC_GENRES)) params.append("musicGenres", g);
-    for (const g of sanitizeGenreList(sportsGenres, SPORTS_GENRES)) params.append("sportsGenres", g);
+params.set("primaryId", primaryId);
+if (secondaryId) params.set("secondaryId", secondaryId);
 
-    router.push(`/results?${params.toString()}`);
+params.set("tripDays", String(tripDays));
+
+// IMPORTANT: keep matching consistent with /api/search defaults
+params.set("radiusMiles", String(radiusMilesForTripDays(tripDays)));
+
+// Default countries (until you add a UI selector)
+params.set("countryCode", "US,CA");
+
+if (isYMD(startNorm)) params.set("start", startNorm);
+if (isYMD(endNorm)) params.set("end", endNorm);
+
+for (const g of sanitizeGenreList(musicGenres, MUSIC_GENRES)) params.append("musicGenres", g);
+for (const g of sanitizeGenreList(sportsGenres, SPORTS_GENRES)) params.append("sportsGenres", g);
+
+router.push(`/results?${params.toString()}`);
+
   }
 
   return (
@@ -776,7 +796,7 @@ applyState({
 {primaryId && primaryNoEvents ? (
               <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-900">
                 {" "}
-                <span className="font-extrabold">{labelForId(primaryId, combined) || "this selection"}</span> have no live events scheduled.
+                <span className="font-extrabold">{labelForId(primaryId, combined) || "this selection"}</span> = No live events scheduled.
               </div>
             ) : null}
               <Combobox

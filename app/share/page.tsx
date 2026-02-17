@@ -1,8 +1,11 @@
+// FILE: app/share/page.tsx
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+
+/* -------------------- Base64url decode -------------------- */
 
 function b64urlDecode(b64url: string) {
   const b64 = b64url.replace(/-/g, "+").replace(/_/g, "/");
@@ -13,11 +16,14 @@ function b64urlDecode(b64url: string) {
   return new TextDecoder().decode(bytes);
 }
 
+/* -------------------- Page -------------------- */
+
 export default function SharePage() {
+  const router = useRouter();
   const sp = useSearchParams();
   const encoded = sp.get("o") || "";
 
-  const occurrence = useMemo(() => {
+  const payload = useMemo(() => {
     if (!encoded) return null;
     try {
       const decodedParam = decodeURIComponent(encoded);
@@ -28,14 +34,21 @@ export default function SharePage() {
     }
   }, [encoded]);
 
+  // Redirect to the real Trip Hub (build-trip page) for a single canonical UI.
+  useEffect(() => {
+    if (!payload) return;
+
+    // build-trip expects ?data=<encodeURIComponent(JSON.stringify(payload))>
+    const dataParam = encodeURIComponent(JSON.stringify(payload));
+    router.replace(`/build-trip?data=${dataParam}`);
+  }, [payload, router]);
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white p-6">
       <div className="max-w-3xl mx-auto">
         {/* CTA header */}
         <div className="rounded-2xl bg-white shadow-sm border border-slate-200 p-5">
-          <h1 className="text-2xl font-semibold">
-            Someone shared an EventStack trip idea with you
-          </h1>
+          <h1 className="text-2xl font-semibold">Someone shared an EventStack trip idea with you</h1>
           <p className="mt-2 text-slate-600">
             EventStack helps you plan trips around live events and quickly jump to flights and hotels.
           </p>
@@ -56,21 +69,30 @@ export default function SharePage() {
           </div>
         </div>
 
-        {/* Shared content */}
-        <div className="mt-6">
-          {!occurrence ? (
-            <div className="rounded-2xl bg-white border border-slate-200 p-5">
+        {/* Status */}
+        <div className="mt-6 rounded-2xl bg-white border border-slate-200 p-5">
+          {!payload ? (
+            <>
               <h2 className="text-lg font-semibold">This shared link isn’t valid</h2>
               <p className="mt-2 text-slate-600">
                 The link may be incomplete or too long for the app that sent it.
               </p>
-            </div>
+            </>
           ) : (
-            <div className="rounded-2xl bg-white border border-slate-200 p-4 overflow-auto">
-              <pre className="text-sm whitespace-pre-wrap">
-                {JSON.stringify(occurrence, null, 2)}
-              </pre>
-            </div>
+            <>
+              <h2 className="text-lg font-semibold">Opening the trip…</h2>
+              <p className="mt-2 text-slate-600">Redirecting you to the Trip Hub.</p>
+
+              {/* If redirect is blocked for any reason, provide a manual link */}
+              <div className="mt-4">
+                <Link
+                  href={`/build-trip?data=${encodeURIComponent(JSON.stringify(payload))}`}
+                  className="inline-flex items-center rounded-xl px-4 py-2 bg-slate-900 text-white"
+                >
+                  Open Trip Hub
+                </Link>
+              </div>
+            </>
           )}
         </div>
       </div>

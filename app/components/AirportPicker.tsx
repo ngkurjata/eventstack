@@ -111,7 +111,6 @@ export function AirportPicker(props: {
 
   return (
     <div style={{ position: "relative" }}>
-      <div className="text-lg font-extrabold text-slate-900 mb-5">Nearest airport (optional)</div>
 
       <input
   ref={inputRef}
@@ -138,8 +137,8 @@ export function AirportPicker(props: {
   autoComplete="off"
 />
       {/* Always show helper text */}
-      <div className="mt-2 text-xs text-slate-600">
-  Booking your trip will be WAY easier if you input which airport you'd likely be flying from.
+      <div className="mt-2 text-xs text-center text-slate-600">
+  Required to see Flights and Packages options from Expedia with one-click.
 </div>
 
       {isOpen ? (
