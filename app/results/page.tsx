@@ -4,42 +4,45 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
+type TripEvent = {
+  date?: string | null;
+  name?: string;
+  location?: string;
+  genre?: string | null;
+  score?: number | null;
+  url?: string | null;
+};
+
+type PotentialTrip = {
+  tripKey?: string;
+  startYMD?: string | null;
+  endYMD?: string | null;
+  locations?: string[];
+  events?: TripEvent[];
+};
+
 type ApiResponse = {
   count?: number;
-  occurrences?: any[];
+  potentialTrips?: PotentialTrip[];
   error?: string;
   debug?: any;
-  fallback?: {
-    mode?: string;
-    schedules?: Array<{ label: string; events: any[] }>;
-  };
-  // ✅ Added: closest pair summary from /api/search when count === 0
-  closest?: {
-    withinDays?: number;
-    miles?: number;
-    daysApart?: number;
-    p1?: { label?: string; date?: string | null; city?: string | null; region?: string | null; venue?: string | null };
-    p2?: { label?: string; date?: string | null; city?: string | null; region?: string | null; venue?: string | null };
-  };
 };
 
-type Airport = {
-  iata: string;
+type MatchEvent = {
+  id: string;
   name: string;
-  city: string;
-  region: string; // e.g. "CA-BC" or "US-NY"
-  country: string; // e.g. "CA" or "US"
-  lat: number | null;
-  lon: number | null;
+  url?: string | null;
+  dateLocal?: string | null;
+  venue?: string | null;
+  city?: string | null;
+  region?: string | null;
+  segment?: "music" | "sports" | "other";
+  genre?: string | null;
 };
 
-/* -------------------- Public-mode limits (keep in sync with app/page + api/search) -------------------- */
-
-const PUBLIC_MODE = true;
-const PUBLIC_PRESET = {
-  maxDays: 7,
-  maxRadiusMiles: 300,
-} as const;
+function cx(...parts: Array<string | false | null | undefined>) {
+  return parts.filter(Boolean).join(" ");
+}
 
 function clampInt(n: any, min: number, max: number, fallback: number) {
   const x = Number(n);
@@ -47,52 +50,7 @@ function clampInt(n: any, min: number, max: number, fallback: number) {
   return Math.min(max, Math.max(min, Math.floor(x)));
 }
 
-/* -------------------- Nearby presets -------------------- */
-
-const NEARBY_RADIUS_MILES = 50;
-
-const NEARBY_SPORTS_LEAGUES = ["MLB", "NHL", "NBA", "MLS", "NFL", "CFL"] as const;
-
-function getLeagueTagFromEventClient(ev: any): (typeof NEARBY_SPORTS_LEAGUES)[number] | null {
-  const classes = Array.isArray(ev?.classifications) ? ev.classifications : [];
-  for (const c of classes) {
-    const candidates = [
-      c?.segment?.name,
-      c?.type?.name,
-      c?.subType?.name,
-      c?.genre?.name,
-      c?.subGenre?.name,
-    ]
-      .map((v) => String(v || "").trim())
-      .filter(Boolean);
-
-    for (const name of candidates) {
-      const up = name.toUpperCase();
-
-      if ((NEARBY_SPORTS_LEAGUES as readonly string[]).includes(up)) {
-        return up as any;
-      }
-
-      if (up.includes("NATIONAL BASKETBALL")) return "NBA";
-      if (up.includes("NATIONAL FOOTBALL")) return "NFL";
-      if (up.includes("NATIONAL HOCKEY")) return "NHL";
-      if (up.includes("MAJOR LEAGUE BASEBALL")) return "MLB";
-      if (up.includes("MAJOR LEAGUE SOCCER")) return "MLS";
-      if (up.includes("CANADIAN FOOTBALL")) return "CFL";
-    }
-  }
-  return null;
-}
-
-/* -------------------- Query helpers -------------------- */
-
-function stripDeprecatedParams(sp: ReturnType<typeof useSearchParams>) {
-  const qs = new URLSearchParams(sp.toString());
-  qs.delete("p4"); // legacy
-  return qs;
-}
-
-/* -------------------- Date helpers -------------------- */
+/* -------------------- Date formatting -------------------- */
 
 function parseYMDToUTC(ymd: string): Date | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || ""));
@@ -103,79 +61,43 @@ function parseYMDToUTC(ymd: string): Date | null {
 const fmtUTC = (dt: Date, opts: Intl.DateTimeFormatOptions) =>
   new Intl.DateTimeFormat("en-US", { ...opts, timeZone: "UTC" }).format(dt);
 
-function formatRangePretty(startYMD: string, endYMD: string): string {
-  const s = parseYMDToUTC(startYMD);
-  const e = parseYMDToUTC(endYMD);
-  if (!s || !e) return "Date TBD";
-
-  const sm = fmtUTC(s, { month: "long" });
-  const em = fmtUTC(e, { month: "long" });
-  const sd = fmtUTC(s, { day: "numeric" });
-  const ed = fmtUTC(e, { day: "numeric" });
-  const sy = fmtUTC(s, { year: "numeric" });
-  const ey = fmtUTC(e, { year: "numeric" });
-
-  if (startYMD === endYMD) return `${sm} ${sd}, ${sy}`;
-  if (sy === ey) {
-    if (sm === em) return `${sm} ${sd}-${ed}, ${sy}`;
-    return `${sm} ${sd}-${em} ${ed}, ${sy}`;
-  }
-  return `${sm} ${sd}, ${sy}-${em} ${ed}, ${ey}`;
-}
-
-function formatYMDPretty(ymd: string | null | undefined): string | null {
-  if (!ymd) return null;
+function prettyYMD(ymd: string | null | undefined) {
+  if (!ymd) return "—";
   const dt = parseYMDToUTC(ymd);
-  if (!dt) return null;
+  if (!dt) return String(ymd);
   const m = fmtUTC(dt, { month: "short" });
-  const d = fmtUTC(dt, { day: "numeric" });
+  const d = fmtUTC(dt, { day: "2-digit" });
   const y = fmtUTC(dt, { year: "numeric" });
   return `${m} ${d}, ${y}`;
 }
 
-function ymdToDMY(ymd: string): string | null {
+function addDaysYMD(ymd: string, delta: number): string {
   const dt = parseYMDToUTC(ymd);
-  if (!dt) return null;
-  const dd = String(dt.getUTCDate()).padStart(2, "0");
-  const mm = String(dt.getUTCMonth() + 1).padStart(2, "0");
-  const yyyy = String(dt.getUTCFullYear());
-  return `${dd}/${mm}/${yyyy}`;
-}
-
-function addDaysUTC(ymd: string, deltaDays: number): string | null {
-  const dt = parseYMDToUTC(ymd);
-  if (!dt) return null;
-  dt.setUTCDate(dt.getUTCDate() + deltaDays);
+  if (!dt) return ymd;
+  dt.setUTCDate(dt.getUTCDate() + delta);
   const y = String(dt.getUTCFullYear());
   const m = String(dt.getUTCMonth() + 1).padStart(2, "0");
   const d = String(dt.getUTCDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
 }
 
-function buildCandidateDaysFromMainEvents(mainEvents: any[]) {
-  const daySet = new Set<string>();
-
-  for (const e of mainEvents || []) {
-    const d = getEventLocalDate(e);
-    if (!d) continue;
-
-    for (const delta of [-2, -1, 0, 1, 2]) {
-      const dd = addDaysUTC(d, delta);
-      if (dd) daySet.add(dd);
-    }
-  }
-
-  const days = Array.from(daySet).sort(); // YYYY-MM-DD sorts chronologically
-  const startYMD = days[0] ?? null;
-  const endYMD = days.length ? days[days.length - 1] : startYMD;
-
-  return { daySet, days, startYMD, endYMD };
+function formatDateTimeLocal(s?: string | null) {
+  if (!s) return "Date TBD";
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return s;
+  return d.toLocaleString(undefined, {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
-/* -------------------- Expedia deep links -------------------- */
+/* -------------------- Expedia links (simple) -------------------- */
 
 function buildExpediaHotelSearchUrl(opts: {
-  destinationLabel: string; // e.g. "Toronto, ON"
+  destinationLabel: string; // "Anaheim, CA"
   checkInYMD: string;
   checkOutYMD: string;
   adults?: number;
@@ -192,6 +114,15 @@ function buildExpediaHotelSearchUrl(opts: {
   return `https://www.expedia.ca/Hotel-Search?${params.toString()}`;
 }
 
+function ymdToDMY(ymd: string): string | null {
+  const dt = parseYMDToUTC(ymd);
+  if (!dt) return null;
+  const dd = String(dt.getUTCDate()).padStart(2, "0");
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, "0");
+  const yyyy = String(dt.getUTCFullYear());
+  return `${dd}/${mm}/${yyyy}`;
+}
+
 function buildExpediaFlightsOnlyUrl(opts: {
   fromIata: string;
   toIata: string;
@@ -200,7 +131,6 @@ function buildExpediaFlightsOnlyUrl(opts: {
   adults?: number;
 }) {
   const adults = opts.adults ?? 2;
-
   const d1 = ymdToDMY(opts.departYMD);
   const d2 = ymdToDMY(opts.returnYMD);
   if (!d1 || !d2) return null;
@@ -218,366 +148,6 @@ function buildExpediaFlightsOnlyUrl(opts: {
   });
 
   return `https://www.expedia.ca/Flights-Search?${params.toString()}`;
-}
-
-function buildExpediaFlightHotelPackageUrl(opts: {
-  fromAirport: string; // IATA
-  destination: string; // best: destination IATA; fallback: "City, ST"
-  fromDateYMD: string;
-  toDateYMD: string;
-  numAdult?: number;
-  numRoom?: number;
-}) {
-  const numAdult = opts.numAdult ?? 2;
-  const numRoom = opts.numRoom ?? 1;
-
-  const params = new URLSearchParams({
-    FromAirport: opts.fromAirport,
-    Destination: opts.destination,
-    NumAdult: String(numAdult),
-    NumRoom: String(numRoom),
-  });
-
-  return `https://www.expedia.ca/go/package/search/FlightHotel/${opts.fromDateYMD}/${opts.toDateYMD}?${params.toString()}`;
-}
-
-/* -------------------- Event helpers -------------------- */
-
-const getEventLocalDate = (e: any) => e?.dates?.start?.localDate ?? null;
-const getEventLocalTime = (e: any) => e?.dates?.start?.localTime ?? null;
-
-function formatEventDateMMMDDYYYY(d: string | null) {
-  const dt = d ? parseYMDToUTC(d) : null;
-  if (!dt) return "";
-  const mm = fmtUTC(dt, { month: "short" });
-  const dd = fmtUTC(dt, { day: "2-digit" });
-  const yyyy = fmtUTC(dt, { year: "numeric" });
-  return `${mm} ${dd}`;
-}
-
-function formatEventTimeLower(t: string | null) {
-  if (!t) return "";
-  const m = /^(\d{2}):(\d{2})/.exec(t);
-  if (!m) return t;
-  let hh = +m[1];
-  const mm = m[2];
-  const ampm = hh >= 12 ? "pm" : "am";
-  hh = hh % 12;
-  if (hh === 0) hh = 12;
-  return `${hh}:${mm}${ampm}`; // e.g., 8:00pm
-}
-
-const eventId = (e: any) => e?.id ?? null;
-const eventTitle = (e: any) => e?.name ?? "";
-const eventUrl = (e: any) => e?.url ?? null;
-
-function eventVenueCityState(e: any) {
-  const v = e?._embedded?.venues?.[0];
-  const city = v?.city?.name;
-  const st = v?.state?.stateCode;
-  if (!city || !st) return null;
-  return `${city}, ${st}`;
-}
-
-function eventVenueKey(e: any) {
-  const v = e?._embedded?.venues?.[0];
-  const nm = (v?.name || "").trim().toLowerCase();
-  const city = (v?.city?.name || "").trim().toLowerCase();
-  const st = (v?.state?.stateCode || "").trim().toUpperCase();
-  return `${nm}|${city}|${st}`;
-}
-
-function normalizeTitleForDedup(s: string) {
-  return String(s || "")
-    .toLowerCase()
-    .replace(/[\u2019']/g, "")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
-
-function eventSortKey(e: any) {
-  const d = getEventLocalDate(e);
-  const t = getEventLocalTime(e);
-  const dKey = d ? Number(String(d).replace(/-/g, "")) : 99999999;
-
-  const m = t ? /^(\d{2}):(\d{2})/.exec(t) : null;
-  const tKey = m ? +m[1] * 60 + +m[2] : 999999;
-
-  return dKey * 100000 + tKey;
-}
-
-/* -------------------- Geo + clustering helpers (for P1=P2) -------------------- */
-
-function getEventLatLon(e: any): { lat: number; lon: number } | null {
-  const v = e?._embedded?.venues?.[0];
-  const lat = v?.location?.latitude;
-  const lon = v?.location?.longitude;
-  const la = lat != null ? Number(lat) : NaN;
-  const lo = lon != null ? Number(lon) : NaN;
-  if (Number.isFinite(la) && Number.isFinite(lo)) return { lat: la, lon: lo };
-  return null;
-}
-
-function haversineMiles(a: { lat: number; lon: number }, b: { lat: number; lon: number }) {
-  const R = 3958.7613; // miles
-  const toRad = (x: number) => (x * Math.PI) / 180;
-
-  const dLat = toRad(b.lat - a.lat);
-  const dLon = toRad(b.lon - a.lon);
-  const lat1 = toRad(a.lat);
-  const lat2 = toRad(b.lat);
-
-  const s =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat1) * Math.cos(lat2) * (Math.sin(dLon / 2) ** 2);
-
-  return 2 * R * Math.asin(Math.min(1, Math.sqrt(s)));
-}
-
-function daysBetweenYMD(a: string, b: string) {
-  const da = parseYMDToUTC(a);
-  const db = parseYMDToUTC(b);
-  if (!da || !db) return Infinity;
-  const ms = Math.abs(db.getTime() - da.getTime());
-  return Math.floor(ms / (24 * 60 * 60 * 1000));
-}
-
-function buildSinglePickOccurrencesFromSchedule(params: {
-  events: any[];
-  maxDays: number;
-  radiusMiles: number;
-}) {
-  const { events, maxDays, radiusMiles } = params;
-
-  const base = (events || [])
-    .filter((e) => !!eventUrl(e))
-    .sort((a, b) => eventSortKey(a) - eventSortKey(b));
-
-  const sigSet = new Set<string>();
-  const out: any[] = [];
-
-  for (let i = 0; i < base.length; i++) {
-    const seed = base[i];
-    const seedDate = getEventLocalDate(seed);
-    if (!seedDate) continue;
-
-    const seedLL = getEventLatLon(seed);
-    const seedCS = eventVenueCityState(seed);
-
-    const group: any[] = [];
-
-    for (let j = 0; j < base.length; j++) {
-      const e = base[j];
-      const d = getEventLocalDate(e);
-      if (!d) continue;
-
-      if (daysBetweenYMD(seedDate, d) > maxDays) continue;
-
-      const ll = getEventLatLon(e);
-      let okDist = true;
-
-      if (seedLL && ll) {
-        okDist = haversineMiles(seedLL, ll) <= radiusMiles;
-      } else if (seedCS) {
-        okDist = eventVenueCityState(e) === seedCS;
-      }
-
-      if (!okDist) continue;
-      group.push(e);
-    }
-
-    const deduped = dedupeEventsWithinOccurrence(group);
-    if (deduped.length < 2) continue;
-
-    const ids = deduped
-      .map((e) => eventId(e) || `${eventSortKey(e)}|${eventVenueKey(e)}`)
-      .sort();
-    const sig = ids.join("~");
-    if (sigSet.has(sig)) continue;
-    sigSet.add(sig);
-
-    const dates = uniqueSortedDates(deduped);
-    const startYMD = dates[0] || null;
-    const endYMD = dates.length ? dates[dates.length - 1] : startYMD;
-
-    out.push({
-      events: deduped,
-      popular: [],
-      meta: {
-        startYMD,
-        endYMD,
-        anchor: seedLL ? { lat: seedLL.lat, lon: seedLL.lon } : null,
-        mode: "SINGLE_PICK_OCCURRENCES",
-      },
-    });
-  }
-
-  out.sort((a, b) => {
-    const aStart = a?.meta?.startYMD ? Number(String(a.meta.startYMD).replace(/-/g, "")) : 99999999;
-    const bStart = b?.meta?.startYMD ? Number(String(b.meta.startYMD).replace(/-/g, "")) : 99999999;
-    return aStart - bStart;
-  });
-
-  return out;
-}
-
-/* -------------------- Misc helpers -------------------- */
-
-function uniqueSortedDates(events: any[]) {
-  const set = new Set<string>();
-  for (const e of events) {
-    const d = getEventLocalDate(e);
-    if (d) set.add(d);
-  }
-  return Array.from(set).sort();
-}
-
-function getOccurrenceDateRange(events: any[]) {
-  const dates = uniqueSortedDates(events);
-  const start = dates[0] ?? "Date TBD";
-  const end = dates.length ? dates[dates.length - 1] : start;
-  return { start, end };
-}
-
-function getMostCommonCityState(events: any[]) {
-  const counts: Record<string, number> = {};
-  for (const e of events) {
-    const cs = eventVenueCityState(e);
-    if (!cs) continue;
-    counts[cs] = (counts[cs] ?? 0) + 1;
-  }
-  const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  return entries[0]?.[0] ?? null;
-}
-
-function getMostCommonCountryCode(events: any[]) {
-  const counts: Record<string, number> = {};
-  for (const e of events) {
-    const v = e?._embedded?.venues?.[0];
-    const cc = v?.country?.countryCode;
-    if (!cc) continue;
-    counts[cc] = (counts[cc] ?? 0) + 1;
-  }
-  const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  return entries[0]?.[0] ?? null;
-}
-
-function getAnchorLatLonFromEvents(events: any[]) {
-  for (const e of events) {
-    const v = e?._embedded?.venues?.[0];
-    const lat = v?.location?.latitude;
-    const lon = v?.location?.longitude;
-    if (lat != null && lon != null) {
-      const la = Number(lat);
-      const lo = Number(lon);
-      if (Number.isFinite(la) && Number.isFinite(lo)) return { lat: la, lng: lo };
-    }
-  }
-  return null;
-}
-
-/* -------------------- Dedup helpers -------------------- */
-
-function dedupeEventsWithinOccurrence(events: any[]) {
-  const out: any[] = [];
-  const seen = new Set<string>();
-  for (const e of events || []) {
-    const id = eventId(e);
-    const key =
-      id || `${eventSortKey(e)}|${eventVenueKey(e)}|${normalizeTitleForDedup(eventTitle(e))}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(e);
-  }
-  return out;
-}
-
-function dedupeNearbyPopularEvents(events: any[]) {
-  const out: any[] = [];
-  const seen = new Set<string>();
-  for (const e of events || []) {
-    const id = eventId(e);
-    const key =
-      id || `${eventSortKey(e)}|${eventVenueKey(e)}|${normalizeTitleForDedup(eventTitle(e))}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(e);
-  }
-  return out;
-}
-
-/* -------------------- Coverage helpers -------------------- */
-
-function pickKeyClient(p: any) {
-  if (!p) return "unknown";
-  if (p.type === "team") return `team:${p.attractionId || p.name || ""}`;
-  if (p.type === "artist") return `artist:${p.attractionId || ""}`;
-  if (p.type === "genre") return `genre:${p.bucket || ""}`;
-  if (p.type === "raw") return `raw:${p.name || ""}`;
-  return "unknown";
-}
-
-function occurrenceCoverageCountFromMainEvents(eventsMain: any[]) {
-  const set = new Set<string>();
-  for (const ev of eventsMain) set.add(pickKeyClient(ev?.__pick));
-  set.delete("unknown");
-  return set.size;
-}
-
-/* -------------------- Airport matching -------------------- */
-
-function normalizeRegionToStateCode(region: string) {
-  const m = /^([A-Z]{2})-([A-Z0-9]{2,3})$/.exec(String(region || "").toUpperCase());
-  if (!m) return null;
-  return m[2];
-}
-
-function resolveBestDestinationIata(opts: {
-  preferredCityState: string | null;
-  eventsForCandidates: any[];
-  country: string | null;
-  airports: Airport[];
-}) {
-  const { preferredCityState, eventsForCandidates, country, airports } = opts;
-
-  const candidates: string[] = [];
-  if (preferredCityState) candidates.push(preferredCityState);
-
-  for (const e of eventsForCandidates || []) {
-    const cs = eventVenueCityState(e);
-    if (cs && !candidates.includes(cs)) candidates.push(cs);
-  }
-
-  for (const cs of candidates) {
-    const [cityRaw, stateRaw] = cs.split(",").map((x) => x.trim());
-    const city = (cityRaw || "").toLowerCase();
-    const st = (stateRaw || "").toUpperCase();
-    if (!city || !st) continue;
-
-    const matches = airports.filter((a) => {
-      if (!a?.iata) return false;
-      if (country && a.country && String(a.country).toUpperCase() !== String(country).toUpperCase())
-        return false;
-
-      const aCity = String(a.city || "").toLowerCase();
-      const aState = normalizeRegionToStateCode(a.region) || "";
-      const aStateU = aState.toUpperCase();
-
-      return aCity === city && aStateU === st;
-    });
-
-    if (matches.length) {
-      return { destIata: matches[0].iata, destName: matches[0].name };
-    }
-  }
-
-  return { destIata: null as string | null, destName: null as string | null };
-}
-
-/* -------------------- UI helpers -------------------- */
-
-function cx(...parts: Array<string | false | null | undefined>) {
-  return parts.filter(Boolean).join(" ");
 }
 
 function TravelButton({
@@ -599,8 +169,8 @@ function TravelButton({
       className={cx(
         "rounded-xl px-3 py-2 text-xs font-extrabold transition border",
         enabled
-          ? "bg-white/20 text-white border-white/30 hover:bg-white/30"
-          : "bg-white/5 text-white/40 border-white/10 cursor-not-allowed"
+          ? "bg-slate-900 text-white border-slate-900 hover:bg-slate-800"
+          : "bg-white text-slate-400 border-slate-200 cursor-not-allowed"
       )}
     >
       {label}
@@ -608,123 +178,64 @@ function TravelButton({
   );
 }
 
-/* ==================== Share pick parsing + lookup ==================== */
+/* -------------------- Trip-matches helpers -------------------- */
 
-function parsePickParam(p: string | null): { kind: string; label?: string; id?: string } | null {
-  const s = (p || "").trim();
-  if (!s) return null;
+function getTripLatLon(trip: PotentialTrip): { lat: number; lon: number } | null {
+  const t: any = trip as any;
 
-  const decoded = s.replace(/\+/g, " ");
-  const parts = decoded
-    .split(":")
-    .map((x) => x.trim())
-    .filter(Boolean);
+  const candidates: Array<[any, any]> = [
+    [t.lat, t.lon],
+    [t.latitude, t.longitude],
+    [t.centerLat, t.centerLon],
+    [t.center?.lat, t.center?.lon],
+    [t.center?.latitude, t.center?.longitude],
+    [t.coords?.lat, t.coords?.lon],
+    [t.coords?.latitude, t.coords?.longitude],
+    [t.location?.lat, t.location?.lon],
+    [t.location?.latitude, t.location?.longitude],
+  ];
 
-  if (!parts.length) return null;
-
-  const kind = parts[0].toLowerCase();
-
-  // team:NHL:Edmonton Oilers
-  if (kind === "team") {
-    const label = parts.slice(2).join(":") || parts[1];
-    return { kind, label };
+  for (const [a, b] of candidates) {
+    const lat = Number(a);
+    const lon = Number(b);
+    if (Number.isFinite(lat) && Number.isFinite(lon)) return { lat, lon };
   }
-
-  // artist:K8vZ9171uzf or artist:Chris Isaak:K8vZ9171uzf
-  if (kind === "artist") {
-    if (parts.length >= 3) {
-      return { kind, label: parts.slice(1, -1).join(":"), id: parts[parts.length - 1] };
-    }
-    return { kind, id: parts[1] };
-  }
-
-  // genre:Rock, raw:Something, etc.
-  return { kind, label: parts[parts.length - 1] };
-}
-
-function lookupAttractionNameById(events: any[], attractionId: string): string | null {
-  if (!attractionId) return null;
-
-  for (const e of events || []) {
-    const atts = e?._embedded?.attractions;
-    if (!Array.isArray(atts)) continue;
-
-    const hit = atts.find((a: any) => String(a?.id || "") === attractionId);
-    if (hit?.name) {
-      const nm = String(hit.name).trim();
-      if (nm) return nm;
-    }
-  }
-
   return null;
 }
 
-/* ==================== Same-pick detection for P1 vs P2 ==================== */
-
-function normPickLabel(s: string) {
-  return String(s || "")
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, " ")
-    .replace(/[\u2019']/g, "")
-    .replace(/[^a-z0-9 ]+/g, "");
+// Hard rule: never show "Other" (or unsegmented) in matching events.
+function keepOnlyMusicAndSportsMatches(evs: MatchEvent[]): MatchEvent[] {
+  return (evs || []).filter((e) => e?.segment === "music" || e?.segment === "sports");
 }
 
-function samePick(p1Raw: string | null, p2Raw: string | null) {
-  const a = parsePickParam(p1Raw);
-  const b = parsePickParam(p2Raw);
-  if (!a || !b) return false;
-
-  if (a.kind !== b.kind) return false;
-
-  if (a.id && b.id) return String(a.id).trim() === String(b.id).trim();
-
-  const al = a.label ? normPickLabel(a.label) : "";
-  const bl = b.label ? normPickLabel(b.label) : "";
-  if (al && bl) return al === bl;
-
-  return false;
-}
-
-function buildClosestBlurb(
-  closest: ApiResponse["closest"] | undefined,
-  fallbackWithinDays: number
-) {
-  const c = closest;
-  if (!c?.p1 || !c?.p2) return null;
-
-  const miles = Number(c.miles);
-  if (!Number.isFinite(miles)) return null;
-
-  const withinDays =
-    Number.isFinite(Number(c.withinDays)) ? Number(c.withinDays) : fallbackWithinDays;
-
-  const p1Label = String(c.p1.label || "").trim() || "Selection 1";
-  const p2Label = String(c.p2.label || "").trim() || "Selection 2";
-
-  const p1City = String(c.p1.city || "").trim();
-  const p1Region = String(c.p1.region || "").trim();
-  const p2City = String(c.p2.city || "").trim();
-  const p2Region = String(c.p2.region || "").trim();
-
-  const p1Loc = [p1City, p1Region].filter(Boolean).join(", ");
-  const p2Loc = [p2City, p2Region].filter(Boolean).join(", ");
-
-  const p1Date = formatYMDPretty(c.p1.date || null);
-  const p2Date = formatYMDPretty(c.p2.date || null);
-
-  const milesRounded = Math.round(miles);
-
-  const tailParts: string[] = [];
-  if (p1Loc && p1Date) tailParts.push(`${p1Label} are in ${p1Loc} on ${p1Date}`);
-  else if (p1Date) tailParts.push(`${p1Label} play on ${p1Date}`);
-
-  if (p2Loc && p2Date) tailParts.push(`${p2Label} is in ${p2Loc} on ${p2Date}`);
-  else if (p2Date) tailParts.push(`${p2Label} plays on ${p2Date}`);
-
-  const detail = tailParts.length ? ` — which is when ${tailParts.join(" and ")}.` : ".";
-
-  return `Unfortunately, the closest ${p1Label} and ${p2Label} get within ${withinDays} days of each other is ${milesRounded} miles${detail}`;
+function Section({ title, items }: { title: string; items: MatchEvent[] }) {
+  return (
+    <div>
+      <div className="text-xs font-black tracking-wide text-slate-600 uppercase">{title}</div>
+      <div className="mt-2 divide-y rounded-xl border border-slate-200 bg-white">
+        {items.map((e) => (
+          <div key={e.id} className="px-3 py-2 text-sm">
+            <div className="font-extrabold text-slate-900">{e.name}</div>
+            <div className="text-slate-600">
+              {formatDateTimeLocal(e.dateLocal)} · {e.venue || "Venue TBD"} · {e.city || ""}
+              {e.region ? `, ${e.region}` : ""}
+              {e.genre ? ` · ${e.genre}` : ""}
+            </div>
+            {e.url ? (
+              <a
+                className="inline-block mt-1 text-slate-900 underline font-extrabold"
+                href={e.url}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Tickets
+              </a>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 /* ==================== PAGE ==================== */
@@ -733,24 +244,37 @@ export default function ResultsPage() {
   const router = useRouter();
   const sp = useSearchParams();
 
-  const qs = useMemo(() => stripDeprecatedParams(sp), [sp]);
+  const qs = useMemo(() => new URLSearchParams(sp.toString()), [sp]);
   const qsString = useMemo(() => qs.toString(), [qs]);
 
   const originIata = (qs.get("origin") || "").trim().toUpperCase();
   const hasOriginAirport = /^[A-Z]{3}$/.test(originIata);
 
-  const selectedPickCount = useMemo(() => {
-    const ids = [qs.get("p1"), qs.get("p2"), qs.get("p3")]
-      .map((x) => (x || "").trim())
-      .filter(Boolean);
-    return ids.length;
-  }, [qsString]);
+  const tripDays = useMemo(() => clampInt(qs.get("tripDays"), 1, 30, 7), [qsString]);
+
+  const radiusMiles = useMemo(() => {
+    if (tripDays <= 3) return 60;
+    if (tripDays <= 5) return 120;
+    return 180;
+  }, [tripDays]);
+
+  const musicGenres = useMemo(
+    () => qs.getAll("musicGenres").map((s) => s.trim()).filter(Boolean),
+    [qsString]
+  );
+  const sportsGenres = useMemo(
+    () => qs.getAll("sportsGenres").map((s) => s.trim()).filter(Boolean),
+    [qsString]
+  );
+
+  // ✅ New rule: if no filters selected, matching events should be empty (always)
+  const wantsAnyMatchingFilters = useMemo(
+    () => musicGenres.length + sportsGenres.length > 0,
+    [musicGenres, sportsGenres]
+  );
 
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
-
-  const [airports, setAirports] = useState<Airport[]>([]);
-  const [showPopularByOcc, setShowPopularByOcc] = useState<Record<string, boolean>>({});
 
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const toastTimer = useRef<number | null>(null);
@@ -761,808 +285,140 @@ export default function ResultsPage() {
     toastTimer.current = window.setTimeout(() => setToastMsg(null), 2200);
   }
 
-  type PopularCacheEntry = {
-    loading: boolean;
-    loaded: boolean;
-    events: any[];
-    error?: string;
-  };
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const [matchesByKey, setMatchesByKey] = useState<Record<string, MatchEvent[]>>({});
+  const [matchesLoadingByKey, setMatchesLoadingByKey] = useState<Record<string, boolean>>({});
+  const [matchesErrorByKey, setMatchesErrorByKey] = useState<Record<string, string | null>>({});
 
-  const [popularCacheByOcc, setPopularCacheByOcc] = useState<Record<string, PopularCacheEntry>>({});
-
-  const radiusMiles = useMemo(() => {
-    const raw = qs.get("radiusMiles");
-    if (PUBLIC_MODE) {
-      return clampInt(
-        raw ?? PUBLIC_PRESET.maxRadiusMiles,
-        1,
-        PUBLIC_PRESET.maxRadiusMiles,
-        PUBLIC_PRESET.maxRadiusMiles
-      );
+  async function loadMatchesForTrip(tripKey: string, trip: PotentialTrip) {
+    // ✅ NEW: if no interests selected, do not call /api/trip-matches; return empty
+    if (!wantsAnyMatchingFilters) {
+      setMatchesByKey((prev) => ({ ...prev, [tripKey]: [] }));
+      setMatchesErrorByKey((prev) => ({ ...prev, [tripKey]: null }));
+      setMatchesLoadingByKey((prev) => ({ ...prev, [tripKey]: false }));
+      return;
     }
-    return clampInt(raw ?? 100, 1, 2000, 100);
-  }, [qsString]);
 
-  const maxDays = useMemo(() => {
-    const raw = qs.get("days");
-    if (PUBLIC_MODE) {
-      return clampInt(raw ?? PUBLIC_PRESET.maxDays, 1, PUBLIC_PRESET.maxDays, PUBLIC_PRESET.maxDays);
+    if (matchesByKey[tripKey] || matchesLoadingByKey[tripKey]) return;
+
+    const coords = getTripLatLon(trip);
+    if (!coords) {
+      showToast("This trip is missing coordinates (lat/lon). Update /api/search to include them per trip.");
+      setMatchesErrorByKey((prev) => ({ ...prev, [tripKey]: "Missing lat/lon for this trip." }));
+      return;
     }
-    return clampInt(raw ?? 5, 1, 30, 5);
-  }, [qsString]);
 
-const closestBlurb = buildClosestBlurb(data?.closest, maxDays);
+    const primaryDay =
+      Array.isArray((trip as any)?.events) && (trip as any).events[0]?.date
+        ? String((trip as any).events[0].date)
+        : trip.startYMD || "";
 
+    if (!primaryDay) {
+      showToast("This trip is missing a primary event date.");
+      setMatchesErrorByKey((prev) => ({ ...prev, [tripKey]: "Missing primary event date for this trip." }));
+      return;
+    }
 
-  // Determine if we're in "single pick" mode (P1=P2, including links where one is blank)
-  const sameEntityMode = useMemo(() => {
-    const p1 = (qs.get("p1") || "").trim();
-    const p2 = (qs.get("p2") || "").trim();
-    const p1n = p1 || p2;
-    const p2n = p2 || p1;
-    if (!p1n || !p2n) return false;
-    return samePick(p1n, p2n);
-  }, [qsString]);
+    const windowDays = tripDays <= 3 ? 1 : tripDays <= 5 ? 2 : 3;
 
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/airports.min.json")
-      .then((r) => r.json())
-      .then((list: Airport[]) => {
-        if (cancelled) return;
-        setAirports(Array.isArray(list) ? list : []);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setAirports([]);
-      });
+    const start = addDaysYMD(primaryDay, -windowDays);
+    const end = addDaysYMD(primaryDay, +windowDays);
 
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    const p = new URLSearchParams();
+    p.set("start", start);
+    p.set("end", end);
+    p.set("lat", String(coords.lat));
+    p.set("lon", String(coords.lon));
+    p.set("radiusMiles", String(radiusMiles));
+    for (const g of musicGenres) p.append("musicGenres", g);
+    for (const g of sportsGenres) p.append("sportsGenres", g);
+
+    setMatchesLoadingByKey((prev) => ({ ...prev, [tripKey]: true }));
+    setMatchesErrorByKey((prev) => ({ ...prev, [tripKey]: null }));
+
+    try {
+      const res = await fetch(`/api/trip-matches?${p.toString()}`, { cache: "no-store" });
+      const text = await res.text();
+      let json: any = null;
+      try {
+        json = text ? JSON.parse(text) : null;
+      } catch {
+        throw new Error(`Non-JSON response (${res.status}): ${text.slice(0, 300) || "[empty body]"}`);
+      }
+      if (!res.ok) throw new Error(json?.error || `Failed (${res.status})`);
+
+      const raw = Array.isArray(json?.events) ? (json.events as MatchEvent[]) : [];
+
+      // ✅ HARD RULE: never show "Other" in matching events
+      const evs = keepOnlyMusicAndSportsMatches(raw);
+
+      setMatchesByKey((prev) => ({ ...prev, [tripKey]: evs }));
+    } catch (e: any) {
+      setMatchesErrorByKey((prev) => ({ ...prev, [tripKey]: e?.message || "Failed to load matching events" }));
+    } finally {
+      setMatchesLoadingByKey((prev) => ({ ...prev, [tripKey]: false }));
+    }
+  }
 
   useEffect(() => {
     if (!qsString) return;
 
     const ac = new AbortController();
-
     setLoading(true);
-    fetch(`/api/search?${qsString}`, { cache: "no-store", signal: ac.signal })
-      .then((r) => r.json())
-      .then((json) => {
-        if (ac.signal.aborted) return;
-        setData(json);
-      })
-      .catch((e: any) => {
+
+    (async () => {
+      try {
+        console.log("RESULTS qsString:", qsString);
+console.log("RESULTS sportsGenres parsed:", sportsGenres);
+        
+        const res = await fetch(`/api/search?${qsString}`, {
+          cache: "no-store",
+          signal: ac.signal,
+        });
+
+        const text = await res.text();
+
+        let json: any = null;
+        try {
+          json = text ? JSON.parse(text) : null;
+        } catch {
+          throw new Error(`Non-JSON response (${res.status}): ${text.slice(0, 300) || "[empty body]"}`);
+        }
+
+        if (!res.ok) {
+          throw new Error(json?.error || `Search failed (${res.status})`);
+        }
+
+        if (!ac.signal.aborted) {
+          setData(json);
+        }
+      } catch (e: any) {
         if (e?.name === "AbortError") return;
         setData({ error: e?.message || "Search failed" });
-      })
-      .finally(() => {
-        if (!ac.signal.aborted) setLoading(false);
-      });
+      } finally {
+        if (!ac.signal.aborted) {
+          setLoading(false);
+        }
+      }
+    })();
 
     return () => ac.abort();
   }, [qsString]);
 
-  const occurrencesRaw = useMemo(() => data?.occurrences || [], [data]);
-
-  // If P1=P2 and API yields no occurrences but does return fallback schedules,
-  // convert schedule → occurrences client-side using the same days/radius logic.
-  const occurrencesEffective = useMemo(() => {
-    const occ = Array.isArray(occurrencesRaw) ? occurrencesRaw : [];
-    if (occ.length) return occ;
-
-    if (!sameEntityMode) return occ;
-
-    const schedules = data?.fallback?.schedules;
-    if (!Array.isArray(schedules) || schedules.length === 0) return occ;
-
-    const scheduleEvents = Array.isArray(schedules[0]?.events) ? schedules[0].events : [];
-    return buildSinglePickOccurrencesFromSchedule({
-      events: scheduleEvents,
-      maxDays,
-      radiusMiles,
-    });
-  }, [occurrencesRaw, sameEntityMode, data, maxDays, radiusMiles]);
-
-  const occurrencesSorted = useMemo(() => {
-    const source = Array.isArray(occurrencesEffective) ? occurrencesEffective : [];
-
-    const enriched = source.map((occ: any, idx: number) => {
-      const eventsDeduped = dedupeEventsWithinOccurrence(occ.events);
-
-      const main = [...eventsDeduped]
-        .filter((e) => !!eventUrl(e))
-        .sort((a, b) => eventSortKey(a) - eventSortKey(b));
-
-      const mainDates = uniqueSortedDates(main);
-      const firstMain = mainDates[0] ?? null;
-      const sortKey = firstMain ? Number(String(firstMain).replace(/-/g, "")) : 99999999;
-
-      const coverage = occurrenceCoverageCountFromMainEvents(main);
-
-      return {
-        ...occ,
-        __idx: idx,
-        __coverage: coverage,
-        __earliestMainKey: sortKey,
-      };
-    });
-
-    enriched.sort((a: any, b: any) => {
-      const ak = a.__earliestMainKey ?? 99999999;
-      const bk = b.__earliestMainKey ?? 99999999;
-      if (ak !== bk) return ak - bk;
-      return (b.__coverage ?? 0) - (a.__coverage ?? 0);
-    });
-
-    return enriched;
-  }, [occurrencesEffective]);
-
-  const occCount = occurrencesSorted.length;
-
-  const hasSearched = useMemo(() => {
-    const p1 = (qs.get("p1") || "").trim();
-    const p2 = (qs.get("p2") || "").trim();
-    const p3 = (qs.get("p3") || "").trim();
-    return !!(p1 || p2 || p3);
-  }, [qsString]);
-
   const errMsg = data?.error || null;
 
-// ✅ UPDATED: per-occurrence nearby lookup
-// Pull nearby events within 50 miles of *every* main event in the occurrence,
-// then merge + dedupe (overlapping circles create duplicates).
-
-async function fetchNearbyPopularOnce(params: {
-  occKey: string;
-  anchor: { lat: number; lng: number } | null;
-  startYMD: string | null;
-  endYMD: string | null;
-  candidateDaySet: Set<string>;
-  candidateDays: string[];
-  excludeIds: string[];
-  mainEvents: any[];
-}) {
-
-const { occKey, anchor, startYMD, endYMD, candidateDaySet, candidateDays, excludeIds, mainEvents } = params;
-
-  setPopularCacheByOcc((prev) => {
-    const cur = prev[occKey];
-    if (cur?.loading || cur?.loaded) return prev;
-    return { ...prev, [occKey]: { loading: true, loaded: false, events: [] } };
-  });
-
-  try {
-    const excludeSet = new Set(excludeIds);
-
-    // Build anchor points = every main event with coords (plus fallback anchor if needed)
-    const anchors: Array<{ lat: number; lng: number }> = [];
-
-    for (const e of mainEvents || []) {
-      const got = getEventLatLon(e); // returns {lat, lon} or null
-      if (got) anchors.push({ lat: got.lat, lng: got.lon });
-    }
-
-    if (anchors.length === 0 && anchor) anchors.push(anchor);
-
-    // Remove duplicate anchor points (prevents redundant calls)
-    const anchorSeen = new Set<string>();
-    const anchorDeduped = anchors.filter((p) => {
-      const key = `${p.lat.toFixed(4)}|${p.lng.toFixed(4)}`;
-      if (anchorSeen.has(key)) return false;
-      anchorSeen.add(key);
-      return true;
-    });
-
-    if (anchorDeduped.length === 0 || !startYMD || !endYMD) {
-      setPopularCacheByOcc((prev) => ({
-        ...prev,
-        [occKey]: { loading: false, loaded: true, events: [] },
-      }));
-      return;
-    }
-
-    // Call /api/nearby for each anchor point (POST avoids huge querystrings)
-    const calls = anchorDeduped.map(async (ll) => {
-      const res = await fetch("/api/nearby", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          lat: ll.lat,
-          lng: ll.lng,
-          startDate: startYMD,
-          endDate: endYMD,
-          radiusMiles: NEARBY_RADIUS_MILES, // 50
-          excludeIds: Array.from(excludeSet),
-          sportsLeagues: [...NEARBY_SPORTS_LEAGUES],
-          otherLimit: Math.min(50, Math.max(20, candidateDays.length * 6)),
-        }),
-      });
-
-      const json = await res.json().catch(() => ({}));
-
-      const events =
-        (Array.isArray(json?.events) && json.events) ||
-        (Array.isArray(json?.popular) && json.popular) ||
-        (Array.isArray(json?.nearby) && json.nearby) ||
-        (Array.isArray(json?.results) && json.results) ||
-        (Array.isArray(json?._embedded?.events) && json._embedded.events) ||
-        [];
-
-      return events;
-    });
-
-    const batches = await Promise.all(calls);
-
-// Keep a global “first seen” rank so we can do day-bucket picks consistently
-const mergedWithRank: Array<{ ev: any; rank: number }> = [];
-let rank = 0;
-
-for (const arr of batches) {
-  const list = Array.isArray(arr) ? arr : [];
-  for (const ev of list) {
-    mergedWithRank.push({ ev, rank });
-    rank++;
-  }
-}
-
-// 1) filter out occurrence events again (safety), and any junk without URL
-const filteredWithRank = mergedWithRank.filter(({ ev }) => {
-  const id = eventId(ev);
-  if (id && excludeSet.has(id)) return false;
-  return true;
-});
-
-// 2) Deduplicate while preserving earliest rank
-const seen = new Set<string>();
-const uniqueWithRank: Array<{ ev: any; rank: number }> = [];
-
-for (const { ev, rank } of filteredWithRank) {
-  const id = eventId(ev);
-  const key =
-    id || `${eventSortKey(ev)}|${eventVenueKey(ev)}|${normalizeTitleForDedup(eventTitle(ev))}`;
-
-  if (seen.has(key)) continue;
-  seen.add(key);
-  uniqueWithRank.push({ ev, rank });
-}
-
-// 3) Keep only events that fall on our candidate days (±2 around every main event day)
-const filteredToCandidateDays = uniqueWithRank.filter(({ ev }) => {
-  const d = getEventLocalDate(ev);
-  return d ? candidateDaySet.has(d) : false;
-});
-
-// 4) Bucket by day, preserving earliest “rank” ordering
-const byDay = new Map<string, Array<{ ev: any; rank: number; isSport: boolean }>>();
-
-for (const item of filteredToCandidateDays) {
-  const d = getEventLocalDate(item.ev);
-  if (!d) continue;
-
-  const isSport = !!getLeagueTagFromEventClient(item.ev);
-  const arr = byDay.get(d) || [];
-  arr.push({ ev: item.ev, rank: item.rank, isSport });
-  byDay.set(d, arr);
-}
-
-// 5) Pick up to 2 events per day (sports first within the day), global dedupe across days
-const finalPicked: any[] = [];
-const seenGlobal = new Set<string>();
-
-for (const day of candidateDays) {
-  const arr = byDay.get(day) || [];
-  if (!arr.length) continue;
-
-  // Sort by rank (earliest returned first), but prefer sports when ranks are close
-  arr.sort((a, b) => {
-    if (a.isSport !== b.isSport) return a.isSport ? -1 : 1;
-    return a.rank - b.rank;
-  });
-
-  let picked = 0;
-
-  for (const { ev } of arr) {
-    const id = eventId(ev);
-    const key =
-      id || `${eventSortKey(ev)}|${eventVenueKey(ev)}|${normalizeTitleForDedup(eventTitle(ev))}`;
-
-    if (seenGlobal.has(key)) continue;
-
-    finalPicked.push(ev);
-    seenGlobal.add(key);
-
-    picked++;
-    if (picked >= 2) break;
-  }
-}
-
-// One last pass through your existing deduper (extra safety)
-const finalEvents = dedupeNearbyPopularEvents(finalPicked);
-
-setPopularCacheByOcc((prev) => ({
-  ...prev,
-  [occKey]: { loading: false, loaded: true, events: finalEvents },
-}));
-
-
-  } catch (e: any) {
-    setPopularCacheByOcc((prev) => ({
-      ...prev,
-      [occKey]: {
-        loading: false,
-        loaded: true,
-        events: [],
-        error: e?.message || "Failed to load nearby events",
-      },
-    }));
-  }
-}
-
-function toggleOtherPopular(
-    occKey: string,
-    canFetchNearby: boolean,
-    anchor: { lat: number; lng: number } | null,
-    startYMD: string | null,
-    endYMD: string | null,
-    excludeIds: string[],
-    mainEvents: any[]
-  ) {
-    setShowPopularByOcc((prev) => {
-      const next = !prev[occKey];
-
-      if (next && canFetchNearby) {
-        const entry = popularCacheByOcc[occKey];
-        if (!(entry?.loaded || entry?.loading)) {
-          
-const { daySet, days, startYMD: fetchStart, endYMD: fetchEnd } =
-  buildCandidateDaysFromMainEvents(mainEvents);
-
-fetchNearbyPopularOnce({
-  occKey,
-  anchor,
-  startYMD: fetchStart,
-  endYMD: fetchEnd,
-  candidateDaySet: daySet,
-  candidateDays: days,
-  excludeIds,
-  mainEvents,
-});
-
-        }
-      }
-
-      return { ...prev, [occKey]: next };
-    });
-  }
-
-  /* -------------------- Share helpers -------------------- */
-
-  function isMobileUA() {
-    const ua = (navigator.userAgent || "").toLowerCase();
-    return /android|iphone|ipad|ipod/.test(ua);
-  }
-
-  function isWindowsUA() {
-    const ua = (navigator.userAgent || "").toLowerCase();
-    return ua.includes("windows");
-  }
-
-  function pickCheckmarkGlyph() {
-    if (isMobileUA()) return "✅";
-    if (isWindowsUA()) return "✓";
-    return "✅";
-  }
-
-  function formatShortRange(start: string, end: string) {
-    const s = parseYMDToUTC(start);
-    const e = parseYMDToUTC(end);
-    if (!s || !e) return formatRangePretty(start, end);
-
-    const sm = fmtUTC(s, { month: "short" });
-    const em = fmtUTC(e, { month: "short" });
-    const sd = fmtUTC(s, { day: "numeric" });
-    const ed = fmtUTC(e, { day: "numeric" });
-    const sy = fmtUTC(s, { year: "numeric" });
-    const ey = fmtUTC(e, { year: "numeric" });
-
-    if (start === end) return `${sm} ${sd}, ${sy}`;
-    if (sy === ey) {
-      if (sm === em) return `${sm} ${sd} - ${ed}, ${sy}`;
-      return `${sm} ${sd} - ${em} ${ed}, ${sy}`;
-    }
-    return `${sm} ${sd}, ${sy} - ${em} ${ed}, ${ey}`;
-  }
-
-  async function shareOccurrence(params: {
-    occKey: string;
-    cityState: string | null;
-    startYMD: string;
-    endYMD: string;
-    fallbackTitles: string[];
-    eventsForLookup: any[];
-  }) {
-    const { occKey, cityState, startYMD, endYMD, fallbackTitles, eventsForLookup } = params;
-
-    const url = `${window.location.origin}/results?${qsString}#${occKey}`;
-
-    const raw = [qs.get("p1"), qs.get("p2"), qs.get("p3")];
-    let pickNames: string[] = [];
-
-    for (const r of raw) {
-      const parsed = parsePickParam(r);
-      if (!parsed) continue;
-
-      if (parsed.label) {
-        pickNames.push(parsed.label);
-        continue;
-      }
-
-      if (parsed.kind === "artist" && parsed.id) {
-        const resolved = lookupAttractionNameById(eventsForLookup, parsed.id);
-        if (resolved) pickNames.push(resolved);
-      }
-    }
-
-    if (pickNames.length === 0 && Array.isArray(fallbackTitles) && fallbackTitles.length) {
-      pickNames = fallbackTitles.slice(0, 3);
-    }
-
-    const mark = pickCheckmarkGlyph();
-    const loc = cityState || "Location TBD";
-    const range = formatShortRange(startYMD, endYMD);
-
-    const body = [
-      "Hear me out ...",
-      "",
-      ...pickNames.map((n) => `${mark} ${n}`),
-      "",
-      loc,
-      range,
-      "",
-      "... we should totally go! right!?",
-      "",
-      url,
-    ].join("\n");
-
-    if (isMobileUA() && (navigator as any).share) {
-      try {
-        await (navigator as any).share({ title: "EventStack", text: body });
-        return;
-      } catch {}
-    }
-
-    try {
-      await navigator.clipboard.writeText(body);
-      showToast("Share message copied to clipboard");
-    } catch {
-      window.prompt("Copy and share this:", body);
-    }
-  }
-
-  function renderOccurrenceBlock(occ: any, keySeed: string) {
-    const eventsDeduped = dedupeEventsWithinOccurrence(occ.events);
-    const allEvents = [...eventsDeduped];
-
-    const startMeta = occ?.meta?.startYMD || null;
-    const endMeta = occ?.meta?.endYMD || null;
-
-    const { start: startFallback, end: endFallback } = getOccurrenceDateRange(eventsDeduped);
-
-    const start = (startMeta || startFallback) as string;
-    const end = (endMeta || endFallback) as string;
-
-    const cityState = getMostCommonCityState(allEvents);
-    const country = getMostCommonCountryCode(allEvents);
-
-    const occKey = `${keySeed}-${occ.__idx ?? "x"}`;
-
-    const main = [...eventsDeduped]
-      .filter((e) => !!eventUrl(e))
-      .sort((a, b) => eventSortKey(a) - eventSortKey(b));
-
-    const mainIds = new Set(main.map(eventId).filter(Boolean) as string[]);
-
-    const mainDates = uniqueSortedDates(main);
-    const firstMain = mainDates[0] ?? null;
-    const lastMain = mainDates.length ? mainDates[mainDates.length - 1] : null;
-
-    const metaAnchor = occ?.meta?.anchor;
-    const anchor =
-      metaAnchor?.lat != null && metaAnchor?.lon != null
-        ? { lat: Number(metaAnchor.lat), lng: Number(metaAnchor.lon) }
-        : getAnchorLatLonFromEvents(eventsDeduped);
-
-    const startYMD: string | null = (occ?.meta?.startYMD || firstMain) ?? null;
-    const endYMD: string | null = (occ?.meta?.endYMD || lastMain) ?? null;
-
-    const cacheEntry = popularCacheByOcc[occKey];
-    const cachedPopular = Array.isArray(cacheEntry?.events) ? cacheEntry!.events : [];
-    const cachedPopularDeduped = dedupeNearbyPopularEvents(cachedPopular);
-
-    const basePopular = cachedPopularDeduped
-      .filter((e: any) => !!eventUrl(e))
-      .filter((e: any) => {
-        const id = eventId(e);
-        return id ? !mainIds.has(id) : true;
-      });
-
-    // ✅ Updated for per-occurrence flow
-    const canFetchNearby =
-      !!startYMD &&
-      !!endYMD &&
-      (main.some((e) => !!getEventLatLon(e)) || !!anchor);
-
-    const hasOtherPopular = basePopular.length > 0 || canFetchNearby;
-    const showOtherPopular = !!showPopularByOcc[occKey];
-
-    const checkInYMD = firstMain ? addDaysUTC(firstMain, -1) : null;
-    const checkOutYMD = lastMain ? addDaysUTC(lastMain, +1) : null;
-
-    const hotelsUrl =
-      cityState && checkInYMD && checkOutYMD
-        ? buildExpediaHotelSearchUrl({ destinationLabel: cityState, checkInYMD, checkOutYMD })
-        : null;
-
-    // ✅ Include fetched nearby events as candidates for airport inference
-    const allEventsForAirport = [...eventsDeduped, ...basePopular];
-
-    const { destIata } = resolveBestDestinationIata({
-      preferredCityState: cityState,
-      eventsForCandidates: allEventsForAirport,
-      country,
-      airports,
-    });
-
-    const flightsUrl =
-      originIata && destIata && checkInYMD && checkOutYMD
-        ? buildExpediaFlightsOnlyUrl({
-            fromIata: originIata,
-            toIata: destIata,
-            departYMD: checkInYMD,
-            returnYMD: checkOutYMD,
-          })
-        : null;
-
-    const packagesUrl =
-      originIata && (destIata || cityState) && checkInYMD && checkOutYMD
-        ? buildExpediaFlightHotelPackageUrl({
-            fromAirport: originIata,
-            destination: destIata || (cityState as string),
-            fromDateYMD: checkInYMD,
-            toDateYMD: checkOutYMD,
-          })
-        : null;
-
-    const merged = (
-      showOtherPopular
-        ? [
-            ...main.map((e) => ({ e, pop: false })),
-            ...basePopular.map((e: any) => ({ e, pop: true })),
-          ]
-        : [...main.map((e) => ({ e, pop: false }))]
-    ).sort((a, b) => eventSortKey(a.e) - eventSortKey(b.e));
-
-    const coverage = occ.__coverage ?? occurrenceCoverageCountFromMainEvents(main);
-    const includesAll3 = selectedPickCount === 3 && coverage === 3;
-
-    return (
-      <section id={occKey} key={occKey} className="w-full max-w-5xl mx-auto mb-8">
-        <div
-          className={cx(
-            "rounded-3xl overflow-hidden border shadow-sm bg-white",
-            includesAll3 ? "border-red-500/60" : "border-slate-200"
-          )}
-        >
-          <div
-            className={cx(
-              "relative px-5 py-4 flex flex-col sm:flex-row sm:items-start justify-between gap-3",
-              includesAll3 ? "bg-red-600 text-white" : "bg-slate-900 text-white"
-            )}
-          >
-            <button
-              type="button"
-              onClick={() => {
-                shareOccurrence({
-                  occKey,
-                  cityState,
-                  startYMD: start,
-                  endYMD: end,
-                  fallbackTitles: main.map((e: any) => eventTitle(e)),
-                  eventsForLookup: showOtherPopular ? allEventsForAirport : allEvents,
-                });
-              }}
-              title="Share this occurrence"
-              className="absolute right-4 top-4 sm:hidden rounded-2xl px-4 py-2.5 text-xs font-black tracking-wide bg-white text-slate-900 shadow-lg shadow-black/25 ring-1 ring-white/30 hover:-translate-y-px hover:shadow-xl"
-            >
-              SHARE
-            </button>
-
-            <div className="pr-28 sm:pr-0">
-              <div className="text-lg font-extrabold">{formatRangePretty(start, end)}</div>
-              <div className="text-xl font-extrabold">{cityState || "Location TBD"}</div>
-            </div>
-
-            <div className="mt-3 w-full sm:mt-0 sm:w-auto">
-              <div className="flex w-full items-center justify-end gap-2">
-                {includesAll3 && (
-                  <div className="mr-auto hidden sm:block text-xs font-extrabold px-3 py-2 rounded-xl bg-white/15 border border-white/25">
-                    Includes All 3 Selections
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    shareOccurrence({
-                      occKey,
-                      cityState,
-                      startYMD: start,
-                      endYMD: end,
-                      fallbackTitles: main.map((e: any) => eventTitle(e)),
-                      eventsForLookup: showOtherPopular ? allEventsForAirport : allEvents,
-                    });
-                  }}
-                  title="Share this occurrence"
-                  className="hidden sm:inline-flex shrink-0 rounded-2xl px-4 py-2.5 text-xs font-black tracking-wide transition bg-white text-slate-900 shadow-lg shadow-black/25 ring-1 ring-white/30 hover:-translate-y-px hover:shadow-xl"
-                >
-                  SHARE
-                </button>
-              </div>
-
-              <div className="mt-3 flex w-full flex-wrap items-center justify-center gap-2 sm:mt-2 sm:justify-end">
-                <TravelButton
-                  label="Hotels"
-                  enabled={!!hotelsUrl}
-                  title={hotelsUrl ? "Search hotels on Expedia" : "Missing destination or dates"}
-                  onClick={() => hotelsUrl && window.open(hotelsUrl, "_blank")}
-                />
-
-                <TravelButton
-                  label="Flights"
-                  enabled={!!flightsUrl}
-                  title={
-                    flightsUrl
-                      ? "Search flights on Expedia"
-                      : !hasOriginAirport
-                      ? "Add your nearest airport on the search page to enable flights"
-                      : "No destination airport found for this occurrence"
-                  }
-                  onClick={() => {
-                    if (!hasOriginAirport) {
-                      showToast("Add your nearest airport to enable Flights.");
-                      return;
-                    }
-                    if (!flightsUrl) {
-                      showToast("No destination airport found for this occurrence.");
-                      return;
-                    }
-                    window.open(flightsUrl, "_blank");
-                  }}
-                />
-
-                <TravelButton
-                  label="Flight + Hotel"
-                  enabled={!!packagesUrl}
-                  title={
-                    packagesUrl
-                      ? "Search flight + hotel packages on Expedia"
-                      : !hasOriginAirport
-                      ? "Add your nearest airport on the search page to enable packages"
-                      : "Missing destination or dates"
-                  }
-                  onClick={() => {
-                    if (!hasOriginAirport) {
-                      showToast("Add your nearest airport to enable Flight + Hotel.");
-                      return;
-                    }
-                    if (!packagesUrl) {
-                      showToast("Missing destination or dates for packages.");
-                      return;
-                    }
-                    window.open(packagesUrl, "_blank");
-                  }}
-                />
-              </div>
-
-              <div className="mt-2 text-[11px] leading-snug text-white/70 sm:text-right sm:max-w-[360px] sm:ml-auto">
-  Dates will auto-populate for flights & hotels based on primary events.
-</div>
-
-
-
-            </div>
-          </div>
-
-          <div className="px-5 py-3 bg-slate-50 border-b border-slate-100 flex justify-center">
-            {hasOtherPopular ? (
-              <button
-                type="button"
-                onClick={() =>
-                  toggleOtherPopular(
-                    occKey,
-                    canFetchNearby,
-                    anchor,
-                    startYMD,
-                    endYMD,
-                    Array.from(mainIds),
-                    main
-                  )
-                }
-                className="rounded-full px-6 py-2 text-sm font-extrabold border border-slate-300 bg-white text-slate-900 hover:bg-slate-100 active:bg-slate-200"
-              >
-                {showOtherPopular ? "Hide Popular Events Nearby" : "Show Popular Events Nearby"}
-              </button>
-            ) : (
-              <div className="text-xs text-slate-500">No additional nearby events available.</div>
-            )}
-          </div>
-
-          <div className="p-4 sm:p-6 space-y-3">
-            {merged.map(({ e, pop }: any) => {
-              const d = getEventLocalDate(e);
-              const t = getEventLocalTime(e);
-              const venueLabel = eventVenueCityState(e);
-
-              const popRowBg = "bg-slate-200";
-              const popTitle = "text-slate-600";
-              const popMeta = "text-slate-600";
-
-              return (
-                <div
-                  key={eventId(e) || `${eventSortKey(e)}-${normalizeTitleForDedup(eventTitle(e))}`}
-                  className={cx(
-                    "rounded-2xl border p-4 flex items-center justify-between gap-4",
-                    pop ? `border-slate-200 ${popRowBg}` : "border-slate-200 bg-slate-100"
-                  )}
-                >
-                  <div className="min-w-0">
-                    <div className={cx("font-extrabold", pop ? popTitle : "text-slate-900")}>
-                      {eventTitle(e)}
-                      {pop && (
-                        <span className="ml-2 text-xs font-extrabold text-slate-500">
-                          Popular Nearby
-                        </span>
-                      )}
-                    </div>
-                    <div className={cx("mt-1 text-xs", pop ? popMeta : "text-slate-600")}>
-                      {(() => {
-                        const dateStr = formatEventDateMMMDDYYYY(d);
-                        const timeStr = formatEventTimeLower(t);
-                        const parts = [dateStr, timeStr, venueLabel].filter(Boolean);
-                        return parts.length ? <div className="truncate">{parts.join(" • ")}</div> : null;
-                      })()}
-                    </div>
-                  </div>
-
-                  {eventUrl(e) ? (
-                    <a
-                      href={eventUrl(e)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="shrink-0 rounded-full px-4 py-2 text-xs font-extrabold bg-slate-900 text-white hover:bg-slate-800"
-                    >
-                      Tickets
-                    </a>
-                  ) : (
-                    <span className="shrink-0 text-xs text-slate-400">No tickets</span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-    );
-  }
+  const trips = useMemo(() => {
+    const t = data?.potentialTrips;
+    return Array.isArray(t) ? t : [];
+  }, [data]);
+
+  const count = trips.length;
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
-        <div className="max-w-5xl mx-auto px-4 py-10">
-          <div className="text-slate-700 font-extrabold">Loading results...</div>
+      <main className="min-h-screen bg-slate-50">
+        <div className="max-w-6xl mx-auto px-4 py-10">
+          <div className="text-slate-800 font-extrabold">Loading results…</div>
         </div>
       </main>
     );
@@ -1570,18 +426,16 @@ fetchNearbyPopularOnce({
 
   if (errMsg) {
     return (
-      <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
-        <div className="max-w-5xl mx-auto px-4 py-10">
+      <main className="min-h-screen bg-slate-50">
+        <div className="max-w-6xl mx-auto px-4 py-10">
           <div className="text-red-700 font-extrabold">Search failed: {errMsg}</div>
         </div>
       </main>
     );
   }
 
-  
-
   return (
-    <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+    <main className="min-h-screen bg-slate-50">
       {toastMsg && (
         <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50">
           <div className="rounded-full bg-slate-900 text-white px-4 py-2 text-xs font-extrabold shadow-lg">
@@ -1590,36 +444,265 @@ fetchNearbyPopularOnce({
         </div>
       )}
 
-      <div className="max-w-5xl mx-auto px-4 pt-6 pb-3 flex items-center justify-end">
+      <div className="max-w-6xl mx-auto px-4 pt-6 pb-3 flex items-center justify-between gap-3">
+        <div className="text-sm font-extrabold text-slate-700">
+          Trips: <span className="text-slate-900">{count}</span>{" "}
+          <span className="text-slate-400 font-black">(tripDays={tripDays}, radiusMiles={radiusMiles})</span>
+        </div>
+
         <button
           type="button"
           onClick={() => router.push(`/?${qsString}`)}
-          className="rounded-xl px-4 py-2 text-xs font-extrabold transition border bg-slate-900 text-white hover:bg-slate-800"
+          className="rounded-xl px-4 py-2 text-xs font-extrabold transition border bg-white text-slate-900 border-slate-200 hover:bg-slate-100"
           title="Go back and revise your search"
         >
           Revise Search
         </button>
       </div>
 
-      <div className="pb-10">
-        {hasSearched && occCount === 0 && (
-          <div className="max-w-xl mx-auto px-4 py-6">
-            <div className="rounded-2xl bg-white shadow-md p-6 text-center">
-              <h2 className="text-lg font-semibold text-slate-800">No Results Found</h2>
-
-              {closestBlurb ? (
-                <p className="mt-2 text-sm text-slate-600">{closestBlurb}</p>
-              ) : (
-                <p className="mt-2 text-sm text-slate-500">
-                  Try a different pair, or expand your trip constraints (days / radius).
-                </p>
-              )}
+      {count === 0 ? (
+        <div className="max-w-2xl mx-auto px-4 py-10">
+          <div className="rounded-2xl bg-white border border-slate-200 p-6">
+            <div className="text-slate-900 font-extrabold">No Results</div>
+            <div className="mt-2 text-sm text-slate-600">
+              Your API returned 0 potentialTrips. If you think that’s wrong, open{" "}
+              <span className="font-mono">/api/search?{qsString}</span> and check the debug counts.
             </div>
           </div>
-        )}
+        </div>
+      ) : (
+        <div className="max-w-6xl mx-auto px-4 pb-10 space-y-6">
+          {trips.map((trip, idx) => {
+            const key = trip.tripKey || `${trip.startYMD || "x"}-${trip.endYMD || "x"}-${idx}`;
+            const locs = Array.isArray(trip.locations) ? trip.locations : [];
+            const destinationLabel = locs[0] || "";
 
-        {occurrencesSorted.map((occ: any, idx: number) => renderOccurrenceBlock(occ, `occ-${idx}`))}
-      </div>
+            const checkIn = trip.startYMD || null;
+            const checkOut = trip.endYMD || null;
+
+            const hotelsUrl =
+              destinationLabel && checkIn && checkOut
+                ? buildExpediaHotelSearchUrl({
+                    destinationLabel,
+                    checkInYMD: checkIn,
+                    checkOutYMD: checkOut,
+                  })
+                : null;
+
+            const flightsUrl =
+              hasOriginAirport && checkIn && checkOut
+                ? buildExpediaFlightsOnlyUrl({
+                    fromIata: originIata,
+                    toIata: "LAX",
+                    departYMD: checkIn,
+                    returnYMD: checkOut,
+                  })
+                : null;
+
+            const events = Array.isArray(trip.events) ? trip.events : [];
+
+            const isExpanded = expandedKey === key;
+            const matches = matchesByKey[key] || null;
+            const matchesLoading = !!matchesLoadingByKey[key];
+            const matchesErr = matchesErrorByKey[key] || null;
+
+            const coords = getTripLatLon(trip);
+
+            // ✅ Require filters to expand
+            const canExpand = !!coords && !!trip.startYMD && !!trip.endYMD && wantsAnyMatchingFilters;
+
+            const music = (matches || []).filter((e) => e.segment === "music");
+            const sports = (matches || []).filter((e) => e.segment === "sports");
+
+            return (
+              <section key={key} className="rounded-2xl bg-white border border-slate-200 overflow-hidden">
+                <div className="px-5 py-4 bg-slate-900 text-white flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <div className="text-lg font-extrabold">
+                      {prettyYMD(trip.startYMD)} → {prettyYMD(trip.endYMD)}
+                    </div>
+                    <div className="text-sm font-bold text-white/80">
+                      {locs.length ? locs.join(" • ") : "Location TBD"}
+                    </div>
+
+                    <div className="mt-3">
+                      <button
+                        type="button"
+                        disabled={!canExpand}
+                        onClick={() => {
+                          if (!canExpand) {
+                            if (!coords) showToast("Trip missing lat/lon. Update /api/search to include coordinates per trip.");
+                            else if (!wantsAnyMatchingFilters) showToast("Select at least one filter (Music/Sports) to show matching events.");
+                            else showToast("Trip is missing dates.");
+                            return;
+                          }
+                          const next = isExpanded ? null : key;
+                          setExpandedKey(next);
+                          if (next) loadMatchesForTrip(key, trip);
+                        }}
+                        className={cx(
+                          "inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-extrabold border transition",
+                          canExpand
+                            ? "bg-white text-slate-900 border-white/40 hover:bg-white/90"
+                            : "bg-white/10 text-white/50 border-white/15 cursor-not-allowed"
+                        )}
+                        title={
+                          canExpand
+                            ? "Show additional events that match your selected filters"
+                            : !coords
+                            ? "Disabled: this trip has no coordinates (lat/lon)"
+                            : !wantsAnyMatchingFilters
+                            ? "Disabled: select at least one filter (Music/Sports)"
+                            : "Disabled: missing dates"
+                        }
+                      >
+                        {isExpanded ? "Hide matching events" : "Show matching events"}
+                      </button>
+
+                      {!canExpand && (
+                        <div className="mt-2 text-[11px] text-white/60">
+                          {!coords
+                            ? (
+                              <>
+                                To enable this, return lat/lon for each trip from <span className="font-mono">/api/search</span>.
+                              </>
+                            )
+                            : !wantsAnyMatchingFilters
+                            ? "Select at least one Music/Sports filter to enable matching events."
+                            : "This trip is missing dates."}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 sm:justify-end">
+                    <TravelButton
+                      label="Hotels"
+                      enabled={!!hotelsUrl}
+                      title={hotelsUrl ? "Search hotels on Expedia" : "Missing destination/dates"}
+                      onClick={() => hotelsUrl && window.open(hotelsUrl, "_blank")}
+                    />
+                    <TravelButton
+                      label="Flights"
+                      enabled={!!flightsUrl}
+                      title={
+                        flightsUrl
+                          ? "Search flights on Expedia (placeholder destination IATA)"
+                          : !hasOriginAirport
+                          ? "Add origin airport to enable flights (origin=XXX)"
+                          : "Missing dates"
+                      }
+                      onClick={() => {
+                        if (!hasOriginAirport) return showToast("Add origin=IATA to enable flights.");
+                        if (!flightsUrl) return showToast("Flights link unavailable.");
+                        window.open(flightsUrl, "_blank");
+                      }}
+                    />
+                    <TravelButton
+                      label="Flight + Hotel"
+                      enabled={false}
+                      title="Disabled on debug page (we'll re-enable after results are stable)"
+                      onClick={() => {}}
+                    />
+                  </div>
+                </div>
+
+                <div className="p-4 sm:p-5 overflow-x-auto">
+                  <table className="min-w-[860px] w-full border-separate border-spacing-0">
+                    <thead>
+                      <tr className="text-left text-xs font-extrabold text-slate-600">
+                        <th className="py-2 pr-3 border-b border-slate-200">Date</th>
+                        <th className="py-2 pr-3 border-b border-slate-200">Event</th>
+                        <th className="py-2 pr-3 border-b border-slate-200">Location</th>
+                        <th className="py-2 pr-3 border-b border-slate-200">Genre</th>
+                        <th className="py-2 pr-0 border-b border-slate-200 text-right">Score</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {events.map((ev, j) => {
+                        const d = ev.date || "";
+                        const name = ev.name || "";
+                        const loc = ev.location || "";
+                        const genre = ev.genre || "";
+                        const score = Number(ev.score ?? 0);
+
+                        return (
+                          <tr key={`${key}-${j}`} className="text-sm text-slate-800">
+                            <td className="py-2 pr-3 border-b border-slate-100 font-semibold whitespace-nowrap">
+                              {prettyYMD(d)}
+                            </td>
+
+                            <td className="py-2 pr-3 border-b border-slate-100 min-w-[360px]">
+                              {ev.url ? (
+                                <a
+                                  href={ev.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="font-extrabold text-slate-900 hover:underline"
+                                >
+                                  {name}
+                                </a>
+                              ) : (
+                                <span className="font-extrabold">{name}</span>
+                              )}
+                            </td>
+
+                            <td className="py-2 pr-3 border-b border-slate-100">{loc}</td>
+                            <td className="py-2 pr-3 border-b border-slate-100">{genre || "—"}</td>
+                            <td className="py-2 pr-0 border-b border-slate-100 text-right font-extrabold">
+                              {Number.isFinite(score) ? score : "—"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+
+                  {isExpanded && (
+                    <div className="mt-5">
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="text-sm font-extrabold text-slate-900">
+                            Matching events (within {radiusMiles} miles)
+                          </div>
+                          <div className="text-[11px] text-slate-600">
+                            Filters:{" "}
+                            {musicGenres.length ? `Music=${musicGenres.join(", ")}` : "Music=None"} ·{" "}
+                            {sportsGenres.length ? `Sports=${sportsGenres.join(", ")}` : "Sports=None"}
+                          </div>
+                        </div>
+
+                        {matchesLoading && <div className="mt-3 text-sm text-slate-600">Loading matches…</div>}
+
+                        {!matchesLoading && matchesErr && (
+                          <div className="mt-3 text-sm text-red-700 font-bold">{matchesErr}</div>
+                        )}
+
+                        {!matchesLoading && !matchesErr && matches && matches.length === 0 && (
+                          <div className="mt-3 text-sm text-slate-600">
+                            No additional events matched your filters for this trip window.
+                          </div>
+                        )}
+
+                        {!matchesLoading && !matchesErr && matches && matches.length > 0 && (
+                          <div className="mt-4 space-y-5">
+                            {music.length > 0 && <Section title={`Music (${music.length})`} items={music} />}
+                            {sports.length > 0 && <Section title={`Sports (${sports.length})`} items={sports} />}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-4 text-[11px] text-slate-500">
+                    Key: <span className="font-mono">{key}</span>
+                  </div>
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      )}
     </main>
   );
 }

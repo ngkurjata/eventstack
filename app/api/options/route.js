@@ -4,14 +4,46 @@ import { NextResponse } from "next/server";
 const TM_BASE = "https://app.ticketmaster.com/discovery/v2";
 const TM_ATTRACTIONS = `${TM_BASE}/attractions.json`;
 const TM_KEY = process.env.TICKETMASTER_API_KEY;
+const TM_EVENTS = `${TM_BASE}/events.json`;
 
 // Tune these
-const OPTIONS_TTL_SECONDS = 60 * 60; // 6 hours (CDN + memory cache)
+const OPTIONS_TTL_SECONDS = 60 * 60; // 1 hour (CDN + memory cache)
 const STALE_WHILE_REVALIDATE_SECONDS = 60 * 60 * 24; // 24 hours
 
 function sortByLabel(a, b) {
   return String(a.label).localeCompare(String(b.label));
 }
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+async function resolveWithRetry(fn, { tries = 3, baseDelayMs = 250 } = {}) {
+  let last = null;
+
+  for (let i = 0; i < tries; i++) {
+    try {
+      const out = await fn();
+      if (out) return out;
+      last = out;
+    } catch (e) {
+      last = null;
+
+      // If TM is rate-limiting, back off harder
+      const msg = String(e?.message || e || "");
+      const is429 = msg.includes("429");
+      const delay = is429 ? 1200 + i * 800 : baseDelayMs * Math.pow(2, i);
+      await sleep(delay);
+      continue;
+    }
+
+    // small backoff even if result is null (common when TM is flaky)
+    await sleep(baseDelayMs * Math.pow(2, i));
+  }
+
+  return last;
+}
+
 
 // Canonical team rosters
 const TEAMS_BY_LEAGUE = {
@@ -62,33 +94,32 @@ const TEAMS_BY_LEAGUE = {
   ],
 };
 
-function buildTeamOptions() {
-  const out = [];
-  for (const league of Object.keys(TEAMS_BY_LEAGUE)) {
-    const teams = TEAMS_BY_LEAGUE[league].slice().sort((a, b) => a.localeCompare(b));
-    for (const name of teams) {
-      out.push({
-        id: `team:${league}:${name}`,
-        label: name,
-        group: league,
-        kind: "team",
-        league,
-      });
-    }
-  }
-  return out;
+/* -------------------- ID builders (Option A) -------------------- */
+
+function tmTeamId(league, attractionId, name) {
+  const L = String(league || "").trim();
+  const A = String(attractionId || "").trim();
+  const N = String(name || "").trim();
+  // team:<LEAGUE>:<ATTRACTION_ID>:<NAME>
+  return `team:${L}:${A}:${N}`;
 }
 
+function tmArtistId(attractionId, name) {
+  const A = String(attractionId || "").trim();
+  const N = String(name || "").trim();
+  // artist:<ATTRACTION_ID>:<NAME>
+  return `artist:${A}:${N}`;
+}
+
+/* -------------------- fetch helper -------------------- */
+
 async function fetchJson(url) {
-  // Use Next fetch caching semantics; this helps in some runtimes,
-  // but the main wins come from our in-memory cache + CDN headers.
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
 
   try {
     const res = await fetch(url, {
       signal: controller.signal,
-      // IMPORTANT: do NOT use "no-store" here (you currently do) :contentReference[oaicite:1]{index=1}
       next: { revalidate: OPTIONS_TTL_SECONDS },
     });
 
@@ -103,6 +134,115 @@ async function fetchJson(url) {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+/* -------------------- small concurrency limiter -------------------- */
+
+async function mapWithConcurrency(list, limit, mapper) {
+  const out = new Array(list.length);
+  let i = 0;
+
+  async function worker() {
+    while (true) {
+      const idx = i++;
+      if (idx >= list.length) return;
+      out[idx] = await mapper(list[idx], idx);
+    }
+  }
+
+  const workers = Array.from({ length: Math.max(1, limit) }, () => worker());
+  await Promise.all(workers);
+  return out;
+}
+
+/* -------------------- Attraction resolution (Teams + Artists) -------------------- */
+
+/**
+ * Resolve best Sports attractionId for a given team name.
+ * We use segmentName=Sports and keyword=teamName, restricted to US/CA.
+ *
+ * NOTE: Ticketmaster is not perfectly consistent; this is a best-effort resolver
+ * used only at options-build time (then cached).
+ */
+
+async function resolveTeamAttractionId(teamName, league) {
+  if (!TM_KEY) return null;
+
+  const name = String(teamName || "").trim();
+  const leagueName = String(league || "").trim(); // e.g. "NHL"
+
+  // ---------- Attempt 1: Attractions search (current approach) ----------
+  {
+    const params = new URLSearchParams();
+    params.set("apikey", TM_KEY);
+    params.set("segmentName", "Sports");
+    params.set("keyword", name);
+    params.set("size", "20");
+    params.set("countryCode", "US,CA");
+
+    const url = `${TM_ATTRACTIONS}?${params.toString()}`;
+    const r = await fetchJson(url);
+
+    if (r.ok) {
+      const list = r.json?._embedded?.attractions || [];
+      if (Array.isArray(list) && list.length) {
+        const q = name.toLowerCase();
+
+        const exact = list.find((a) => String(a?.name || "").trim().toLowerCase() === q && a?.id);
+        if (exact?.id) return exact.id;
+
+        const incl = list.find((a) => String(a?.name || "").trim().toLowerCase().includes(q) && a?.id);
+        if (incl?.id) return incl.id;
+
+        const first = list.find((a) => a?.id);
+        if (first?.id) return first.id;
+      }
+    }
+  }
+
+  // ---------- Attempt 2 (NEW): Events search fallback ----------
+  // Pull the team attractionId from a real event that matches the team.
+  {
+    const params = new URLSearchParams();
+    params.set("apikey", TM_KEY);
+    params.set("keyword", name);
+    params.set("size", "10");
+    params.set("sort", "relevance,desc");
+    params.set("countryCode", "US,CA");
+
+    // This filter tends to help a lot for teams:
+    params.set("segmentName", "Sports");
+
+    // If Ticketmaster accepts classificationName for league, try it (harmless if ignored)
+    if (leagueName) params.set("classificationName", leagueName);
+
+    const url = `${TM_EVENTS}?${params.toString()}`;
+    const r = await fetchJson(url);
+
+    if (r.ok) {
+      const events = r.json?._embedded?.events || [];
+      if (Array.isArray(events) && events.length) {
+        // Search embedded attractions for a matching name; otherwise take first attraction id.
+        const q = name.toLowerCase();
+
+        for (const ev of events) {
+          const atts = ev?._embedded?.attractions;
+          if (!Array.isArray(atts)) continue;
+
+          const exact = atts.find((a) => String(a?.name || "").trim().toLowerCase() === q && a?.id);
+          if (exact?.id) return exact.id;
+
+          const incl = atts.find((a) => String(a?.name || "").trim().toLowerCase().includes(q) && a?.id);
+          if (incl?.id) return incl.id;
+
+          const first = atts.find((a) => a?.id);
+          if (first?.id) return first.id;
+        }
+      }
+    }
+  }
+
+  return null;
 }
 
 async function findArtistByKeyword(name) {
@@ -142,8 +282,9 @@ async function getMusicArtists(limit = 1200) {
     const attractions = r.json?._embedded?.attractions ?? [];
     for (const a of attractions) {
       if (!a?.id || !a?.name) continue;
+
       all.push({
-        id: `artist:${a.id}`,
+        id: tmArtistId(a.id, a.name), // ✅ Option A artist id
         label: a.name,
         group: "Artists",
         kind: "artist",
@@ -159,7 +300,7 @@ async function getMusicArtists(limit = 1200) {
       const found = await findArtistByKeyword(name);
       if (found?.id) {
         all.push({
-          id: `artist:${found.id}`,
+          id: tmArtistId(found.id, found.name), // ✅ Option A artist id
           label: found.name,
           group: "Artists",
           kind: "artist",
@@ -178,6 +319,41 @@ async function getMusicArtists(limit = 1200) {
   return Array.from(map.values()).sort(sortByLabel).slice(0, limit);
 }
 
+/* -------------------- Teams (resolve attractionId + build options) -------------------- */
+
+async function buildTeamOptionsResolved() {
+  // Flatten roster
+  const roster = [];
+  for (const league of Object.keys(TEAMS_BY_LEAGUE)) {
+    const teams = TEAMS_BY_LEAGUE[league].slice().sort((a, b) => a.localeCompare(b));
+    for (const name of teams) roster.push({ league, name });
+  }
+
+  // Resolve attractionIds with a conservative concurrency cap
+  const CONCURRENCY = 6;
+
+  const resolved = await mapWithConcurrency(roster, CONCURRENCY, async ({ league, name }) => {
+const attractionId = await resolveWithRetry(
+  () => resolveTeamAttractionId(name, league),
+  { tries: 3, baseDelayMs: 300 }
+);
+    return { league, name, attractionId: attractionId || "" };
+  });
+
+  const unresolved = resolved.filter((x) => !x.attractionId).map((x) => `${x.league}:${x.name}`);
+
+  const options = resolved.map((t) => ({
+    id: tmTeamId(t.league, t.attractionId, t.name), // ✅ Option A team id
+    label: t.name,
+    group: t.league,
+    kind: "team",
+    league: t.league,
+    attractionId: t.attractionId, // optional, useful for debugging
+  }));
+
+  return { options, unresolved };
+}
+
 /**
  * In-memory cache (per warm instance). Greatly reduces repeated work
  * during bursts and repeat visits; CDN cache headers cover the bigger picture.
@@ -194,15 +370,21 @@ function getCacheBucket() {
 }
 
 async function buildCombinedOptions() {
-  const teams = buildTeamOptions();
+  const teamsRes = await buildTeamOptionsResolved();
   const artists = await getMusicArtists(1200);
-  const combined = [...teams, ...artists];
+
+  const combined = [...teamsRes.options, ...artists];
+
   return {
     combined,
     debug: {
-      teamsCount: teams.length,
+      teamsCount: teamsRes.options.length,
       artistsCount: artists.length,
       combinedCount: combined.length,
+      teamAttractionIdsResolved: teamsRes.options.filter((x) => !!x.attractionId).length,
+      teamAttractionIdsMissing: teamsRes.options.filter((x) => !x.attractionId).length,
+      // Keep this list short; it can be large otherwise
+      teamAttractionIdsMissingSample: teamsRes.unresolved.slice(0, 25),
     },
   };
 }
@@ -239,7 +421,6 @@ export async function GET() {
       cache.expiresAt = Date.now() + OPTIONS_TTL_SECONDS * 1000;
       return payload;
     } catch (err) {
-      // Do not poison cache on failure
       return { combined: [], error: err?.message || "Unknown error" };
     } finally {
       cache.inflight = null;

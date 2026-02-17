@@ -17,14 +17,83 @@ type MenuItem =
   | { type: "group"; group: string }
   | { type: "item"; group: string; option: CombinedOption };
 
-const LS_KEY = "eventstack_search_v1";
+const LS_KEY = "eventstack_search_v3_primary_secondary_genres";
 
+/* Public mode constraints (keep flexible for later) */
 const PUBLIC_MODE = true;
+
+/* Trip-length presets per your new model */
+const TRIP_DAYS_OPTIONS: Array<3 | 5 | 7> = [3, 5, 7];
+
 const PUBLIC_PRESET = {
-  maxDays: 7,
-  maxRadiusMiles: 300,
-  maxSelections: 2,
+  maxSelections: 2, // primary + secondary
 } as const;
+
+/* Genre lists (UI buttons) */
+const MUSIC_GENRES = [
+  "Alternative",
+  "Blues",
+  "Children’s Music",
+  "Classical",
+  "Comedy",
+  "Country",
+  "Dance / Electronic",
+  "Folk",
+  "Hip-Hop / Rap",
+  "Holiday",
+  "Jazz",
+  "Latin",
+  "Metal",
+  "New Age",
+  "Other",
+  "Pop",
+  "R&B",
+  "Reggae",
+  "Religious",
+  "Rock",
+  "World",
+] as const;
+
+const SPORTS_GENRES = [
+  "Baseball",
+  "Basketball",
+  "Boxing",
+  "Cricket",
+  "Equestrian",
+  "Football",
+  "Golf",
+  "Hockey",
+  "Lacrosse",
+  "Martial Arts",
+  "Miscellaneous",
+  "Motorsports",
+  "Rodeo",
+  "Soccer",
+  "Tennis",
+  "Volleyball",
+  "Wrestling",
+  "Other",
+] as const;
+
+function sanitizeGenreList(input: string[], allowed: readonly string[]) {
+  const allowedSet = new Set(allowed.map((x) => String(x)));
+
+  return Array.from(
+    new Set(
+      (Array.isArray(input) ? input : [])
+        .map((s) => String(s || "").trim())
+        .map((s) => {
+          // exact match
+          if (allowedSet.has(s)) return s;
+
+          // recover: find allowed token contained inside the string
+          const hit = Array.from(allowedSet).find((a) => s.toLowerCase().includes(a.toLowerCase()));
+          return hit || "";
+        })
+        .filter(Boolean)
+    )
+  );
+}
 
 function safeParseInt(v: string | null, fallback: number) {
   if (v == null) return fallback;
@@ -32,10 +101,15 @@ function safeParseInt(v: string | null, fallback: number) {
   return Number.isFinite(n) ? Math.max(1, Math.floor(n)) : fallback;
 }
 
-function clamp(n: number, min: number, max: number) {
-  const nn = Number(n);
-  if (!Number.isFinite(nn)) return min;
-  return Math.min(max, Math.max(min, nn));
+function isYMD(s: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(s || ""));
+}
+
+function normalizeDateRange(start: string, end: string) {
+  const s = (start || "").trim();
+  const e = (end || "").trim();
+  if (!isYMD(s) || !isYMD(e)) return { start: s, end: e };
+  return s <= e ? { start: s, end: e } : { start: e, end: s };
 }
 
 function labelForId(id: string, options: CombinedOption[]) {
@@ -80,7 +154,7 @@ function buildGroupedListForQuery(
 }
 
 function cleanupLegacyLocalStorage() {
-  // No-op for now.
+  // keep as a no-op (you can remove older keys later if you want)
 }
 
 function useOutsideClick<T extends HTMLElement>(
@@ -100,7 +174,6 @@ function useOutsideClick<T extends HTMLElement>(
 
 function Combobox({
   label,
-  required,
   optionsAll,
   grouped,
   groups,
@@ -110,7 +183,6 @@ function Combobox({
   disabled,
 }: {
   label: string;
-  required: boolean;
   optionsAll: CombinedOption[];
   grouped: Map<string, CombinedOption[]>;
   groups: string[];
@@ -361,16 +433,29 @@ function Combobox({
   );
 }
 
-// ---- Date helpers (client-side only) ----
-function isYMD(s: string) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(String(s || ""));
-}
-
-function normalizeDateRange(start: string, end: string) {
-  const s = (start || "").trim();
-  const e = (end || "").trim();
-  if (!isYMD(s) || !isYMD(e)) return { start: s, end: e };
-  return s <= e ? { start: s, end: e } : { start: e, end: s };
+function Pill({
+  label,
+  selected,
+  onClick,
+}: {
+  label: string;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        "rounded-2xl px-3 py-2 text-xs font-extrabold transition border",
+        selected
+          ? "bg-slate-900 text-white border-slate-900"
+          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50",
+      ].join(" ")}
+    >
+      {label}
+    </button>
+  );
 }
 
 export default function Page() {
@@ -381,20 +466,22 @@ export default function Page() {
   const [loadError, setLoadError] = useState("");
   const [combined, setCombined] = useState<CombinedOption[]>([]);
 
-  const [daysText, setDaysText] = useState<string>(
-    String(PUBLIC_MODE ? PUBLIC_PRESET.maxDays : 3)
-  );
-  const [radiusText, setRadiusText] = useState<string>(
-    String(PUBLIC_MODE ? PUBLIC_PRESET.maxRadiusMiles : 100)
-  );
+  // New model: primary + secondary
+  const [primaryId, setPrimaryId] = useState("");
+  const [secondaryId, setSecondaryId] = useState("");
 
+  // New model: tripDays is discrete
+  const [tripDays, setTripDays] = useState<3 | 5 | 7>(3);
+
+  // Optional anchor date bounds
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
 
-  const [p1, setP1] = useState("");
-  const [p2, setP2] = useState("");
-  const [p3, setP3] = useState("");
+  // Genre selections
+  const [musicGenres, setMusicGenres] = useState<string[]>([]);
+  const [sportsGenres, setSportsGenres] = useState<string[]>([]);
 
+  // Airport (keep your existing picker)
   const [airports, setAirports] = useState<Airport[]>([]);
   const [originIata, setOriginIata] = useState<string>("");
   const [originErr, setOriginErr] = useState<string>("");
@@ -451,66 +538,84 @@ export default function Page() {
 
   const { map: grouped, groups } = useMemo(() => groupOptions(combined), [combined]);
 
+  // Initialize from URL first, else localStorage
   useEffect(() => {
     if (didInitRef.current) return;
     didInitRef.current = true;
 
     cleanupLegacyLocalStorage();
 
-    const qp1 = sp.get("p1") || "";
-    const qp2 = sp.get("p2") || "";
-    const qp3 = sp.get("p3") || "";
-    const qDays = sp.get("days");
-    const qRadius = sp.get("radiusMiles");
+    const qPrimary = sp.get("primaryId") || "";
+    const qSecondary = sp.get("secondaryId") || "";
+    const qTripDays = safeParseInt(sp.get("tripDays"), 3);
     const qOrigin = sp.get("origin") || "";
 
-    const qStartDate = sp.get("startDate") || "";
-    const qEndDate = sp.get("endDate") || "";
+    const qStart = sp.get("start") || "";
+    const qEnd = sp.get("end") || "";
+
+    const qMusicGenres = (sp.getAll("musicGenres") || []).flatMap((v) =>
+      String(v || "")
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean)
+    );
+    const qSportsGenres = (sp.getAll("sportsGenres") || []).flatMap((v) =>
+      String(v || "")
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean)
+    );
+
+const qMusicGenresClean = sanitizeGenreList(qMusicGenres, MUSIC_GENRES);
+const qSportsGenresClean = sanitizeGenreList(qSportsGenres, SPORTS_GENRES);
 
     const hasAnyUrlState = Boolean(
-      qp1 || qp2 || qp3 || qDays || qRadius || qOrigin || qStartDate || qEndDate
+      qPrimary ||
+        qSecondary ||
+        sp.get("tripDays") ||
+        qOrigin ||
+        qStart ||
+        qEnd ||
+        qMusicGenres.length ||
+        qSportsGenres.length
     );
 
     const applyState = (next: {
-      p1: string;
-      p2: string;
-      p3: string;
-      days: number;
-      radiusMiles: number;
+      primaryId: string;
+      secondaryId: string;
+      tripDays: 3 | 5 | 7;
       origin: string;
-      startDate: string;
-      endDate: string;
+      start: string;
+      end: string;
+      musicGenres: string[];
+      sportsGenres: string[];
     }) => {
-      const clamped = PUBLIC_MODE
-        ? {
-            ...next,
-            p3: "",
-            days: clamp(next.days, 1, PUBLIC_PRESET.maxDays),
-            radiusMiles: clamp(next.radiusMiles, 1, PUBLIC_PRESET.maxRadiusMiles),
-          }
-        : next;
+      setPrimaryId(next.primaryId);
+      setSecondaryId(next.secondaryId);
 
-      setP1(clamped.p1);
-      setP2(clamped.p2);
-      setP3(clamped.p3);
-      setDaysText(String(clamped.days));
-      setRadiusText(String(clamped.radiusMiles));
-      setOriginIata(clamped.origin.trim().toUpperCase());
+      setTripDays(next.tripDays);
 
-      setStartDate(isYMD(clamped.startDate) ? clamped.startDate : "");
-      setEndDate(isYMD(clamped.endDate) ? clamped.endDate : "");
+      setOriginIata(next.origin.trim().toUpperCase());
+      setStartDate(isYMD(next.start) ? next.start : "");
+      setEndDate(isYMD(next.end) ? next.end : "");
+
+      setMusicGenres(next.musicGenres);
+      setSportsGenres(next.sportsGenres);
     };
+
+    const coerceTripDays = (n: number): 3 | 5 | 7 => (n === 5 ? 5 : n === 7 ? 7 : 3);
 
     if (hasAnyUrlState) {
       applyState({
-        p1: qp1,
-        p2: qp2,
-        p3: qp3,
-        days: safeParseInt(qDays, 3),
-        radiusMiles: safeParseInt(qRadius, 100),
+        primaryId: qPrimary,
+        secondaryId: qSecondary,
+        tripDays: coerceTripDays(qTripDays),
         origin: qOrigin,
-        startDate: qStartDate,
-        endDate: qEndDate,
+        start: qStart,
+        end: qEnd,
+        musicGenres: qMusicGenresClean,
+sportsGenres: qSportsGenresClean,
+
       });
       return;
     }
@@ -521,46 +626,38 @@ export default function Page() {
       const parsed = JSON.parse(raw);
 
       applyState({
-        p1: String(parsed?.p1 || ""),
-        p2: String(parsed?.p2 || ""),
-        p3: String(parsed?.p3 || ""),
-        days: Number.isFinite(Number(parsed?.days)) ? Number(parsed.days) : 3,
-        radiusMiles: Number.isFinite(Number(parsed?.radiusMiles))
-          ? Number(parsed.radiusMiles)
-          : 100,
+        primaryId: String(parsed?.primaryId || ""),
+        secondaryId: String(parsed?.secondaryId || ""),
+        tripDays: coerceTripDays(Number(parsed?.tripDays || 3)),
         origin: String(parsed?.origin || ""),
-        startDate: String(parsed?.startDate || ""),
-        endDate: String(parsed?.endDate || ""),
+        start: String(parsed?.start || ""),
+        end: String(parsed?.end || ""),
+        musicGenres: sanitizeGenreList(Array.isArray(parsed?.musicGenres) ? parsed.musicGenres : [], MUSIC_GENRES),
+sportsGenres: sanitizeGenreList(Array.isArray(parsed?.sportsGenres) ? parsed.sportsGenres : [], SPORTS_GENRES),
       });
     } catch {
       // ignore
     }
   }, [sp]);
 
-  // SINGLE-FAVORITE MODE (client-side): one filled, or both same
-  const singleFavoriteMode = (!!p1 && !p2) || (!p1 && !!p2) || (!!p1 && !!p2 && p1 === p2);
-
-  // Show overlap constraints ONLY when user picked two DIFFERENT favorites
-  const showOverlapConstraints = Boolean(p1 && p2 && p1 !== p2);
-
+  // Persist to LS + URL (nice for shareable links to the search state)
   useEffect(() => {
     if (!didInitRef.current) return;
 
+    const { start: startNorm, end: endNorm } = normalizeDateRange(startDate, endDate);
+
+const musicGenresClean = sanitizeGenreList(musicGenres, MUSIC_GENRES);
+const sportsGenresClean = sanitizeGenreList(sportsGenres, SPORTS_GENRES);
+
     const effective = {
-      p1,
-      p2,
-      p3: PUBLIC_MODE ? "" : p3,
-      days: (() => {
-        const parsed = safeParseInt(daysText, PUBLIC_MODE ? PUBLIC_PRESET.maxDays : 3);
-        return PUBLIC_MODE ? clamp(parsed, 1, PUBLIC_PRESET.maxDays) : parsed;
-      })(),
-      radiusMiles: (() => {
-        const parsed = safeParseInt(radiusText, PUBLIC_MODE ? PUBLIC_PRESET.maxRadiusMiles : 100);
-        return PUBLIC_MODE ? clamp(parsed, 1, PUBLIC_PRESET.maxRadiusMiles) : clamp(parsed, 1, 2000);
-      })(),
+      primaryId,
+      secondaryId,
+      tripDays,
       origin: originIata,
-      startDate: isYMD(startDate) ? startDate : "",
-      endDate: isYMD(endDate) ? endDate : "",
+      start: isYMD(startNorm) ? startNorm : "",
+      end: isYMD(endNorm) ? endNorm : "",
+      musicGenres: musicGenresClean,
+sportsGenres: sportsGenresClean,
     };
 
     try {
@@ -568,26 +665,21 @@ export default function Page() {
     } catch {}
 
     const qs = new URLSearchParams();
-    if (effective.p1) qs.set("p1", effective.p1);
-    if (effective.p2) qs.set("p2", effective.p2);
-    if (effective.p3) qs.set("p3", effective.p3);
-    qs.set("days", String(effective.days));
-    qs.set("radiusMiles", String(effective.radiusMiles));
+    if (effective.primaryId) qs.set("primaryId", effective.primaryId);
+    if (effective.secondaryId) qs.set("secondaryId", effective.secondaryId);
+    qs.set("tripDays", String(effective.tripDays));
     if (effective.origin) qs.set("origin", effective.origin);
-    if (effective.startDate) qs.set("startDate", effective.startDate);
-    if (effective.endDate) qs.set("endDate", effective.endDate);
+    if (effective.start) qs.set("start", effective.start);
+    if (effective.end) qs.set("end", effective.end);
+
+    for (const g of effective.musicGenres) qs.append("musicGenres", g);
+    for (const g of effective.sportsGenres) qs.append("sportsGenres", g);
 
     const next = qs.toString() ? `/?${qs.toString()}` : "/";
     window.history.replaceState(null, "", next);
-  }, [p1, p2, p3, daysText, radiusText, originIata, startDate, endDate]);
+  }, [primaryId, secondaryId, tripDays, originIata, startDate, endDate, musicGenres, sportsGenres]);
 
-  useEffect(() => {
-    if (!PUBLIC_MODE) return;
-    if (p3) setP3("");
-  }, [p3]);
-
-  // ✅ allow search with either pick
-  const canSearch = Boolean(p1 || p2);
+  const canSearch = Boolean(primaryId);
 
   useEffect(() => {
     if (!loading && canSearch) {
@@ -597,45 +689,33 @@ export default function Page() {
     }
   }, [loading, canSearch]);
 
+  function toggleList(setter: (next: string[]) => void, cur: string[], value: string) {
+    setter(cur.includes(value) ? cur.filter((x) => x !== value) : [...cur, value]);
+  }
+
   function onSearch() {
-    if (!p1 && !p2) {
-      alert("Pick at least one Favorite Team/Artist.");
+    if (!primaryId) {
+      alert("Pick a Primary favorite (team or artist).");
       return;
     }
-
-    if (!originIata) setOriginErr("");
-
-    // Always send two favorites to results.
-    // If user picked only one, duplicate it so backend logic is consistent.
-    const effectiveP1 = p1 || p2;
-    const effectiveP2 = p2 || p1;
-
-    const parsedDays = safeParseInt(daysText, PUBLIC_MODE ? PUBLIC_PRESET.maxDays : 3);
-    const effectiveDays = PUBLIC_MODE ? clamp(parsedDays, 1, PUBLIC_PRESET.maxDays) : clamp(parsedDays, 1, 30);
-
-    const parsedRadius = safeParseInt(radiusText, PUBLIC_MODE ? PUBLIC_PRESET.maxRadiusMiles : 100);
-    const effectiveRadius = PUBLIC_MODE
-      ? clamp(parsedRadius, 1, PUBLIC_PRESET.maxRadiusMiles)
-      : clamp(parsedRadius, 1, 2000);
-
-    const effectiveP3 = PUBLIC_MODE ? "" : p3;
+    setOriginErr("");
 
     const { start: startNorm, end: endNorm } = normalizeDateRange(startDate, endDate);
 
     const params = new URLSearchParams();
+    params.set("primaryId", primaryId);
+    if (secondaryId) params.set("secondaryId", secondaryId);
 
-    // IMPORTANT: always set both
-    params.set("p1", effectiveP1);
-    params.set("p2", effectiveP2);
+    params.set("tripDays", String(tripDays));
 
-    if (effectiveP3) params.set("p3", effectiveP3);
+    if (originIata) params.set("origin", originIata);
 
-    params.set("days", String(effectiveDays));
-    params.set("radiusMiles", String(effectiveRadius));
-    params.set("origin", originIata);
+    if (isYMD(startNorm)) params.set("start", startNorm);
+    if (isYMD(endNorm)) params.set("end", endNorm);
 
-    if (isYMD(startNorm)) params.set("startDate", startNorm);
-    if (isYMD(endNorm)) params.set("endDate", endNorm);
+    // repeatable params (backend supports repeatable and/or CSV)
+    for (const g of sanitizeGenreList(musicGenres, MUSIC_GENRES)) params.append("musicGenres", g);
+for (const g of sanitizeGenreList(sportsGenres, SPORTS_GENRES)) params.append("sportsGenres", g);
 
     router.push(`/results?${params.toString()}`);
   }
@@ -644,66 +724,95 @@ export default function Page() {
     <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
       <div className="mx-auto max-w-3xl px-4 py-10 sm:py-14">
         <header className="mb-8">
-  <h1 className="text-center text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
-    Find an epic trip!
-  </h1>
-  <p className="mt-7 text-center text-sm text-slate-600 sm:text-base">
-    We help users find and book epic trips built around live events featuring their favorite teams and artists.
-  </p>
-</header>
-
+          <h1 className="text-center text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
+            Find an epic trip!
+          </h1>
+          <p className="mt-7 text-center text-sm text-slate-600 sm:text-base">
+            We help users find and book epic trips built around live events featuring their favorite
+            teams and artists.
+          </p>
+        </header>
 
         <div className="space-y-6">
+          {/* Favorites */}
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="mb-4 flex items-end justify-between gap-3">
-              <div className="text-lg font-extrabold text-slate-900">Pick 1 or 2 favorites</div>
+              <div className="text-lg font-extrabold text-slate-900">Pick your favorites</div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <Combobox
-                label="Favorite Team/Artist #1"
-                required
+                label="Primary favorite (required)"
                 optionsAll={combined}
                 grouped={grouped}
                 groups={groups}
-                valueId={p1}
-                setValueId={setP1}
-                help={undefined}
+                valueId={primaryId}
+                setValueId={(v) => {
+                  setPrimaryId(v);
+                  // If secondary matches primary, clear secondary (prevents accidental “require secondary hit”)
+                  if (secondaryId && v && v === secondaryId) setSecondaryId("");
+                }}
+                help="This is the anchor for each potential trip."
                 disabled={loading}
               />
+
               <Combobox
-                label="Favorite Team/Artist #2"
-                required
+                label="Secondary favorite (nice-to-have)"
                 optionsAll={combined}
                 grouped={grouped}
                 groups={groups}
-                valueId={p2}
-                setValueId={setP2}
-                help={undefined}
+                valueId={secondaryId}
+                setValueId={(v) => {
+                  // Don’t allow selecting same as primary
+                  if (v && primaryId && v === primaryId) {
+                    setSecondaryId("");
+                    return;
+                  }
+                  setSecondaryId(v);
+                }}
+                help="Trips must include at least one event with this attraction (if set)."
                 disabled={loading}
               />
             </div>
 
-            {!PUBLIC_MODE && (
-              <div className="mt-4">
-                <Combobox
-                  label="Favorite Team/Artist #3"
-                  required={false}
-                  optionsAll={combined}
-                  grouped={grouped}
-                  groups={groups}
-                  valueId={p3}
-                  setValueId={setP3}
-                  help="Nice-to-have"
-                />
+            {secondaryId ? (
+              <div className="mt-3 text-xs text-slate-600">
+                Secondary selected:{" "}
+                <span className="font-extrabold text-slate-900">
+                  {labelForId(secondaryId, combined)}
+                </span>
+              </div>
+            ) : (
+              <div className="mt-3 text-xs text-slate-500">
+                Leaving Secondary blank will build trips around the Primary plus your selected genres
+                (if any).
               </div>
             )}
           </div>
 
+          {/* Trip constraints */}
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="text-lg font-extrabold text-slate-900">Trip constraints</div>
 
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div className="mt-4">
+              <div className="mb-2 text-sm font-semibold text-slate-900">Trip length</div>
+              <div className="flex flex-wrap gap-2">
+                {TRIP_DAYS_OPTIONS.map((d) => (
+                  <Pill
+                    key={d}
+                    label={`${d} days`}
+                    selected={tripDays === d}
+                    onClick={() => setTripDays(d)}
+                  />
+                ))}
+              </div>
+              <div className="mt-2 text-xs text-slate-500">
+                3 days = ±1 day and 60 miles. 5 days = ±2 days and 120 miles. 7 days = ±3 days and
+                180 miles.
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
               <label className="block">
                 <div className="mb-2 text-sm font-semibold text-slate-900">Start date (optional)</div>
                 <input
@@ -713,7 +822,7 @@ export default function Page() {
                   onChange={(e) => setStartDate(e.target.value)}
                 />
                 <div className="mt-2 text-xs text-slate-500">
-                  If set, results will only include events on/after this date.
+                  If set, anchor (primary) events will only be on/after this date.
                 </div>
               </label>
 
@@ -726,107 +835,51 @@ export default function Page() {
                   onChange={(e) => setEndDate(e.target.value)}
                 />
                 <div className="mt-2 text-xs text-slate-500">
-                  If set, results will only include events on/before this date.
+                  If set, anchor (primary) events will only be on/before this date.
                 </div>
               </label>
             </div>
-
-            {/* Overlap-only constraints: only show when P1 and P2 are BOTH filled and NOT equal */}
-            {showOverlapConstraints ? (
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                <label className="block">
-                  <div className="mb-2 text-sm font-semibold text-slate-900">
-                    Max trip length (# of Days)
-                  </div>
-                  <input
-                    disabled={singleFavoriteMode}
-                    className={[
-                      "w-full rounded-xl border px-4 py-3 text-[15px] shadow-sm outline-none",
-                      singleFavoriteMode
-                        ? "bg-slate-50 text-slate-500 border-slate-200 cursor-not-allowed"
-                        : "border-slate-200 bg-white text-slate-900 focus:border-slate-400 focus:ring-4 focus:ring-slate-100",
-                    ].join(" ")}
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    value={daysText}
-                    onFocus={(e) => {
-                      if (singleFavoriteMode) return;
-                      const el = e.currentTarget as HTMLInputElement | HTMLTextAreaElement | null;
-                      requestAnimationFrame(() => el?.select());
-                    }}
-                    onChange={(e) => {
-                      if (singleFavoriteMode) return;
-                      const next = e.target.value;
-                      if (next === "") {
-                        setDaysText("");
-                        return;
-                      }
-                      if (/^\d+$/.test(next)) setDaysText(next);
-                    }}
-                    onBlur={() => {
-                      if (singleFavoriteMode) return;
-                      const parsed = safeParseInt(daysText, PUBLIC_MODE ? PUBLIC_PRESET.maxDays : 3);
-                      const clamped = PUBLIC_MODE ? clamp(parsed, 1, PUBLIC_PRESET.maxDays) : clamp(parsed, 1, 30);
-                      setDaysText(String(clamped));
-                    }}
-                  />
-                  <div className="mt-2 text-xs text-slate-500">
-                    {PUBLIC_MODE
-                      ? `Cannot be greater than ${PUBLIC_PRESET.maxDays} days.`
-                      : "Example: “2” means events within a 2-day window."}
-                  </div>
-                </label>
-
-                <label className="block">
-                  <div className="mb-2 text-sm font-semibold text-slate-900">
-                    Max distance between events (# of Miles)
-                  </div>
-                  <input
-                    disabled={singleFavoriteMode}
-                    className={[
-                      "w-full rounded-xl border px-4 py-3 text-[15px] shadow-sm outline-none",
-                      singleFavoriteMode
-                        ? "bg-slate-50 text-slate-500 border-slate-200 cursor-not-allowed"
-                        : "border-slate-200 bg-white text-slate-900 focus:border-slate-400 focus:ring-4 focus:ring-slate-100",
-                    ].join(" ")}
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    value={radiusText}
-                    onFocus={(e) => {
-                      if (singleFavoriteMode) return;
-                      const el = e.currentTarget as HTMLInputElement | HTMLTextAreaElement | null;
-                      requestAnimationFrame(() => el?.select());
-                    }}
-                    onChange={(e) => {
-                      if (singleFavoriteMode) return;
-                      const next = e.target.value;
-                      if (next === "") {
-                        setRadiusText("");
-                        return;
-                      }
-                      if (/^\d+$/.test(next)) setRadiusText(next);
-                    }}
-                    onBlur={() => {
-                      if (singleFavoriteMode) return;
-                      const parsed = safeParseInt(radiusText, PUBLIC_MODE ? PUBLIC_PRESET.maxRadiusMiles : 100);
-                      const clamped = PUBLIC_MODE
-                        ? clamp(parsed, 1, PUBLIC_PRESET.maxRadiusMiles)
-                        : clamp(parsed, 1, 2000);
-                      setRadiusText(String(clamped));
-                    }}
-                  />
-                  <div className="mt-2 text-xs text-slate-500">
-                    {PUBLIC_MODE
-                      ? `Cannot be greater than ${PUBLIC_PRESET.maxRadiusMiles} miles.`
-                      : "How far you’re willing to travel between events."}
-                  </div>
-                </label>
-              </div>
-            ) : null}
           </div>
 
+          {/* What else interests you */}
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            <div className="text-lg font-extrabold text-slate-900">What else are you into?</div>
+
+            <div className="mt-4">
+              <div className="mb-2 text-sm font-semibold text-slate-900">Music genres</div>
+              <div className="flex flex-wrap gap-2">
+                {MUSIC_GENRES.map((g) => (
+                  <Pill
+                    key={g}
+                    label={g}
+                    selected={musicGenres.includes(g)}
+                    onClick={() => toggleList(setMusicGenres, musicGenres, g)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <div className="mb-2 text-sm font-semibold text-slate-900">Sports genres</div>
+              <div className="flex flex-wrap gap-2">
+                {SPORTS_GENRES.map((g) => (
+                  <Pill
+                    key={g}
+                    label={g}
+                    selected={sportsGenres.includes(g)}
+                    onClick={() => toggleList(setSportsGenres, sportsGenres, g)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-4 text-xs text-slate-500">
+              Select none if you only care about the Primary (and Secondary, if set). Select some to
+              include other events near your Primary within the trip window.
+            </div>
+          </div>
+
+          {/* Airport (unchanged) */}
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <AirportPicker
               airports={airports}
@@ -843,12 +896,13 @@ export default function Page() {
             ) : null}
           </div>
 
+          {/* Search */}
           <div className="flex items-center justify-center">
             <button
               type="button"
               onClick={onSearch}
               disabled={!canSearch || loading}
-              title={!canSearch ? "Pick at least one Favorite to enable Search." : "Search"}
+              title={!canSearch ? "Pick a Primary favorite to enable Search." : "Search"}
               className={[
                 "rounded-2xl px-5 py-3 text-sm font-extrabold shadow-sm transition",
                 searchPulse ? "animate-pulse" : "",
@@ -862,7 +916,9 @@ export default function Page() {
           </div>
         </div>
 
-        {loadError ? <div className="mt-6 text-center text-xs text-rose-700">{loadError}</div> : null}
+        {loadError ? (
+          <div className="mt-6 text-center text-xs text-rose-700">{loadError}</div>
+        ) : null}
       </div>
     </main>
   );
