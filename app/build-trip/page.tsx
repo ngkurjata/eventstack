@@ -44,6 +44,15 @@ function safeParseData(raw: string | null): BuildTripPayload | null {
   }
 }
 
+function escapeHtml(s: string) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function eventKey(e: RowEvent) {
   return [e.date || "", e.location || "", e.name || "", e.url || ""].join("|");
 }
@@ -341,6 +350,9 @@ export default function BuildTripPage() {
   const [airports, setAirports] = useState<Airport[]>([]);
   const initialAirport = useMemo(() => String(data?.airport || "").toUpperCase(), [data]);
   const [airportIata, setAirportIata] = useState<string>(initialAirport);
+const [copiedToast, setCopiedToast] = useState(false);
+
+
 
   useEffect(() => setAirportIata(initialAirport), [initialAirport]);
 
@@ -424,72 +436,111 @@ export default function BuildTripPage() {
           <button
             type="button"
             onClick={async () => {
-              const shareUrl = buildShareUrl(payloadForShare);
-              const full = `${window.location.origin}${shareUrl}`;
+  const shareUrl = buildShareUrl(payloadForShare);
+  const full = `${window.location.origin}${shareUrl}`;
 
-              const city = payloadForShare.cityState || "Trip location";
-              const startYMD = payloadForShare.startYMD || null;
-              const endYMD = payloadForShare.endYMD || null;
+  const city = payloadForShare.cityState || "Trip location";
 
-              const startText = fmtYMDPretty(startYMD);
-              const endText = fmtYMDPretty(endYMD);
+  const startYMD = payloadForShare.startYMD || null;
+  const endYMD = payloadForShare.endYMD || null;
 
-              let dateLine = "";
-              if (startYMD && endYMD) {
-                dateLine = startYMD === endYMD ? startText : `${startText} - ${endText}`;
-              } else {
-                dateLine = startText || endText || "";
-              }
+  const startText = fmtYMDPretty(startYMD);
+  const endText = fmtYMDPretty(endYMD);
 
-              const htmlTitles = (payloadForShare.fallbackTitles || [])
-                .filter(Boolean)
-                .map((t) => `✅ ${String(t)}`)
-                .join("<br/>");
+  const dateLine =
+    startYMD && endYMD
+      ? startYMD === endYMD
+        ? startText
+        : `${startText} - ${endText}` // dash, not arrow
+      : startText || endText || "";
 
-              const textTitles = (payloadForShare.fallbackTitles || [])
-                .filter(Boolean)
-                .map((t) => `✅ ${String(t)}`)
-                .join("\n");
+  const titlesArr = (payloadForShare.fallbackTitles || []).filter(Boolean).map(String);
 
-              const textMessage = [
-                "Hear me out…",
-                city,
-                dateLine,
-                "",
-                textTitles,
-                "",
-                "We should do this… right!?",
-                "",
-                full,
-              ]
-                .filter(Boolean)
-                .join("\n");
+  // What users see in the share sheet (WhatsApp/iMessage/etc.)
+  const shareText = [
+    "Hear me out…",
+    city,
+    dateLine,
+    "",
+    ...titlesArr.map((t) => `✅ ${t}`), // checkmark bullets
+    "",
+    "We should do this… right!?",
+  ]
+    .filter(Boolean)
+    .join("\n");
 
-              const htmlMessage = `
-                <div>
-                  <p><a href="${full}" style="font-weight:700; text-decoration:none;">Hear me out…</a></p>
-                  <p><strong>${city}</strong><br/>${dateLine}</p>
-                  <p>${htmlTitles}</p>
-                  <p><strong>We should do this… right!?</strong></p>
-                </div>
-              `;
+  // 1) Prefer native share sheet when available
+  try {
+    if (navigator.share) {
+      await navigator.share({
+        title: "EventStack trip idea",
+        text: `${shareText}\n\n${full}`,
+        url: full,
+      });
+      return;
+    }
+  } catch {
+    // user canceled OR share failed — fall back below
+  }
 
-              try {
-                await navigator.clipboard.write([
-                  new ClipboardItem({
-                    "text/plain": new Blob([textMessage], { type: "text/plain" }),
-                    "text/html": new Blob([htmlMessage], { type: "text/html" }),
-                  }),
-                ]);
-              } catch {
-                await navigator.clipboard.writeText(textMessage);
-              }
-            }}
-            className="rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-black text-slate-700 hover:bg-slate-50"
-            title="Copy share link"
-          >
-            Share trip
-          </button>
+  // 2) Fallback: clipboard (keeps your rich email behavior)
+  const htmlTitles = titlesArr.map((t) => `✅ ${t}`).join("<br/>");
+  // 2) Fallback: clipboard (clean email version)
+
+const textMessage = [
+  "Hear me out…",
+  city,
+  dateLine,
+  "",
+  ...titlesArr.map((t) => `✅ ${t}`),
+  "",
+  "We should do this… right!?",
+  "",
+  "Check out EventStack!",
+  full, // plain text still needs the raw link
+]
+  .filter(Boolean)
+  .join("\n");
+
+// HTML version (what Outlook will use if it accepts HTML)
+const htmlMessage = `
+  <p><strong>Hear me out…</strong></p>
+  <p><strong>${city}</strong><br/>${dateLine}</p>
+  <p>${titlesArr.map((t) => `✅ ${escapeHtml(t)}`).join("<br/>")}</p>
+  <p><strong>We should do this… right!?</strong></p>
+  <p>
+    <a href="${full}" style="font-weight:700; text-decoration:none;">
+      Check out EventStack!
+    </a>
+  </p>
+`;
+
+try {
+  await navigator.clipboard.write([
+    new ClipboardItem({
+      "text/plain": new Blob([textMessage], { type: "text/plain" }),
+      "text/html": new Blob([htmlMessage], { type: "text/html" }),
+    }),
+  ]);
+
+  setCopiedToast(true);
+  setTimeout(() => setCopiedToast(false), 2000);
+} catch {
+  await navigator.clipboard.writeText(textMessage);
+
+  setCopiedToast(true);
+  setTimeout(() => setCopiedToast(false), 2000);
+}
+
+
+
+}}
+className="rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-black text-slate-700 hover:bg-slate-50"
+title="Share this trip"
+>
+  Share trip
+</button>
+            
         </div>
 
         {/* Summary */}
@@ -604,8 +655,18 @@ export default function BuildTripPage() {
               </button>
             </div>
           </div>
-        </section>
+                </section>
       </div>
+
+      {/* Clipboard Toast */}
+      {copiedToast && (
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
+          <div className="rounded-2xl bg-slate-900 px-6 py-3 text-sm font-black text-white shadow-xl">
+            Link copied ✓
+          </div>
+        </div>
+      )}
     </main>
   );
 }
+
