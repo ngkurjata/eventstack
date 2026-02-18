@@ -483,9 +483,9 @@ const [copiedToast, setCopiedToast] = useState(false);
     // user canceled OR share failed — fall back below
   }
 
-  // 2) Fallback: clipboard (keeps your rich email behavior)
-  const htmlTitles = titlesArr.map((t) => `✅ ${t}`).join("<br/>");
-  // 2) Fallback: clipboard (clean email version)
+  // 2) Fallback: clipboard
+// Goal: Outlook (HTML) paste should show a clean hyperlink label, not the raw URL.
+// Approach: try HTML-only clipboard first. If that fails, fall back to plain text.
 
 const textMessage = [
   "Hear me out…",
@@ -497,41 +497,58 @@ const textMessage = [
   "We should do this… right!?",
   "",
   "Check out EventStack!",
-  full, // plain text still needs the raw link
+  full, // plain text still needs the raw link to remain clickable
 ]
   .filter(Boolean)
   .join("\n");
 
-// HTML version (what Outlook will use if it accepts HTML)
 const htmlMessage = `
-  <p><strong>Hear me out…</strong></p>
-  <p><strong>${city}</strong><br/>${dateLine}</p>
-  <p>${titlesArr.map((t) => `✅ ${escapeHtml(t)}`).join("<br/>")}</p>
-  <p><strong>We should do this… right!?</strong></p>
-  <p>
-    <a href="${full}" style="font-weight:700; text-decoration:none;">
-      Check out EventStack!
-    </a>
-  </p>
+  <div style="font-family: Arial, sans-serif; line-height: 1.35;">
+    <p style="margin:0 0 10px 0;"><strong>Hear me out…</strong></p>
+
+    <p style="margin:0 0 10px 0;">
+      <strong>${escapeHtml(city)}</strong><br/>
+      ${escapeHtml(dateLine)}
+    </p>
+
+    <p style="margin:0 0 10px 0;">
+      ${titlesArr.map((t) => `✅ ${escapeHtml(t)}`).join("<br/>")}
+    </p>
+
+    <p style="margin:0 0 10px 0;"><strong>We should do this… right!?</strong></p>
+
+    <p style="margin:0;">
+      <a href="${full}" style="font-weight:700; text-decoration:none;">
+        Check out EventStack!
+      </a>
+    </p>
+  </div>
 `;
 
 try {
+  // ✅ Best-case: HTML-only clipboard (Outlook/Word tend to paste this nicely)
   await navigator.clipboard.write([
     new ClipboardItem({
-      "text/plain": new Blob([textMessage], { type: "text/plain" }),
       "text/html": new Blob([htmlMessage], { type: "text/html" }),
     }),
   ]);
 
   setCopiedToast(true);
   setTimeout(() => setCopiedToast(false), 2000);
+  return;
 } catch {
+  // ignore, try next fallback
+}
+
+try {
+  // ✅ Next best: plain text (always works, but will show the raw URL)
   await navigator.clipboard.writeText(textMessage);
 
   setCopiedToast(true);
   setTimeout(() => setCopiedToast(false), 2000);
+} catch {
+  // If clipboard totally fails (rare), do nothing.
 }
-
 
 
 }}
