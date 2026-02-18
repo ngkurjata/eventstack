@@ -121,7 +121,7 @@ function CheckBoxPill({ selected }: { selected: boolean }) {
   return (
     <div
       className={cx(
-        "h-5 w-5 shrink-0 rounded border flex items-center justify-center text-[12px] font-black",
+        "h-4.5 w-4.5 sm:h-5 sm:w-5 shrink-0 rounded border flex items-center justify-center text-[11px] sm:text-[12px] font-black",
         selected ? "bg-slate-900 text-white border-slate-900" : "bg-white border-slate-300 text-transparent"
       )}
       aria-hidden
@@ -136,7 +136,10 @@ function ChevronDown({ open }: { open: boolean }) {
     <svg
       viewBox="0 0 20 20"
       aria-hidden="true"
-      className={cx("h-5 w-5 shrink-0 text-slate-500 transition-transform duration-200", open ? "rotate-180" : "rotate-0")}
+      className={cx(
+        "h-5 w-5 shrink-0 text-slate-500 transition-transform duration-200",
+        open ? "rotate-180" : "rotate-0"
+      )}
     >
       <path
         d="M5.25 7.75L10 12.5l4.75-4.75"
@@ -323,24 +326,32 @@ export default function ResultsPage() {
   const hasAnyRows = rows.length > 0;
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
-      <div className="mb-6 flex items-center justify-between gap-3">
-        <div className="text-lg font-black tracking-tight text-slate-900">Results</div>
+    <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <div className="text-base sm:text-lg font-black tracking-tight text-slate-900">Results</div>
         <button
           type="button"
           onClick={() => router.push("/")}
-          className="rounded-2xl bg-slate-900 px-4 py-2 text-xs font-black tracking-wide text-white hover:bg-slate-800"
+          className="rounded-2xl bg-slate-900 px-3.5 py-2 text-[11px] sm:text-xs font-black tracking-wide text-white hover:bg-slate-800"
         >
           Revise search
         </button>
       </div>
 
-      {loading && <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-700">Loading…</div>}
+      {loading && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 text-sm text-slate-700">
+          Loading…
+        </div>
+      )}
 
-      {!loading && err && <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-800">{err}</div>}
+      {!loading && err && (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 sm:p-6 text-sm text-rose-800">{err}</div>
+      )}
 
       {!loading && !err && !hasAnyRows && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-700">No primary events found for this search.</div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 text-sm text-slate-700">
+          No primary events found for this search.
+        </div>
       )}
 
       {!loading && !err && hasAnyRows && (
@@ -358,10 +369,10 @@ export default function ResultsPage() {
             const matchingErr = matchingErrByRow[r.rowKey] || null;
 
             const allEvents: { kind: AllKind; e: RowEvent }[] = [
-  { kind: "primary" as const, e: a },
-  ...secondary.map((e) => ({ kind: "secondary" as const, e })),
-  ...matching.map((e) => ({ kind: "matching" as const, e })),
-].sort((x, y) => (x.e?.date || "").localeCompare(y.e?.date || ""));
+              { kind: "primary" as const, e: a },
+              ...secondary.map((e) => ({ kind: "secondary" as const, e })),
+              ...matching.map((e) => ({ kind: "matching" as const, e })),
+            ].sort((x, y) => (x.e?.date || "").localeCompare(y.e?.date || ""));
 
             function buildTrip() {
               const selectedKeys = selectedByRow[r.rowKey] || {};
@@ -394,7 +405,10 @@ export default function ResultsPage() {
             return (
               <div
                 key={r.rowKey}
-                className={cx("rounded-2xl border border-slate-200 overflow-hidden", isOpen ? "bg-slate-200 shadow-sm" : "bg-white")}
+                className={cx(
+                  "rounded-2xl border border-slate-200 overflow-hidden",
+                  isOpen ? "bg-slate-200 shadow-sm" : "bg-white"
+                )}
               >
                 <div
                   role="button"
@@ -407,29 +421,31 @@ export default function ResultsPage() {
                     }
                   }}
                   className={cx(
-                    "w-full text-left px-4 py-4 sm:px-5 transition cursor-pointer select-none flex items-start justify-between gap-4",
+                    "w-full text-left px-4 py-3.5 sm:py-4 sm:px-5 transition cursor-pointer select-none flex items-start justify-between gap-4",
                     isOpen ? (r.hasCrossover ? "bg-slate-300" : "bg-transparent") : r.hasCrossover ? "bg-slate-100" : "bg-white"
                   )}
                 >
                   <div className="flex-1 min-w-0">
                     {(aHasDate || aHasLoc) && (
-                      <div className="text-xl font-extrabold text-slate-900 sm:text-2xl">
+                      <div className="text-sm sm:text-base font-extrabold text-slate-900">
                         {aHasDate ? prettyYMD(a.date) : null}
                         {aHasDate && aHasLoc ? " — " : null}
                         {aHasLoc ? a.location : null}
                       </div>
                     )}
 
-                    <div className="text-lg font-semibold text-slate-800 sm:text-xl truncate">{a.name || "Untitled event"}</div>
+                    <div className="mt-0.5 text-base sm:text-lg font-semibold text-slate-800 truncate">
+                      {a.name || "Untitled event"}
+                    </div>
 
                     {isOpen && (
-                      <div className="mt-4 text-center text-sm font-black tracking-wide text-slate-700">
+                      <div className="mt-3 text-center text-xs sm:text-sm font-semibold tracking-wide text-slate-600">
                         Select the events you’d like to include in a trip.
                       </div>
                     )}
                   </div>
 
-                  <div className="pt-1">
+                  <div className="pt-0.5">
                     <ChevronDown open={isOpen} />
                   </div>
                 </div>
@@ -439,7 +455,7 @@ export default function ResultsPage() {
                     {(matchingLoading || matchingErr) && (
                       <div
                         className={cx(
-                          "mb-3 rounded-2xl border px-4 py-3 text-xs font-semibold",
+                          "mb-3 rounded-2xl border px-4 py-3 text-[11px] sm:text-xs font-semibold",
                           matchingErr ? "border-rose-200 bg-rose-50 text-rose-800" : "border-slate-200 bg-slate-50 text-slate-700"
                         )}
                       >
@@ -462,7 +478,7 @@ export default function ResultsPage() {
                             type="button"
                             onClick={() => toggleSelected(r.rowKey, e)}
                             className={cx(
-                              "w-full text-left rounded-2xl border px-4 py-3 transition",
+                              "w-full text-left rounded-2xl border px-3.5 py-3 sm:px-4 sm:py-3 transition",
                               selected ? "ring-2 ring-slate-900" : "",
                               primary
                                 ? "bg-slate-200 border-slate-300"
@@ -479,28 +495,30 @@ export default function ResultsPage() {
 
                                 <div className="min-w-0 flex-1">
                                   {(hasDate || hasLoc) && (
-                                    <div className="text-[13px] font-extrabold tracking-wide text-slate-700">
+                                    <div className="text-[12px] sm:text-[13px] font-bold tracking-wide text-slate-700">
                                       {hasDate ? prettyYMD(e.date) : null}
                                       {hasDate && hasLoc ? " — " : null}
                                       {hasLoc ? e.location : null}
                                     </div>
                                   )}
 
-                                  <div className="text-base font-black text-slate-900">{e.name || "Untitled event"}</div>
+                                  <div className="text-sm sm:text-base font-extrabold text-slate-900">
+                                    {e.name || "Untitled event"}
+                                  </div>
                                 </div>
                               </div>
 
                               <div className="shrink-0">
                                 {primary ? (
-                                  <div className="rounded-full bg-slate-900 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white">
+                                  <div className="rounded-full bg-slate-900 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-white">
                                     Primary
                                   </div>
                                 ) : secondaryKind ? (
-                                  <div className="rounded-full bg-slate-800 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white">
+                                  <div className="rounded-full bg-slate-800 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-white">
                                     Secondary
                                   </div>
                                 ) : (
-                                  <div className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[10px] font-black uppercase tracking-wide text-slate-700">
+                                  <div className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-slate-700">
                                     {e.genre ? e.genre : "Matching"}
                                   </div>
                                 )}
@@ -511,11 +529,11 @@ export default function ResultsPage() {
                       })}
                     </div>
 
-                    <div className="mt-6 flex justify-center">
+                    <div className="mt-5 sm:mt-6 flex justify-center">
                       <button
                         type="button"
                         onClick={buildTrip}
-                        className="rounded-2xl bg-slate-900 px-8 py-3 text-sm font-black text-white hover:bg-slate-800"
+                        className="rounded-2xl bg-slate-900 px-7 py-2.5 sm:px-8 sm:py-3 text-sm font-black text-white hover:bg-slate-800"
                       >
                         Build trip
                       </button>

@@ -427,7 +427,7 @@ const [copiedToast, setCopiedToast] = useState(false);
           <button
             type="button"
             onClick={() => router.push("/")}
-            className="rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-black text-slate-700 hover:bg-slate-50"
+className="rounded-2xl bg-slate-900 px-4 py-2.5 text-xs font-black text-white hover:bg-slate-800 transition"
             title="Search again"
           >
             Search again
@@ -462,16 +462,18 @@ onClick={async () => {
 
   // Plain text MUST contain the URL if you want Outlook to autolink it reliably
   const shareTextShort = [
-    "Hear me out…",
-    city,
-    dateLine,
-    "",
-    ...titlesArr.map((t) => `✅ ${t}`),
-    "",
-    `👉 Check out EventStack! ${homeUrl}`,
-  ]
-    .filter(Boolean)
-    .join("\n");
+  "Hear me out…",
+  "",
+  city,
+  "",
+  dateLine,
+  "",
+  ...titlesArr.map((t) => `✅ ${t}`),
+  "",
+  `👉 Check out EventStack! ${homeUrl}`,
+]
+  .filter(Boolean)
+  .join("\n");
 
   // 1) Prefer native share sheet when available
   try {
@@ -539,7 +541,7 @@ onClick={async () => {
 
 
 
-  className="rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-black text-slate-700 hover:bg-slate-50"
+className="rounded-2xl bg-slate-900 px-4 py-2.5 text-xs font-black text-white hover:bg-slate-800 transition"
   title="Share this trip"
 >
   Share trip
@@ -591,7 +593,7 @@ onClick={async () => {
                         href={e.url}
                         target="_blank"
                         rel="noreferrer"
-                        className="shrink-0 rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white hover:bg-slate-800"
+className="shrink-0 rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white hover:bg-slate-800 flex items-center justify-center"
                       >
                         Tickets
                       </a>
