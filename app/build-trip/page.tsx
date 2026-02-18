@@ -24,8 +24,15 @@ type BuildTripPayload = {
   events?: RowEvent[];
 
   cityState?: string;
+
+  // Event dates (for header + sharing)
   startYMD?: string | null;
   endYMD?: string | null;
+
+  // Travel dates (for Expedia autopopulate)
+  checkinYMD?: string | null;
+  checkoutYMD?: string | null;
+
   fallbackTitles?: string[];
 };
 
@@ -127,6 +134,31 @@ function uniqueCitiesInOrder(events: RowEvent[]) {
     out.push(label);
   }
   return out;
+}
+
+function normCityState(s: any) {
+  return String(s || "")
+    .replace(/\s+/g, " ")
+    .replace(/\s+,/g, ",")
+    .trim()
+    .toLowerCase();
+}
+
+function pickDisplayCityState(citiesInOrder: string[]) {
+  const cleaned = (citiesInOrder || []).map((x) => String(x || "").trim()).filter(Boolean);
+  const uniq: string[] = [];
+  const seen = new Set<string>();
+
+  for (const c of cleaned) {
+    const k = normCityState(c);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    uniq.push(c);
+  }
+
+  if (uniq.length === 0) return "Your trip";
+  if (uniq.length === 1) return uniq[0];          // ✅ single city: NO "Area"
+  return `${uniq[0]} Area`;                       // ✅ multi-city: add "Area"
 }
 
 function mostCommon(items: string[]) {
@@ -310,24 +342,30 @@ function openExpediaFlights(originIata: string, destIataOrCity: string, departYM
   window.open(url, "_blank", "noopener,noreferrer");
 }
 
-function openExpediaFlightHotelBundle(originIata: string, destination: string, departYMD: string | null, returnYMD: string | null) {
+function openExpediaFlightHotelBundle(
+  originIata: string,
+  destination: string,
+  departYMD: string | null,
+  returnYMD: string | null
+) {
+  const o = String(originIata || "").trim().toUpperCase();
+  const d = String(destination || "").trim();
+
+  // Need dates for the dated package deeplink
+  if (!departYMD || !returnYMD || !o || !d) return;
+
   const qs = new URLSearchParams();
-  qs.set("packageType", "fh");
-  qs.set("tripType", "ROUND_TRIP");
-  qs.set("adults", "1");
-  qs.set("cabinClass", "COACH");
-  qs.set("directFlights", "false");
-  qs.set("partialStay", "false");
-  qs.set("searchProduct", "hotel");
+  qs.set("FromAirport", o);
+  qs.set("Destination", d);
+  qs.set("NumRoom", "1");
+  qs.set("NumAdult", "1");
 
-  if (destination) qs.set("destination", destination);
-  if (departYMD) qs.set("startDate", departYMD);
-  if (returnYMD) qs.set("endDate", returnYMD);
-  if (originIata) qs.set("origin", originIata.toUpperCase());
-
-  const url = `https://www.expedia.com/Hotel-Search?${qs.toString()}`;
+  // Expedia package deeplink format:
+  // https://www.expedia.com/go/package/search/FlightHotel/YYYY-MM-DD/YYYY-MM-DD?FromAirport=SEA&Destination=dallas...
+  const url = `https://www.expedia.com/go/package/search/FlightHotel/${departYMD}/${returnYMD}?${qs.toString()}`;
   window.open(url, "_blank", "noopener,noreferrer");
 }
+
 
 /* -------------------- Page -------------------- */
 
@@ -342,10 +380,16 @@ export default function BuildTripPage() {
   }, [data]);
 
   const cities = useMemo(() => uniqueCitiesInOrder(events), [events]);
+  const displayCityState = useMemo(() => pickDisplayCityState(cities), [cities]);
+
 
   const { start, end } = useMemo(() => minMaxYMD(events), [events]);
   const checkin = useMemo(() => addDaysUTC(start, -1), [start]);
   const checkout = useMemo(() => addDaysUTC(end, +1), [end]);
+
+  const eventStart = start; // first event date
+const eventEnd = end;     // last event date
+
 
   const [airports, setAirports] = useState<Airport[]>([]);
   const initialAirport = useMemo(() => String(data?.airport || "").toUpperCase(), [data]);
@@ -392,17 +436,25 @@ const [copiedToast, setCopiedToast] = useState(false);
   const hasOrigin = Boolean(airportIata && airportIata.trim());
 
   const payloadForShare: BuildTripPayload = useMemo(() => {
-    const cityState = metro.metroLabel ? `${metro.metroLabel} Area` : cities[0] || "Trip location";
-    return {
-      ...(data || {}),
-      airport: airportIata,
-      events,
-      cityState,
-      startYMD: checkin,
-      endYMD: checkout,
-      fallbackTitles: events.map((e) => e?.name).filter(Boolean) as string[],
-    };
-  }, [data, airportIata, events, metro.metroLabel, cities, checkin, checkout]);
+  return {
+    ...(data || {}),
+    airport: airportIata,
+    events,
+    cityState: displayCityState,   // ✅ uses the single/multi-city rule
+    // For displaying/sharing (event dates)
+startYMD: eventStart,
+endYMD: eventEnd,
+
+// Keep travel dates too (for share page / deep links if you want)
+checkinYMD: checkin,
+checkoutYMD: checkout,
+    
+    fallbackTitles: events.map((e) => e?.name).filter(Boolean) as string[],
+  };
+}, [data, airportIata, events, displayCityState, checkin, checkout]);
+
+
+
 
   if (!data) {
     return (
@@ -454,26 +506,35 @@ onClick={async () => {
         : `${startText} - ${endText}`
       : startText || endText || "";
 
-  // Keep short for WhatsApp (and generally nicer)
-  const titlesArr = (payloadForShare.fallbackTitles || [])
-    .filter(Boolean)
-    .map(String)
-    .slice(0, 3);
+    
+// Keep short for WhatsApp (and generally nicer)
+const titlesArr = (payloadForShare.fallbackTitles || [])
+  .filter(Boolean)
+  .map(String)
+  .slice(0, 3);
 
-  // Plain text MUST contain the URL if you want Outlook to autolink it reliably
-  const shareTextShort = [
-  "Hear me out…",
+// WhatsApp supports *bold* in plain text.
+// Outlook plain text will show the asterisks (acceptable tradeoff).
+const cityBold = `*${city}*`;
+
+const shareTextShort = [
+  "Check out what I found at EventStack!",
   "",
-  city,
+  cityBold,
   "",
   dateLine,
   "",
   ...titlesArr.map((t) => `✅ ${t}`),
   "",
-  `👉 Check out EventStack! ${homeUrl}`,
+  "We should definitely plan a trip!",
+  "",
+  `${homeUrl}`,
 ]
-  .filter(Boolean)
+  // ✅ DO NOT use filter(Boolean) or you’ll delete "" spacer lines
+  .filter((v) => v !== null && v !== undefined)
   .join("\n");
+
+
 
   // 1) Prefer native share sheet when available
   try {
@@ -493,28 +554,34 @@ onClick={async () => {
   const textMessage = shareTextShort;
 
   const htmlMessage = `
-    <div style="font-family: Arial, sans-serif; line-height: 1.35;">
-      <p style="margin:0 0 10px 0;"><strong>Hear me out…</strong></p>
-      <p style="margin:0 0 10px 0;">
-        <strong>${escapeHtml(city)}</strong><br/>
-        ${escapeHtml(dateLine)}
-      </p>
-      ${
-        titlesArr.length
-          ? `<p style="margin:0 0 10px 0;">${titlesArr
-              .map((t) => `✅ ${escapeHtml(t)}`)
-              .join("<br/>")}</p>`
-          : ""
-      }
-      <p style="margin:0;">
-        <a href="${homeUrl}" style="font-weight:700; text-decoration:none;">
-          Check out EventStack!
-        </a>
-        <br/>
-        <span style="color:#64748b; font-size:12px;">${escapeHtml(homeUrl)}</span>
-      </p>
-    </div>
-  `;
+  <div style="font-family: Arial, sans-serif; line-height: 1.35;">
+    <p style="margin:0 0 10px 0;"><strong>Hear me out…</strong> we should do this trip:</p>
+
+    <p style="margin:0 0 10px 0;">
+      <strong>${escapeHtml(city)}</strong><br/>
+      ${escapeHtml(dateLine)}
+    </p>
+
+    ${
+      titlesArr.length
+        ? `<p style="margin:0 0 10px 0;">${titlesArr
+            .map((t) => `✅ ${escapeHtml(t)}`)
+            .join("<br/>")}</p>`
+        : ""
+    }
+
+    <p style="margin:0;">
+      <a href="${homeUrl}" style="font-weight:700; text-decoration:none;">
+        Check out EventStack!
+      </a>
+      <br/>
+      <span style="color:#64748b; font-size:12px;">${escapeHtml(homeUrl)}</span>
+    </p>
+  </div>
+`;
+
+
+
 
   try {
     await navigator.clipboard.write([
@@ -556,12 +623,16 @@ className="rounded-2xl bg-slate-900 px-4 py-2.5 text-xs font-black text-white ho
         <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
           <div className="text-center">
             <h1 className="text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
-              {metro.metroLabel ? `${metro.metroLabel} Area` : "Your trip"}
-            </h1>
+  {displayCityState}
+</h1>
+
 
             <div className="mt-3 text-lg font-extrabold text-slate-800">
-              {fmtYMDPretty(checkin)} → {fmtYMDPretty(checkout)}
-            </div>
+  {fmtYMDPretty(eventStart)} → {fmtYMDPretty(eventEnd)}
+</div>
+
+
+
           </div>
         </section>
 
