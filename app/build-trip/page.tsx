@@ -433,11 +433,11 @@ const [copiedToast, setCopiedToast] = useState(false);
             Search again
           </button>
 
-          <button
-            type="button"
-            onClick={async () => {
-  const shareUrl = buildShareUrl(payloadForShare);
-  const full = `${window.location.origin}${shareUrl}`;
+<button
+  type="button"
+  
+onClick={async () => {
+  const homeUrl = "https://eventstack.vercel.app/";
 
   const city = payloadForShare.cityState || "Trip location";
 
@@ -451,20 +451,24 @@ const [copiedToast, setCopiedToast] = useState(false);
     startYMD && endYMD
       ? startYMD === endYMD
         ? startText
-        : `${startText} - ${endText}` // dash, not arrow
+        : `${startText} - ${endText}`
       : startText || endText || "";
 
-  const titlesArr = (payloadForShare.fallbackTitles || []).filter(Boolean).map(String);
+  // Keep short for WhatsApp (and generally nicer)
+  const titlesArr = (payloadForShare.fallbackTitles || [])
+    .filter(Boolean)
+    .map(String)
+    .slice(0, 3);
 
-  // What users see in the share sheet (WhatsApp/iMessage/etc.)
-  const shareText = [
+  // Plain text MUST contain the URL if you want Outlook to autolink it reliably
+  const shareTextShort = [
     "Hear me out…",
     city,
     dateLine,
     "",
-    ...titlesArr.map((t) => `✅ ${t}`), // checkmark bullets
+    ...titlesArr.map((t) => `✅ ${t}`),
     "",
-    "We should do this… right!?",
+    `👉 Check out EventStack! ${homeUrl}`,
   ]
     .filter(Boolean)
     .join("\n");
@@ -474,8 +478,8 @@ const [copiedToast, setCopiedToast] = useState(false);
     if (navigator.share) {
       await navigator.share({
         title: "EventStack trip idea",
-        text: `${shareText}\n\n${full}`,
-        url: full,
+        text: shareTextShort,
+        // omit url to avoid duplicate rendering in some targets
       });
       return;
     }
@@ -483,80 +487,66 @@ const [copiedToast, setCopiedToast] = useState(false);
     // user canceled OR share failed — fall back below
   }
 
-  // 2) Fallback: clipboard
-// Goal: Outlook (HTML) paste should show a clean hyperlink label, not the raw URL.
-// Approach: try HTML-only clipboard first. If that fails, fall back to plain text.
+  // 2) Clipboard fallback (Outlook paste)
+  const textMessage = shareTextShort;
 
-const textMessage = [
-  "Hear me out…",
-  city,
-  dateLine,
-  "",
-  ...titlesArr.map((t) => `✅ ${t}`),
-  "",
-  "We should do this… right!?",
-  "",
-  "Check out EventStack!",
-  full, // plain text still needs the raw link to remain clickable
-]
-  .filter(Boolean)
-  .join("\n");
+  const htmlMessage = `
+    <div style="font-family: Arial, sans-serif; line-height: 1.35;">
+      <p style="margin:0 0 10px 0;"><strong>Hear me out…</strong></p>
+      <p style="margin:0 0 10px 0;">
+        <strong>${escapeHtml(city)}</strong><br/>
+        ${escapeHtml(dateLine)}
+      </p>
+      ${
+        titlesArr.length
+          ? `<p style="margin:0 0 10px 0;">${titlesArr
+              .map((t) => `✅ ${escapeHtml(t)}`)
+              .join("<br/>")}</p>`
+          : ""
+      }
+      <p style="margin:0;">
+        <a href="${homeUrl}" style="font-weight:700; text-decoration:none;">
+          Check out EventStack!
+        </a>
+        <br/>
+        <span style="color:#64748b; font-size:12px;">${escapeHtml(homeUrl)}</span>
+      </p>
+    </div>
+  `;
 
-const htmlMessage = `
-  <div style="font-family: Arial, sans-serif; line-height: 1.35;">
-    <p style="margin:0 0 10px 0;"><strong>Hear me out…</strong></p>
+  try {
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        "text/html": new Blob([htmlMessage], { type: "text/html" }),
+        "text/plain": new Blob([textMessage], { type: "text/plain" }),
+      }),
+    ]);
 
-    <p style="margin:0 0 10px 0;">
-      <strong>${escapeHtml(city)}</strong><br/>
-      ${escapeHtml(dateLine)}
-    </p>
-
-    <p style="margin:0 0 10px 0;">
-      ${titlesArr.map((t) => `✅ ${escapeHtml(t)}`).join("<br/>")}
-    </p>
-
-    <p style="margin:0 0 10px 0;"><strong>We should do this… right!?</strong></p>
-
-    <p style="margin:0;">
-      <a href="${full}" style="font-weight:700; text-decoration:none;">
-        Check out EventStack!
-      </a>
-    </p>
-  </div>
-`;
-
-try {
-  // ✅ Best-case: HTML-only clipboard (Outlook/Word tend to paste this nicely)
-  await navigator.clipboard.write([
-    new ClipboardItem({
-      "text/html": new Blob([htmlMessage], { type: "text/html" }),
-    }),
-  ]);
-
-  setCopiedToast(true);
-  setTimeout(() => setCopiedToast(false), 2000);
-  return;
-} catch {
-  // ignore, try next fallback
-}
-
-try {
-  // ✅ Next best: plain text (always works, but will show the raw URL)
-  await navigator.clipboard.writeText(textMessage);
-
-  setCopiedToast(true);
-  setTimeout(() => setCopiedToast(false), 2000);
-} catch {
-  // If clipboard totally fails (rare), do nothing.
-}
-
-
+    setCopiedToast(true);
+    setTimeout(() => setCopiedToast(false), 2000);
+  } catch {
+    try {
+      await navigator.clipboard.writeText(textMessage);
+      setCopiedToast(true);
+      setTimeout(() => setCopiedToast(false), 2000);
+    } catch {
+      // clipboard blocked; nothing else we can do
+    }
+  }
 }}
-className="rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-black text-slate-700 hover:bg-slate-50"
-title="Share this trip"
+
+
+
+
+
+  className="rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-black text-slate-700 hover:bg-slate-50"
+  title="Share this trip"
 >
   Share trip
 </button>
+
+
+
             
         </div>
 
