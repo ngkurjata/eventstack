@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1200" height="1450" viewBox="0 0 1200 1450" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .pin { fill:#0B1B2E; }
+      .white { fill:#FFFFFF; }
+      .navy { fill:#0B1B2E; }
+    </style>
+
+    <!-- Pin clip so nothing escapes the pin silhouette -->
+    <clipPath id="pinClip">
+      <path d="
+        M600 120
+        C830 120 1000 290 1000 520
+        C1000 880 600 1220 600 1220
+        C600 1220 200 880 200 520
+        C200 290 370 120 600 120
+        Z"
+      />
+    </clipPath>
+
+    <!-- Skyline band clip: arced top (follows pin curve) while leaving blue margin above skyline -->
+    <clipPath id="skyBandClip">
+      <!-- Increase 165 -> 185+ to leave MORE blue above skyline.
+           Decrease 165 -> 145 to leave LESS blue above skyline. -->
+      <path d="
+        M320 470
+        C380 235 820 235 880 470
+        L880 170
+        C820 290 380 290 320 170
+        Z"
+      />
+    </clipPath>
+
+    <!-- Tiny windows: define a reusable dot style -->
+    <g id="winDot">
+      <rect x="0" y="0" width="10" height="10" rx="3" />
+    </g>
+  </defs>
+
+  <!-- ===== PIN ===== -->
+  <path class="pin" d="
+    M600 120
+    C830 120 1000 290 1000 520
+    C1000 880 600 1220 600 1220
+    C600 1220 200 880 200 520
+    C200 290 370 120 600 120
+    Z"
+  />
+
+  <!-- ===== SKYLINE (WHITE, INSIDE PIN, CONNECTS TO TICKET) ===== -->
+  <g clip-path="url(#pinClip)">
+    <g clip-path="url(#skyBandClip)">
+
+      <!-- Skyline base: extend down to meet/overlap ticket area (removes blue gap) -->
+      <!-- This base band goes low enough that the ticket (drawn later) will overlap it slightly. -->
+      <rect class="white" x="280" y="320" width="640" height="260" rx="22" opacity="0.98"/>
+
+      <!-- Buildings (clean geometry) -->
+      <g class="white" opacity="0.98">
+        <rect x="320" y="275" width="62" height="305" rx="12"/>
+        <rect x="392" y="245" width="96" height="335" rx="14"/>
+        <rect x="498" y="305" width="62" height="275" rx="12"/>
+        <rect x="570" y="225" width="130" height="355" rx="16"/>
+        <rect x="710" y="292" width="82" height="288" rx="14"/>
+        <rect x="802" y="255" width="102" height="325" rx="14"/>
+      </g>
+
+      <!-- CN Tower-ish structure (simple + iconic, still flat) -->
+      <!-- Shaft -->
+      <rect class="white" x="522" y="210" width="18" height="370" rx="9" opacity="0.98"/>
+      <!-- Pod -->
+      <rect class="white" x="498" y="300" width="66" height="22" rx="11" opacity="0.98"/>
+      <!-- Spire -->
+      <rect class="white" x="529" y="175" width="4" height="55" rx="2" opacity="0.98"/>
+      <!-- Tip -->
+      <circle class="white" cx="531" cy="170" r="7" opacity="0.98"/>
+
+      <!-- Windows (subtle navy cutouts) -->
+      <!-- Keep sparse so it scales well -->
+      <g class="navy" opacity="0.28">
+        <!-- Building 2 windows -->
+        <use href="#winDot" x="415" y="275"/>
+        <use href="#winDot" x="445" y="275"/>
+        <use href="#winDot" x="415" y="305"/>
+        <use href="#winDot" x="445" y="305"/>
+        <use href="#winDot" x="415" y="335"/>
+        <use href="#winDot" x="445" y="335"/>
+
+        <!-- Tall center building windows -->
+        <use href="#winDot" x="600" y="270"/>
+        <use href="#winDot" x="630" y="270"/>
+        <use href="#winDot" x="600" y="300"/>
+        <use href="#winDot" x="630" y="300"/>
+        <use href="#winDot" x="600" y="330"/>
+        <use href="#winDot" x="630" y="330"/>
+
+        <!-- Right building windows -->
+        <use href="#winDot" x="830" y="285"/>
+        <use href="#winDot" x="860" y="285"/>
+        <use href="#winDot" x="830" y="315"/>
+        <use href="#winDot" x="860" y="315"/>
+      </g>
+
+    </g>
+  </g>
+
+  <!-- ===== STACK ROWS (fade downward) ===== -->
+  <g>
+    <rect class="white" x="330" y="760" width="540" height="20" rx="10" opacity="1"/>
+    <rect class="white" x="370" y="800" width="500" height="18" rx="9" opacity="0.85"/>
+    <rect class="white" x="410" y="840" width="460" height="16" rx="8" opacity="0.70"/>
+    <rect class="white" x="450" y="875" width="420" height="14" rx="7" opacity="0.55"/>
+    <rect class="white" x="490" y="905" width="380" height="12" rx="6" opacity="0.40"/>
+    <rect class="white" x="525" y="930" width="330" height="10" rx="5" opacity="0.28"/>
+    <rect class="white" x="560" y="950" width="280" height="8" rx="4" opacity="0.18"/>
+  </g>
+
+  <!-- ===== STACKED TICKETS (drawn after skyline so it overlaps slightly) ===== -->
+  <g transform="translate(600 520) rotate(-18) scale(1.30) translate(-600 -520)">
+
+    <!-- back -->
+    <path class="white" opacity="0.55" d="
+      M420 440
+      H780
+      Q810 440 810 470
+      V570
+      Q810 600 780 600
+      H420
+      Q390 600 390 570
+      V470
+      Q390 440 420 440
+      Z"
+    />
+
+    <!-- middle -->
+    <path class="white" opacity="0.78" d="
+      M410 435
+      H790
+      Q822 435 822 467
+      V583
+      Q822 615 790 615
+      H410
+      Q378 615 378 583
+      V467
+      Q378 435 410 435
+      Z"
+    />
+
+    <!-- front -->
+    <path class="white" d="
+      M400 428
+      H800
+      Q835 428 835 463
+      V587
+      Q835 622 800 622
+      H400
+      Q365 622 365 587
+      V463
+      Q365 428 400 428
+      Z"
+    />
+
+    <!-- punch + tear -->
+    <circle cx="600" cy="525" r="36" fill="#0B1B2E"/>
+    <rect x="592" y="428" width="16" height="194" fill="#0B1B2E"/>
+  </g>
+
+  <!-- ===== WORDMARK ===== -->
+  <text x="600" y="1340"
+        font-family="Inter, Montserrat, system-ui, -apple-system, Segoe UI, sans-serif"
+        font-size="140"
+        font-weight="800"
+        text-anchor="middle"
+        fill="#0B1B2E">
+    EventStack
+  </text>
+</svg>

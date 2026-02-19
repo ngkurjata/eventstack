@@ -3,18 +3,71 @@ import { NextResponse } from "next/server";
 
 const TM_BASE = "https://app.ticketmaster.com/discovery/v2";
 const TM_EVENTS = `${TM_BASE}/events.json`;
-
 const TM_KEY = process.env.TICKETMASTER_API_KEY;
 
 // Safety caps (serverless/runtime protection)
-const HARD_ANCHOR_EVENT_CAP = 600; // bump so P1 schedule is reliably complete
+const HARD_ANCHOR_EVENT_CAP = 600;
 const HARD_NEARBY_EVENT_CAP = 600;
 const DEFAULT_RADIUS_MILES = 180;
 const DEFAULT_TRIP_DAYS = 7;
 
 // Paging controls (TM max size ~200)
 const PAGE_SIZE = 200;
-const MAX_PAGES = 8; // 8 * 200 = 1600 raw; we stop early if caps hit
+const MAX_PAGES = 3;
+
+// -------------------- Server-side request dedupe/cache --------------------
+// Goal: If the client fires duplicate /api/search requests (dev StrictMode, rerenders, etc),
+// we DO NOT run Ticketmaster calls twice. Identical request keys share one in-flight promise,
+// and we keep a short TTL cache to avoid immediate re-fetches on toggles/back/forward.
+const INFLIGHT = new Map(); // key -> Promise<{ status, payload }>
+const TTL_CACHE = new Map(); // key -> { ts, status, payload }
+
+const CACHE_TTL_OK_MS = 45_000; // cache 200s for 45s
+const CACHE_TTL_429_MS = 6_000; // cache 429s briefly to prevent hammering
+const CACHE_TTL_ERR_MS = 4_000; // brief cache for transient errors
+
+function nowMs() {
+  return Date.now();
+}
+
+function canonicalKeyFromUrl(rawUrl) {
+  // Normalize query param ordering so semantically-identical URLs dedupe.
+  // NOTE: we keep pathname + sorted params; we ignore origin.
+  const u = new URL(rawUrl);
+  const entries = [];
+  u.searchParams.forEach((v, k) => entries.push([k, v]));
+  entries.sort((a, b) => {
+    if (a[0] !== b[0]) return a[0] < b[0] ? -1 : 1;
+    return a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0;
+  });
+
+  const q = new URLSearchParams();
+  for (const [k, v] of entries) q.append(k, v);
+
+  return `${u.pathname}?${q.toString()}`;
+}
+
+function setDebugHeaders(res, meta) {
+  // meta: { cache: "MISS"|"HIT"|"INFLIGHT", key, tookMs }
+  try {
+    res.headers.set("x-eventstack-cache", meta.cache);
+    res.headers.set("x-eventstack-cachekey", meta.key);
+    res.headers.set("x-eventstack-took-ms", String(meta.tookMs ?? 0));
+    // Prevent CDN caching; we’re doing short-lived in-memory caching only.
+    res.headers.set("cache-control", "no-store, max-age=0");
+  } catch {
+    // ignore
+  }
+  return res;
+}
+
+/* -------------------- Ticketmaster throttling / retry -------------------- */
+
+const TM_THROTTLE_MS = 160;
+const TM_429_MAX_RETRIES = 3;
+const TM_429_BASE_BACKOFF_MS = 900;
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /* -------------------- Allowed genre lists (sanitization) -------------------- */
 
@@ -47,6 +100,7 @@ const SPORTS_ALLOWED = [
   "Basketball",
   "Boxing",
   "Cricket",
+  "Curling",
   "Equestrian",
   "Football",
   "Golf",
@@ -118,7 +172,9 @@ function sanitizePickList(rawList, allowed) {
         .map((s) => String(s || "").trim())
         .map((s) => {
           if (allowedSet.has(s)) return s;
-          const hit = allowed.find((a) => s.toLowerCase().includes(String(a).toLowerCase()));
+          const hit = allowed.find((a) =>
+            s.toLowerCase().includes(String(a).toLowerCase())
+          );
           return hit || "";
         })
         .filter(Boolean)
@@ -177,11 +233,6 @@ function eventSegment(e) {
   return "other";
 }
 
-/**
- * Fallback when coordinates are missing:
- * 1) Same venueId => accept
- * 2) Same city/region => accept
- */
 function sameVenueOrCityRegion(anchorEvent, candidateEvent) {
   const av = eventVenueId(anchorEvent);
   const bv = eventVenueId(candidateEvent);
@@ -200,7 +251,6 @@ function sameVenueOrCityRegion(anchorEvent, candidateEvent) {
 
 function normalizeBaseTitle(name) {
   let s = String(name || "");
-
   s = s.replace(/\*[^*]*\*/g, " ");
   s = s.replace(/[*•|]+/g, " ");
   s = s.replace(/\(([^)]*)\)/g, " ");
@@ -232,7 +282,9 @@ function gameKey(e) {
     const ll = eventLatLon(e);
     const latR = ll ? Math.round(ll.lat * 1000) / 1000 : null;
     const lonR = ll ? Math.round(ll.lon * 1000) / 1000 : null;
-    v = ll ? `${latR}|${lonR}` : `${norm(city)}|${norm(region)}|${norm(venueName)}`;
+    v = ll
+      ? `${latR}|${lonR}`
+      : `${norm(city)}|${norm(region)}|${norm(venueName)}`;
   } else {
     v = venueId ? venueId : `${norm(city)}|${norm(region)}`;
   }
@@ -280,7 +332,6 @@ function isExcludedFromMatching(e) {
   return false;
 }
 
-// Only use this to filter TEAM schedules (MLB/NHL/etc), not general genre candidates.
 function looksLikeTeamGameEvent(e) {
   const name = String(eventName(e) || "").toLowerCase();
 
@@ -405,13 +456,13 @@ function sortEvents(events) {
     const ad = eventLocalDate(a) || "9999-12-31";
     const bd = eventLocalDate(b) || "9999-12-31";
     if (ad !== bd) return ad < bd ? -1 : 1;
-    return normalizeBaseTitle(eventName(a)).localeCompare(normalizeBaseTitle(eventName(b)));
+    return normalizeBaseTitle(eventName(a)).localeCompare(
+      normalizeBaseTitle(eventName(b))
+    );
   });
 }
 
-// -------------------- Option A ID parsing --------------------
-// team:<LEAGUE>:<ATTRACTION_ID>:<NAME>
-// artist:<ATTRACTION_ID>:<NAME>
+// -------------------- Option ID parsing --------------------
 
 function parsePickId(raw) {
   const s = String(raw || "").trim();
@@ -438,32 +489,107 @@ function parsePickId(raw) {
 
 // -------------------- Ticketmaster fetch (paged) --------------------
 
-async function fetchTMEvents(params) {
-  if (!TM_KEY) return { ok: false, events: [], error: "Missing TICKETMASTER_API_KEY" };
+function parseRetryAfterMs(res) {
+  const ra = res?.headers?.get?.("retry-after");
+  if (!ra) return null;
+
+  const s = String(ra).trim();
+  if (!s) return null;
+
+  if (/^\d+$/.test(s)) return Math.max(0, Number(s)) * 1000;
+
+  const dt = new Date(s);
+  if (Number.isNaN(dt.getTime())) return null;
+
+  const ms = dt.getTime() - Date.now();
+  return ms > 0 ? ms : 0;
+}
+
+async function fetchTMEventsOnce(params) {
+  if (!TM_KEY) {
+    return {
+      ok: false,
+      status: null,
+      url: null,
+      safeUrl: null,
+      events: [],
+      error: "Missing TICKETMASTER_API_KEY",
+    };
+  }
 
   params.set("apikey", TM_KEY);
   const url = `${TM_EVENTS}?${params.toString()}`;
+  const safeUrl = url.replace(/apikey=[^&]+/i, "apikey=REDACTED");
 
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), 9000);
 
   try {
     const res = await fetch(url, { signal: controller.signal, cache: "no-store" });
+
     const json = await res.json().catch(() => ({}));
     const events =
       (Array.isArray(json?._embedded?.events) && json._embedded.events) ||
       (Array.isArray(json?.events) && json.events) ||
       [];
-    return { ok: res.ok, events, raw: json };
+
+    const retryAfterMs = res.status === 429 ? parseRetryAfterMs(res) : null;
+
+    return {
+      ok: res.ok,
+      status: res.status,
+      url,
+      safeUrl,
+      events,
+      raw: json,
+      retryAfterMs,
+      error: null,
+    };
   } catch (e) {
-    return { ok: false, events: [], error: String(e?.message || e) };
+    return {
+      ok: false,
+      status: null,
+      url,
+      safeUrl,
+      events: [],
+      raw: null,
+      retryAfterMs: null,
+      error: String(e?.message || e),
+    };
   } finally {
     clearTimeout(t);
   }
 }
 
+async function fetchTMEvents(params) {
+  await sleep(TM_THROTTLE_MS);
+
+  let last = null;
+
+  for (let attempt = 0; attempt <= TM_429_MAX_RETRIES; attempt += 1) {
+    const r = await fetchTMEventsOnce(params);
+    last = r;
+
+    if (r.ok || r.status !== 429) return { ...r, attempt };
+
+    const backoff =
+      r.retryAfterMs != null
+        ? r.retryAfterMs
+        : TM_429_BASE_BACKOFF_MS * Math.pow(2, attempt);
+
+    const waitMs = Math.min(8000, Math.max(0, Math.floor(backoff)));
+    await sleep(waitMs);
+  }
+
+  return {
+    ...(last || { ok: false, status: 429, events: [], error: "Rate limited" }),
+    attempt: TM_429_MAX_RETRIES + 1,
+  };
+}
+
 async function fetchAllPagesForCountries(baseParams, countryCodes, hardCap) {
-  const codes = Array.isArray(countryCodes) && countryCodes.length ? countryCodes : ["US", "CA"];
+  const codes =
+    Array.isArray(countryCodes) && countryCodes.length ? countryCodes : ["US", "CA"];
 
   const merged = [];
   const debug = [];
@@ -471,7 +597,6 @@ async function fetchAllPagesForCountries(baseParams, countryCodes, hardCap) {
   for (const cc of codes) {
     let page = 0;
     let done = false;
-    let fetchedForCountry = 0;
 
     while (!done && page < MAX_PAGES && merged.length < hardCap) {
       const p = new URLSearchParams(baseParams.toString());
@@ -482,31 +607,37 @@ async function fetchAllPagesForCountries(baseParams, countryCodes, hardCap) {
       const r = await fetchTMEvents(p);
       const rawEvents = Array.isArray(r.events) ? r.events : [];
 
-      fetchedForCountry += rawEvents.length;
-      if (rawEvents.length) merged.push(...rawEvents);
+      if (r.ok && rawEvents.length) merged.push(...rawEvents);
 
-      // Stop conditions
-      if (!r.ok) {
-        debug.push({ country: cc, ok: false, page, count: rawEvents.length });
-        break;
-      }
+      debug.push({
+        country: cc,
+        ok: !!r.ok,
+        page,
+        status: r.status ?? null,
+        count: rawEvents.length,
+        attempt: r.attempt ?? null,
+        url: r.safeUrl || null,
+        error: r.error || null,
+      });
+
+      if (!r.ok) break;
 
       const pageInfo = r.raw?.page || null;
       const totalPages = Number(pageInfo?.totalPages);
       const number = Number(pageInfo?.number);
 
-      debug.push({ country: cc, ok: true, page, count: rawEvents.length });
-
-      if (Number.isFinite(totalPages) && Number.isFinite(number) && number >= totalPages - 1) done = true;
+      if (
+        Number.isFinite(totalPages) &&
+        Number.isFinite(number) &&
+        number >= totalPages - 1
+      )
+        done = true;
       if (rawEvents.length < PAGE_SIZE) done = true;
 
       page += 1;
     }
 
-    // small guard: if TM returns nothing immediately, no need to keep paging
-    if (fetchedForCountry === 0) {
-      // continue to next country
-    }
+    await sleep(220);
   }
 
   const sorted = sortEvents(merged);
@@ -531,7 +662,6 @@ function eventMatchesSecondary(e, secondaryAttractionId) {
 function buildPrimaryRows({ anchors, candidates, radiusMiles, tripDays, secondaryAttractionId }) {
   const halfWindowDays = Math.floor(tripDays / 2);
 
-  // index candidates by date for fast window lookup
   const byDate = new Map();
   for (const e of candidates || []) {
     const d = eventLocalDate(e);
@@ -562,7 +692,6 @@ function buildPrimaryRows({ anchors, candidates, radiusMiles, tripDays, secondar
     const windowEnd = addDaysYMD(anchorDate, +halfWindowDays);
     if (!windowStart || !windowEnd) continue;
 
-    // gather window events (by date)
     const windowEvents = [];
     for (let d = windowStart; d <= windowEnd; ) {
       const list = byDate.get(d) || [];
@@ -572,7 +701,6 @@ function buildPrimaryRows({ anchors, candidates, radiusMiles, tripDays, secondar
       d = next;
     }
 
-    // distance filters (for P2 overlap)
     const near = [];
     for (const e of windowEvents) {
       if (!eventUrl(e)) continue;
@@ -586,7 +714,6 @@ function buildPrimaryRows({ anchors, candidates, radiusMiles, tripDays, secondar
       if (sameVenueOrCityRegion(anchorEvent, e)) near.push(e);
     }
 
-    // SAFETY: never let the anchor itself appear in secondary pool
     const anchorDedupe = dedupeKey(anchorEvent) || null;
 
     const secondaryRaw = secondaryAttractionId
@@ -628,7 +755,8 @@ function buildPrimaryRows({ anchors, candidates, radiusMiles, tripDays, secondar
       };
     })();
 
-    const hasCrossover = (secondaryEvents?.length || 0) > 0;
+    const matchCount = secondaryEvents?.length || 0;
+    const hasCrossover = matchCount > 0;
 
     rows.push({
       rowKey: `${gameKey(anchorEvent)}|${radiusMiles}|${tripDays}|${hashStr(aKey)}`,
@@ -636,6 +764,7 @@ function buildPrimaryRows({ anchors, candidates, radiusMiles, tripDays, secondar
       windowEnd,
       anchor,
       hasCrossover,
+      matchCount,
       secondaryEvents,
     });
 
@@ -654,201 +783,419 @@ function buildPrimaryRows({ anchors, candidates, radiusMiles, tripDays, secondar
   return rows;
 }
 
-// -------------------- handler --------------------
+function rowEventIdentityKey(e) {
+  const url = String(e?.url || "").trim();
+  if (url) return `url:${url}`;
+
+  const date = String(e?.date || "").slice(0, 10);
+  const name = norm(String(e?.name || ""));
+  const loc = norm(String(e?.location || ""));
+  return `sig:${date}|${name}|${loc}`;
+}
+
+function buildGenresKey(musicGenres, sportsGenres) {
+  const mg = Array.isArray(musicGenres) ? musicGenres : [];
+  const sg = Array.isArray(sportsGenres) ? sportsGenres : [];
+  return [...mg, ...sg].join(",");
+}
+
+async function hasAnyGenreMatchNearby({
+  startYMD,
+  endYMD,
+  lat,
+  lon,
+  radiusMiles,
+  countryCodes,
+  musicGenres,
+  sportsGenres,
+  blockedKeys,
+  tmExistCache,
+}) {
+  const genresKey = buildGenresKey(musicGenres, sportsGenres);
+  if (!genresKey) return false;
+  if (lat == null || lon == null) return false;
+  if (!startYMD || !endYMD) return false;
+
+  const latR = Math.round(Number(lat) * 1000) / 1000;
+  const lonR = Math.round(Number(lon) * 1000) / 1000;
+  const cacheKey = `${startYMD}|${endYMD}|${latR}|${lonR}|${radiusMiles}|${genresKey}|${(countryCodes || []).join(",")}`;
+
+  if (tmExistCache.has(cacheKey)) return tmExistCache.get(cacheKey);
+
+  const codes =
+    Array.isArray(countryCodes) && countryCodes.length ? countryCodes : ["US", "CA"];
+
+  for (const cc of codes) {
+    const p = new URLSearchParams();
+    p.set("sort", "date,asc");
+    p.set("countryCode", cc);
+
+    p.set("latlong", `${latR},${lonR}`);
+    p.set("radius", String(radiusMiles));
+    p.set("unit", "miles");
+
+    p.set("startDateTime", `${startYMD}T00:00:00Z`);
+    p.set("endDateTime", `${endYMD}T23:59:59Z`);
+
+    p.set("classificationName", genresKey);
+    p.set("size", "12");
+    p.set("page", "0");
+
+    const r = await fetchTMEvents(p);
+    const raw = Array.isArray(r.events) ? r.events : [];
+    if (!r.ok) continue;
+
+    for (const e of raw) {
+      if (!eventUrl(e)) continue;
+      if (isExcludedFromMatching(e)) continue;
+
+      const candidate = {
+        date: eventLocalDate(e),
+        name: sanitizeDisplayName(eventName(e)),
+        location: [eventCity(e), eventRegion(e)].filter(Boolean).join(", "),
+        url: eventUrl(e),
+      };
+
+      const idk = rowEventIdentityKey(candidate);
+      if (blockedKeys && blockedKeys.has(idk)) continue;
+
+      tmExistCache.set(cacheKey, true);
+      return true;
+    }
+  }
+
+  tmExistCache.set(cacheKey, false);
+  return false;
+}
+
+// -------------------- handler core compute (no cache/dedupe here) --------------------
+
+async function computeSearch(req) {
+  const { searchParams } = new URL(req.url);
+
+  const primaryId = searchParams.get("primaryId");
+  const secondaryId = searchParams.get("secondaryId");
+
+  let musicGenres = sanitizePickList(searchParams.getAll("musicGenres"), MUSIC_ALLOWED);
+  let sportsGenres = sanitizePickList(searchParams.getAll("sportsGenres"), SPORTS_ALLOWED);
+
+  const MAX_TOTAL_GENRES = 4;
+  let combinedGenres = [...musicGenres, ...sportsGenres];
+  if (combinedGenres.length > MAX_TOTAL_GENRES) combinedGenres = combinedGenres.slice(0, MAX_TOTAL_GENRES);
+
+  musicGenres = combinedGenres.filter((g) => MUSIC_ALLOWED.includes(g));
+  sportsGenres = combinedGenres.filter((g) => SPORTS_ALLOWED.includes(g));
+
+  const mode = (searchParams.get("mode") || "trips").toLowerCase();
+  const isRowsMode = mode === "rows";
+
+  const computeNearbyMatch = searchParams.get("computeNearbyMatch") === "1";
+
+  const tripDays = clampInt(searchParams.get("tripDays"), 1, 30, DEFAULT_TRIP_DAYS);
+
+  const radiusMilesRaw = searchParams.get("radiusMiles");
+  let radiusMiles = clampInt(radiusMilesRaw, 1, 2000, DEFAULT_RADIUS_MILES);
+
+  if (!radiusMilesRaw) {
+    if (tripDays <= 3) radiusMiles = 60;
+    else if (tripDays <= 5) radiusMiles = 120;
+    else radiusMiles = 180;
+  }
+
+  const startYMD = isYMD(searchParams.get("start"))
+    ? searchParams.get("start")
+    : isYMD(searchParams.get("startYMD"))
+    ? searchParams.get("startYMD")
+    : null;
+
+  const endYMD = isYMD(searchParams.get("end"))
+    ? searchParams.get("end")
+    : isYMD(searchParams.get("endYMD"))
+    ? searchParams.get("endYMD")
+    : null;
+
+  const defaultStart = startYMD || todayUTCYMD();
+  const defaultEnd = endYMD || addDaysYMD(defaultStart, 420);
+
+  const countryCodeRaw = searchParams.get("countryCode") || "US,CA";
+  const countryCodes = normalizeCountryCodes(countryCodeRaw);
+
+  const primary = parsePickId(primaryId);
+  const secondary = parsePickId(secondaryId);
+
+  const primaryAttractionId =
+    primary?.kind === "team"
+      ? primary?.attractionId
+      : primary?.kind === "artist"
+      ? primary?.attractionId
+      : null;
+
+  const secondaryAttractionId =
+    secondary?.kind === "team"
+      ? secondary?.attractionId
+      : secondary?.kind === "artist"
+      ? secondary?.attractionId
+      : null;
+
+  const halfWindowDays = Math.floor(tripDays / 2);
+
+  const debug = {
+    inputs: {
+      primaryId: primaryId || null,
+      secondaryId: secondaryId || null,
+      tripDays,
+      halfWindowDays,
+      radiusMiles,
+      startYMD,
+      endYMD,
+      countryCode: countryCodes.join(","),
+      mode,
+      musicGenres,
+      sportsGenres,
+      computeNearbyMatch,
+    },
+    counts: {
+      anchorsFetched: 0,
+      anchorOccurrences: 0,
+      anchorsUsed: 0,
+      rows: 0,
+      rowsWithNearbyMatch: 0,
+    },
+    notes: [
+      "Rows mode: returns full P1 schedule (paged), highlights P1 rows with any P2 events within radius+window.",
+      "Genre matching is NOT computed here by default (client fetches it lazily via /api/trip-matches only when genres are selected).",
+    ],
+    tm: {},
+  };
+
+  if (!TM_KEY) {
+    return { status: 500, payload: { count: 0, rows: [], error: "Missing TICKETMASTER_API_KEY", debug } };
+  }
+
+  if (!primaryAttractionId) {
+    return {
+      status: 400,
+      payload: {
+        count: 0,
+        rows: [],
+        debug,
+        error: "primaryId missing attractionId (expects team/artist IDs with attractionId).",
+      },
+    };
+  }
+
+  if (!isRowsMode) {
+    return { status: 400, payload: { error: "This /api/search build is optimized for mode=rows.", debug } };
+  }
+
+  const anchorParams = new URLSearchParams();
+  anchorParams.set("sort", "date,asc");
+  anchorParams.set("attractionId", String(primaryAttractionId));
+  anchorParams.set("startDateTime", `${defaultStart}T00:00:00Z`);
+  anchorParams.set("endDateTime", `${defaultEnd}T23:59:59Z`);
+
+  const anchorFetch = await fetchAllPagesForCountries(anchorParams, countryCodes, HARD_ANCHOR_EVENT_CAP);
+  debug.tm.anchorPerCountry = anchorFetch.perCountry;
+
+  const allAnchor429 =
+    (debug.tm.anchorPerCountry || []).length > 0 &&
+    (debug.tm.anchorPerCountry || []).every((x) => Number(x?.status) === 429);
+
+  if (allAnchor429) {
+    return {
+      status: 429,
+      payload: { count: 0, rows: [], error: "Ticketmaster rate limited (429). Please try again shortly.", debug },
+    };
+  }
+
+  const anyAnchorOk = (debug.tm.anchorPerCountry || []).some((x) => x.ok);
+  if (!anyAnchorOk) {
+    return {
+      status: 502,
+      payload: { count: 0, rows: [], error: "Ticketmaster request failed (see debug.tm.anchorPerCountry).", debug },
+    };
+  }
+
+  let anchorsAll = sortEvents(anchorFetch.events);
+
+  if (primary?.kind === "team") {
+    const before = anchorsAll.length;
+    const filtered = anchorsAll.filter(looksLikeTeamGameEvent);
+    if (filtered.length === 0 && before > 0) {
+      debug.notes.push(
+        `looksLikeTeamGameEvent filtered 0/${before} anchors; falling back to unfiltered anchor list.`
+      );
+    } else {
+      anchorsAll = filtered;
+    }
+  }
+
+  anchorsAll = anchorsAll.slice(0, HARD_ANCHOR_EVENT_CAP);
+  debug.counts.anchorsFetched = anchorsAll.length;
+
+  const anchorOccSeen = new Set();
+  const anchors = [];
+  for (const e of anchorsAll) {
+    const sig = dedupeKey(e) || gameKey(e);
+    if (!sig) continue;
+    if (anchorOccSeen.has(sig)) continue;
+    anchorOccSeen.add(sig);
+    anchors.push(e);
+  }
+  debug.counts.anchorOccurrences = anchors.length;
+
+  if (anchors.length === 0) {
+    return { status: 200, payload: { count: 0, rows: [], debug } };
+  }
+
+  let candidatesAll = [];
+
+  if (!secondaryAttractionId) {
+    debug.tm.candidatePerCountry = [];
+    debug.notes.push("Rows mode: no secondary selected, skipping candidate fetch.");
+  } else {
+    const candidateParams = new URLSearchParams();
+    candidateParams.set("sort", "date,asc");
+
+    const firstAnchor = eventLocalDate(anchors[0]);
+    const lastAnchor = eventLocalDate(anchors[anchors.length - 1]);
+
+    const bandStart = firstAnchor ? addDaysYMD(firstAnchor, -halfWindowDays) : defaultStart;
+    const bandEnd = lastAnchor ? addDaysYMD(lastAnchor, +halfWindowDays) : defaultEnd;
+
+    if (bandStart) candidateParams.set("startDateTime", `${bandStart}T00:00:00Z`);
+    if (bandEnd) candidateParams.set("endDateTime", `${bandEnd}T23:59:59Z`);
+    candidateParams.set("attractionId", String(secondaryAttractionId));
+
+    debug.tm.candidateBand = { bandStart, bandEnd, attractionId: secondaryAttractionId };
+
+    const p2Fetch = await fetchAllPagesForCountries(candidateParams, countryCodes, HARD_NEARBY_EVENT_CAP);
+    debug.tm.candidatePerCountry = p2Fetch.perCountry;
+
+    let p2Events = p2Fetch.events || [];
+    if (secondary?.kind === "team") p2Events = p2Events.filter(looksLikeTeamGameEvent);
+
+    candidatesAll = dedupeEvents(p2Events);
+
+    if (candidatesAll.length > HARD_NEARBY_EVENT_CAP) {
+      candidatesAll = sortEvents(candidatesAll).slice(0, HARD_NEARBY_EVENT_CAP);
+    }
+  }
+
+  const rows = buildPrimaryRows({
+    anchors,
+    candidates: candidatesAll,
+    radiusMiles,
+    tripDays,
+    secondaryAttractionId: secondaryAttractionId || null,
+  });
+
+  const wantsGenres = (musicGenres?.length || 0) + (sportsGenres?.length || 0) > 0;
+  let rowsWithNearbyMatch = 0;
+
+  if (computeNearbyMatch && wantsGenres) {
+    debug.notes.push("computeNearbyMatch=1: computing hasNearbyMatch via small TM existence checks.");
+    const tmExistCache = new Map();
+
+    for (const row of rows) {
+      row.hasNearbyMatch = false;
+
+      const lat = row?.anchor?.lat;
+      const lon = row?.anchor?.lon;
+      const start = row?.windowStart;
+      const end = row?.windowEnd;
+
+      if (lat == null || lon == null || !start || !end) continue;
+
+      const blockedKeys = new Set();
+      blockedKeys.add(rowEventIdentityKey(row.anchor));
+      for (const se of Array.isArray(row.secondaryEvents) ? row.secondaryEvents : []) {
+        blockedKeys.add(rowEventIdentityKey(se));
+      }
+
+      const ok = await hasAnyGenreMatchNearby({
+        startYMD: start,
+        endYMD: end,
+        lat,
+        lon,
+        radiusMiles,
+        countryCodes,
+        musicGenres,
+        sportsGenres,
+        blockedKeys,
+        tmExistCache,
+      });
+
+      row.hasNearbyMatch = !!ok;
+      if (row.hasNearbyMatch) rowsWithNearbyMatch += 1;
+    }
+
+    debug.counts.rowsWithNearbyMatch = rowsWithNearbyMatch;
+  } else {
+    for (const row of rows) delete row.hasNearbyMatch;
+    debug.notes.push(
+      wantsGenres
+        ? "computeNearbyMatch not requested; skipping hasNearbyMatch."
+        : "No genres selected; skipping hasNearbyMatch."
+    );
+    debug.counts.rowsWithNearbyMatch = 0;
+  }
+
+  debug.counts.anchorsUsed = anchors.length;
+  debug.counts.rows = rows.length;
+
+  return { status: 200, payload: { count: rows.length, rows, debug } };
+}
 
 export async function GET(req) {
-  try {
-    const { searchParams } = new URL(req.url);
+  const t0 = nowMs();
+  const key = canonicalKeyFromUrl(req.url);
 
-    const primaryId = searchParams.get("primaryId");
-    const secondaryId = searchParams.get("secondaryId");
+  // 1) TTL cache
+  const cached = TTL_CACHE.get(key);
+  if (cached) {
+    const age = nowMs() - cached.ts;
+    const ttl =
+      cached.status === 200
+        ? CACHE_TTL_OK_MS
+        : cached.status === 429
+        ? CACHE_TTL_429_MS
+        : CACHE_TTL_ERR_MS;
 
-    // Keep these (even though rows mode doesn't use genres) so your UI can still pass them through
-    sanitizePickList(searchParams.getAll("musicGenres"), MUSIC_ALLOWED);
-    sanitizePickList(searchParams.getAll("sportsGenres"), SPORTS_ALLOWED);
-
-    const mode = (searchParams.get("mode") || "trips").toLowerCase(); // "rows" | "trips"
-    const isRowsMode = mode === "rows";
-
-    const tripDays = clampInt(searchParams.get("tripDays"), 1, 30, DEFAULT_TRIP_DAYS);
-
-    const radiusMilesRaw = searchParams.get("radiusMiles");
-    let radiusMiles = clampInt(radiusMilesRaw, 1, 2000, DEFAULT_RADIUS_MILES);
-
-    if (!radiusMilesRaw) {
-      if (tripDays <= 3) radiusMiles = 60;
-      else if (tripDays <= 5) radiusMiles = 120;
-      else radiusMiles = 180;
-    }
-
-    const startYMD = isYMD(searchParams.get("start"))
-      ? searchParams.get("start")
-      : isYMD(searchParams.get("startYMD"))
-      ? searchParams.get("startYMD")
-      : null;
-
-    const endYMD = isYMD(searchParams.get("end"))
-      ? searchParams.get("end")
-      : isYMD(searchParams.get("endYMD"))
-      ? searchParams.get("endYMD")
-      : null;
-
-    const defaultStart = startYMD || todayUTCYMD();
-    // make default window large so "entire schedule" doesn't cut off early
-    const defaultEnd = endYMD || addDaysYMD(defaultStart, 420);
-
-    const countryCodeRaw = searchParams.get("countryCode") || "US,CA";
-    const countryCodes = normalizeCountryCodes(countryCodeRaw);
-
-    const primary = parsePickId(primaryId);
-    const secondary = parsePickId(secondaryId);
-
-    const primaryAttractionId =
-      primary?.kind === "team"
-        ? primary?.attractionId
-        : primary?.kind === "artist"
-        ? primary?.attractionId
-        : null;
-
-    const secondaryAttractionId =
-      secondary?.kind === "team"
-        ? secondary?.attractionId
-        : secondary?.kind === "artist"
-        ? secondary?.attractionId
-        : null;
-
-    const halfWindowDays = Math.floor(tripDays / 2);
-
-    const debug = {
-      inputs: {
-        primaryId: primaryId || null,
-        secondaryId: secondaryId || null,
-        tripDays,
-        halfWindowDays,
-        radiusMiles,
-        startYMD,
-        endYMD,
-        countryCode: countryCodes.join(","),
-        mode,
-      },
-      counts: {
-        anchorsFetched: 0,
-        anchorOccurrences: 0,
-        anchorsUsed: 0,
-        rows: 0,
-      },
-      notes: [
-        "Rows mode: always returns the full P1 schedule (paged), and highlights P1 rows that have any P2 events within radius+window.",
-        "Genre matching is NOT computed here (client fetches it lazily via /api/trip-matches only when genres are selected).",
-        "Anchors are deduped to occurrences to prevent premium seating duplicates from producing multiple rows.",
-      ],
-      tm: {},
-    };
-
-    if (!TM_KEY) {
-      return NextResponse.json({ count: 0, rows: [], error: "Missing TICKETMASTER_API_KEY", debug }, { status: 500 });
-    }
-
-    if (!primaryAttractionId) {
-      return NextResponse.json(
-        { count: 0, rows: [], debug, error: "primaryId missing attractionId (expects team/artist IDs with attractionId)." },
-        { status: 400 }
-      );
-    }
-
-    if (!isRowsMode) {
-      return NextResponse.json(
-        { error: "This /api/search build is optimized for mode=rows.", debug },
-        { status: 400 }
-      );
-    }
-
-    // -------------------- Fetch anchor events (primary) (PAGED) --------------------
-    const anchorParams = new URLSearchParams();
-    anchorParams.set("sort", "date,asc");
-    anchorParams.set("attractionId", String(primaryAttractionId));
-    anchorParams.set("startDateTime", `${defaultStart}T00:00:00Z`);
-    anchorParams.set("endDateTime", `${defaultEnd}T23:59:59Z`);
-
-    const anchorFetch = await fetchAllPagesForCountries(anchorParams, countryCodes, HARD_ANCHOR_EVENT_CAP);
-    debug.tm.anchorPerCountry = anchorFetch.perCountry;
-
-    let anchorsAll = sortEvents(anchorFetch.events);
-
-    if (primary?.kind === "team") {
-      anchorsAll = anchorsAll.filter(looksLikeTeamGameEvent);
-    }
-
-    anchorsAll = anchorsAll.slice(0, HARD_ANCHOR_EVENT_CAP);
-    debug.counts.anchorsFetched = anchorsAll.length;
-
-    const anchorOccSeen = new Set();
-    const anchors = [];
-    for (const e of anchorsAll) {
-      const sig = dedupeKey(e) || gameKey(e);
-      if (!sig) continue;
-      if (anchorOccSeen.has(sig)) continue;
-      anchorOccSeen.add(sig);
-      anchors.push(e);
-    }
-    debug.counts.anchorOccurrences = anchors.length;
-
-    if (anchors.length === 0) {
-      return NextResponse.json({ count: 0, rows: [], debug });
-    }
-
-    // -------------------- Fetch P2 schedule for overlap shading (PAGED) --------------------
-    let candidatesAll = [];
-
-    if (!secondaryAttractionId) {
-      debug.tm.candidatePerCountry = [];
-      debug.notes.push("Rows mode: no secondary selected, skipping candidate fetch.");
+    if (age >= 0 && age <= ttl) {
+      const res = NextResponse.json(cached.payload, { status: cached.status });
+      return setDebugHeaders(res, { cache: "HIT", key, tookMs: nowMs() - t0 });
     } else {
-      const candidateParams = new URLSearchParams();
-      candidateParams.set("sort", "date,asc");
-
-      const firstAnchor = eventLocalDate(anchors[0]);
-      const lastAnchor = eventLocalDate(anchors[anchors.length - 1]);
-
-      const bandStart = firstAnchor ? addDaysYMD(firstAnchor, -halfWindowDays) : defaultStart;
-      const bandEnd = lastAnchor ? addDaysYMD(lastAnchor, +halfWindowDays) : defaultEnd;
-
-      if (bandStart) candidateParams.set("startDateTime", `${bandStart}T00:00:00Z`);
-      if (bandEnd) candidateParams.set("endDateTime", `${bandEnd}T23:59:59Z`);
-      candidateParams.set("attractionId", String(secondaryAttractionId));
-
-      debug.tm.candidateBand = { bandStart, bandEnd, attractionId: secondaryAttractionId };
-
-      const p2Fetch = await fetchAllPagesForCountries(candidateParams, countryCodes, HARD_NEARBY_EVENT_CAP);
-      debug.tm.candidatePerCountry = p2Fetch.perCountry;
-
-      let p2Events = p2Fetch.events || [];
-      if (secondary?.kind === "team") {
-        p2Events = p2Events.filter(looksLikeTeamGameEvent);
-      }
-
-      // NOTE: we do NOT apply isExcludedFromMatching here aggressively, because some sports variants
-      // can have funky classification fields; overlap shading should be tolerant.
-      candidatesAll = dedupeEvents(p2Events);
-
-      if (candidatesAll.length > HARD_NEARBY_EVENT_CAP) {
-        candidatesAll = sortEvents(candidatesAll).slice(0, HARD_NEARBY_EVENT_CAP);
-      }
+      TTL_CACHE.delete(key);
     }
-
-    const rows = buildPrimaryRows({
-      anchors,
-      candidates: candidatesAll,
-      radiusMiles,
-      tripDays,
-      secondaryAttractionId: secondaryAttractionId || null,
-    });
-
-    debug.counts.anchorsUsed = anchors.length;
-    debug.counts.rows = rows.length;
-
-    return NextResponse.json({ count: rows.length, rows, debug });
-  } catch (e) {
-    return NextResponse.json({ count: 0, rows: [], error: String(e?.message || e) }, { status: 500 });
   }
+
+  // 2) In-flight dedupe
+  const inflight = INFLIGHT.get(key);
+  if (inflight) {
+    const { status, payload } = await inflight;
+    const res = NextResponse.json(payload, { status });
+    return setDebugHeaders(res, { cache: "INFLIGHT", key, tookMs: nowMs() - t0 });
+  }
+
+  // 3) Compute once
+  const p = (async () => {
+    try {
+      return await computeSearch(req);
+    } catch (e) {
+      return { status: 500, payload: { count: 0, rows: [], error: String(e?.message || e) } };
+    }
+  })();
+
+  INFLIGHT.set(key, p);
+
+  const { status, payload } = await p.finally(() => {
+    INFLIGHT.delete(key);
+  });
+
+  // Cache it briefly (even 429/errors, but very short) to reduce hammering.
+  TTL_CACHE.set(key, { ts: nowMs(), status, payload });
+
+  const res = NextResponse.json(payload, { status });
+  return setDebugHeaders(res, { cache: "MISS", key, tookMs: nowMs() - t0 });
 }

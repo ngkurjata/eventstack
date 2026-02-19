@@ -130,7 +130,6 @@ function getSegment(e) {
 
 /**
  * "Blob" of segment+genre+subGenre (your key fix).
- * Ex: "Music Pop Electro Pop" => normalized blob includes "electro pop"
  */
 function classificationBlob(e) {
   const c0 = e?.classifications?.[0] || null;
@@ -140,26 +139,27 @@ function classificationBlob(e) {
   return norm(parts.join(" "));
 }
 
+function looksLikeCurling(e) {
+  const n = String(e?.name || "").toLowerCase();
+  return (
+    n.includes("curling") ||
+    n.includes("brier") ||
+    n.includes("scotties") ||
+    n.includes("grand slam of curling")
+  );
+}
+
 function localDateTimeForSort(e) {
   return e?.dates?.start?.dateTime || e?.dates?.start?.localDate || "9999-12-31";
 }
 
 /**
- * NEW: Determine which selected "parent" pill this event matched.
- * - If no genre filters, returns null (caller may include all).
- * - If filters exist, returns a parent label (exactly one of the selected labels).
- *
- * Priority:
- *  1) Music parents in the order provided in query
- *  2) Sports parents in the order provided in query
+ * Determine which selected parent pill this event matched.
  */
 function matchedParentLabelForEvent(e, musicParentsNorm, sportsParentsNorm, musicParentsRaw, sportsParentsRaw) {
   const blob = classificationBlob(e);
   const seg = getSegment(e);
 
-  // If user chose only one side, we still only check that side.
-  // But we also keep the prior behavior: if user selected any filters,
-  // drop "other" segment events entirely in the main loop.
   if (seg === "music") {
     for (let i = 0; i < musicParentsNorm.length; i++) {
       const g = musicParentsNorm[i];
@@ -179,41 +179,177 @@ function matchedParentLabelForEvent(e, musicParentsNorm, sportsParentsNorm, musi
   return null;
 }
 
+/**
+ * Fetch a single TM page, return raw events + page info.
+ */
+async function fetchPage(urlBase, page) {
+  const url = new URL(urlBase.toString());
+  url.searchParams.set("page", String(page));
+
+  const r = await fetch(url.toString(), { cache: "no-store" });
+  const json = await r.json().catch(() => ({}));
+
+  if (!r.ok) {
+    return { ok: false, error: "Ticketmaster error", status: r.status, detail: json, raw: [], page: null, size: null };
+  }
+
+  const raw = Array.isArray(json?._embedded?.events) ? json._embedded.events : [];
+  const pageInfo = json?.page || null;
+  const size = Number(url.searchParams.get("size") || 200);
+
+  return { ok: true, raw, page: pageInfo, size };
+}
+
+/**
+ * Your prior bulk fetch (kept for full events mode).
+ */
 async function fetchAllPages(urlBase, maxPages) {
   const all = [];
   let page = 0;
 
   while (page < maxPages && all.length < HARD_MATCH_EVENT_CAP) {
-    const url = new URL(urlBase.toString());
-    url.searchParams.set("page", String(page));
+    const r = await fetchPage(urlBase, page);
+    if (!r.ok) return { ok: false, error: r.error, status: r.status, detail: r.detail, events: [] };
 
-    const r = await fetch(url.toString(), { cache: "no-store" });
-    const json = await r.json().catch(() => ({}));
+    all.push(...r.raw);
 
-    if (!r.ok) {
-      return { ok: false, error: "Ticketmaster error", status: r.status, detail: json, events: [] };
-    }
+    const totalPages = Number(r.page?.totalPages);
+    const number = Number(r.page?.number);
 
-    const raw = Array.isArray(json?._embedded?.events) ? json._embedded.events : [];
-    all.push(...raw);
-
-    const pageInfo = json?.page || null;
-    const totalPages = Number(pageInfo?.totalPages);
-    const number = Number(pageInfo?.number);
-
-    // Stop if TM says no more pages
     if (Number.isFinite(totalPages) && Number.isFinite(number)) {
       if (number >= totalPages - 1) break;
     }
 
-    // If TM didn’t return page info, stop if we got less than size (likely last page)
-    const size = Number(url.searchParams.get("size") || 200);
-    if (raw.length < size) break;
-
+    if (r.raw.length < (r.size || 200)) break;
     page += 1;
   }
 
   return { ok: true, events: all };
+}
+
+/**
+ * NEW: exists-only scan that stops as soon as it finds 1 qualifying event after filtering/dedupe.
+ * Returns { exists: boolean, debug }.
+ */
+async function existsScan(urlBase, maxPages, wantsCurling, filters) {
+  const byKeyTM = new Map(); // key -> best raw TM variant
+  const parentByKey = new Map(); // key -> parent label
+
+  const {
+    musicGenresRaw,
+    sportsGenresRaw,
+    musicParentsNorm,
+    sportsParentsNorm,
+    wantsAnyFilter,
+  } = filters;
+
+  // Curling: try keyword=curling first; if none, fall back to broad fetch.
+  const tryCurlingFirst = wantsCurling === true;
+
+  const scanWithUrl = async (scanUrlBase) => {
+    let page = 0;
+    let scanned = 0;
+
+    while (page < maxPages && scanned < HARD_MATCH_EVENT_CAP) {
+      const r = await fetchPage(scanUrlBase, page);
+      if (!r.ok) return { ok: false, error: r.error, status: r.status, detail: r.detail };
+
+      const raw = r.raw || [];
+      scanned += raw.length;
+
+      for (const e of raw) {
+        if (!looksLikeCompetitionDayEvent(e)) continue;
+
+        const key = gameKeyFromTMEvent(e);
+        if (!key) continue;
+
+        const segment = getSegment(e);
+
+        if (wantsAnyFilter && segment === "other") continue;
+
+        if (wantsAnyFilter) {
+          if (musicGenresRaw.length === 0 && segment === "music") continue;
+          if (sportsGenresRaw.length === 0 && segment === "sports") continue;
+        }
+
+        // Apply parent-genre matching (blob includes subgenres)
+        let matchedParent = null;
+
+        if (!wantsAnyFilter) {
+          matchedParent = null;
+        } else {
+          matchedParent = matchedParentLabelForEvent(
+            e,
+            musicParentsNorm,
+            sportsParentsNorm,
+            musicGenresRaw,
+            sportsGenresRaw
+          );
+
+          // Curling override
+          if (!matchedParent && wantsCurling && getSegment(e) === "sports" && looksLikeCurling(e)) {
+            matchedParent = "Curling";
+          }
+
+          if (!matchedParent) continue;
+        }
+
+        const existing = byKeyTM.get(key);
+        if (!existing) {
+          byKeyTM.set(key, e);
+          parentByKey.set(key, matchedParent);
+        } else {
+          const better = chooseBetterTMVariant(existing, e);
+          byKeyTM.set(key, better);
+          if (!parentByKey.has(key)) parentByKey.set(key, matchedParent);
+        }
+
+        // ✅ We found at least one qualifying (deduped) match — stop immediately.
+        return {
+          ok: true,
+          exists: true,
+          debug: {
+            scanned,
+            page,
+            dedupedKeys: byKeyTM.size,
+          },
+        };
+      }
+
+      const totalPages = Number(r.page?.totalPages);
+      const number = Number(r.page?.number);
+      if (Number.isFinite(totalPages) && Number.isFinite(number)) {
+        if (number >= totalPages - 1) break;
+      }
+
+      if (raw.length < (r.size || 200)) break;
+      page += 1;
+    }
+
+    return {
+      ok: true,
+      exists: false,
+      debug: {
+        scanned,
+        pagesTried: page + 1,
+        dedupedKeys: byKeyTM.size,
+      },
+    };
+  };
+
+  if (tryCurlingFirst) {
+    const curlingUrl = new URL(urlBase.toString());
+    curlingUrl.searchParams.set("keyword", "curling");
+
+    const first = await scanWithUrl(curlingUrl);
+    if (!first.ok) return first;
+    if (first.exists) return first;
+
+    // If keyword path had no qualifying results, fall back to broad
+    return await scanWithUrl(urlBase);
+  }
+
+  return await scanWithUrl(urlBase);
 }
 
 export async function GET(req) {
@@ -231,12 +367,32 @@ export async function GET(req) {
     const lon = Number(searchParams.get("lon"));
     const radiusMiles = Number(searchParams.get("radiusMiles") || 25);
 
-    // Treat incoming as DISPLAY strings; keep raw order (important for deterministic pill choice)
-    const musicGenresRaw = getParamList(searchParams, "musicGenres");
-    const sportsGenresRaw = getParamList(searchParams, "sportsGenres");
+    const existsOnly =
+      searchParams.get("exists") === "1" ||
+      searchParams.get("existsOnly") === "1" ||
+      searchParams.get("onlyExists") === "1";
+
+    // Treat incoming as DISPLAY strings; keep raw order
+    let musicGenresRaw = getParamList(searchParams, "musicGenres");
+    let sportsGenresRaw = getParamList(searchParams, "sportsGenres");
+
+    // ✅ HARD CAP: max 4 total (music + sports combined)
+    const MAX_TOTAL_GENRES = 4;
+    let combined = [...musicGenresRaw, ...sportsGenresRaw];
+
+    if (combined.length > MAX_TOTAL_GENRES) {
+      combined = combined.slice(0, MAX_TOTAL_GENRES);
+    }
+
+    // Re-split after cap (preserve original ordering within combined)
+    musicGenresRaw = combined.filter((g) => musicGenresRaw.includes(g));
+    sportsGenresRaw = combined.filter((g) => sportsGenresRaw.includes(g));
 
     const musicParentsNorm = musicGenresRaw.map((s) => norm(s));
     const sportsParentsNorm = sportsGenresRaw.map((s) => norm(s));
+
+    // Curling is keyword-driven: TM classification often won't say "Curling"
+    const wantsCurling = sportsGenresRaw.some((g) => String(g).toLowerCase() === "curling");
 
     if (!start || !end || !Number.isFinite(lat) || !Number.isFinite(lon)) {
       return NextResponse.json(
@@ -259,16 +415,83 @@ export async function GET(req) {
     url.searchParams.set("size", "200");
     url.searchParams.set("sort", "date,asc");
 
-    const fetched = await fetchAllPages(url, MAX_PAGES);
-    if (!fetched.ok) {
-      return NextResponse.json(
-        {
-          error: fetched.error || "Ticketmaster error",
-          status: fetched.status,
-          detail: fetched.detail,
+    // If Curling selected, add keyword search to pull curling inventory reliably
+    if (wantsCurling) {
+      url.searchParams.set("keyword", 'curling brier scotties "grand slam of curling"');
+    }
+
+    const wantsAnyFilter = musicGenresRaw.length + sportsGenresRaw.length > 0;
+
+    const filterBundle = {
+      musicGenresRaw,
+      sportsGenresRaw,
+      musicParentsNorm,
+      sportsParentsNorm,
+      wantsAnyFilter,
+    };
+
+    // ✅ FAST PATH: exists-only scan
+    if (existsOnly) {
+      const r = await existsScan(url, MAX_PAGES, wantsCurling, filterBundle);
+
+      if (!r.ok) {
+        return NextResponse.json(
+          { error: r.error || "Ticketmaster error", status: r.status, detail: r.detail },
+          { status: 502 }
+        );
+      }
+
+      return NextResponse.json({
+        exists: !!r.exists,
+        debug: {
+          mode: "exists",
+          exists: !!r.exists,
+          ...r.debug,
+          filters: {
+            musicGenres: musicGenresRaw,
+            sportsGenres: sportsGenresRaw,
+            radiusMiles,
+            radiusKm: km,
+            start,
+            end,
+          },
         },
-        { status: 502 }
-      );
+      });
+    }
+
+    // --- Full list mode (existing behavior) ---
+
+    // Default: broad fetch (no keyword) to get the full local inventory.
+    // Curling: try keyword=curling first; if none, fall back to broad fetch.
+    let fetched = null;
+
+    if (wantsCurling) {
+      const curlingUrl = new URL(url.toString());
+      curlingUrl.searchParams.set("keyword", "curling");
+
+      const curlingFetched = await fetchAllPages(curlingUrl, MAX_PAGES);
+
+      if (!curlingFetched.ok) {
+        return NextResponse.json(
+          { error: curlingFetched.error || "Ticketmaster error", status: curlingFetched.status, detail: curlingFetched.detail },
+          { status: 502 }
+        );
+      }
+
+      if ((curlingFetched.events || []).length > 0) {
+        fetched = curlingFetched;
+      }
+    }
+
+    if (!fetched) {
+      fetched = await fetchAllPages(url, MAX_PAGES);
+
+      if (!fetched.ok) {
+        return NextResponse.json(
+          { error: fetched.error || "Ticketmaster error", status: fetched.status, detail: fetched.detail },
+          { status: 502 }
+        );
+      }
     }
 
     const rawAll = fetched.events || [];
@@ -278,10 +501,7 @@ export async function GET(req) {
     // key -> matched parent pill label (string) for that key
     const parentByKey = new Map();
 
-    const wantsAnyFilter = musicGenresRaw.length + sportsGenresRaw.length > 0;
-
     for (const e of rawAll) {
-      // Remove non-competition ticket products
       if (!looksLikeCompetitionDayEvent(e)) continue;
 
       const key = gameKeyFromTMEvent(e);
@@ -289,20 +509,16 @@ export async function GET(req) {
 
       const segment = getSegment(e);
 
-      // If user is filtering by anything, drop "other"
       if (wantsAnyFilter && segment === "other") continue;
 
-      // If user selected only music genres, drop sports; if only sports genres, drop music
       if (wantsAnyFilter) {
         if (musicGenresRaw.length === 0 && segment === "music") continue;
         if (sportsGenresRaw.length === 0 && segment === "sports") continue;
       }
 
-      // Apply parent-genre matching (blob includes subgenres)
       let matchedParent = null;
 
       if (!wantsAnyFilter) {
-        // no genre filter -> allow through (genre pill can be null or TM genre; we’ll set null)
         matchedParent = null;
       } else {
         matchedParent = matchedParentLabelForEvent(
@@ -313,7 +529,10 @@ export async function GET(req) {
           sportsGenresRaw
         );
 
-        // If filters exist and no parent matched, skip.
+        if (!matchedParent && wantsCurling && getSegment(e) === "sports" && looksLikeCurling(e)) {
+          matchedParent = "Curling";
+        }
+
         if (!matchedParent) continue;
       }
 
@@ -325,14 +544,10 @@ export async function GET(req) {
         const better = chooseBetterTMVariant(existing, e);
         byKeyTM.set(key, better);
 
-        // keep the pill label stable for this key:
-        // - if we already have one, keep it
-        // - else set it (should be rare)
         if (!parentByKey.has(key)) parentByKey.set(key, matchedParent);
       }
     }
 
-    // Convert to your API shape
     const events = Array.from(byKeyTM.entries())
       .sort(([, a], [, b]) => {
         const ad = localDateTimeForSort(a);
@@ -355,10 +570,6 @@ export async function GET(req) {
             e?._embedded?.venues?.[0]?.country?.countryCode ||
             null,
           segment: getSegment(e),
-
-          // IMPORTANT: “selected parent only”
-          // If filters are active -> always return the matched parent label (Pop/Country/etc)
-          // If no filters -> keep it null so UI can show “Matching” or omit pill
           genre: wantsAnyFilter ? parentLabel : null,
         };
       });

@@ -4,6 +4,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AirportPicker, type Airport } from "../components/AirportPicker";
+import BrandLogo from "../components/BrandLogo";
+import { APP_NAME, TAGLINE } from "../../lib/brand";
 
 /* -------------------- Types -------------------- */
 
@@ -157,8 +159,8 @@ function pickDisplayCityState(citiesInOrder: string[]) {
   }
 
   if (uniq.length === 0) return "Your trip";
-  if (uniq.length === 1) return uniq[0];          // ✅ single city: NO "Area"
-  return `${uniq[0]} Area`;                       // ✅ multi-city: add "Area"
+  if (uniq.length === 1) return uniq[0];
+  return `${uniq[0]} Area`;
 }
 
 function mostCommon(items: string[]) {
@@ -280,24 +282,6 @@ function computeMetroFromGeo(events: RowEvent[], airports: Airport[]) {
   };
 }
 
-/* -------------------- Share URL encoding -------------------- */
-
-function b64urlEncodeJson(obj: any) {
-  const json = JSON.stringify(obj);
-  const bytes = new TextEncoder().encode(json);
-
-  let bin = "";
-  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-
-  const b64 = btoa(bin);
-  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-}
-
-function buildShareUrl(payload: BuildTripPayload) {
-  const encoded = encodeURIComponent(b64urlEncodeJson(payload));
-  return `/share?o=${encoded}`;
-}
-
 /* -------------------- Expedia booking links -------------------- */
 
 function ymdToExpediaMDY(ymd: string | null) {
@@ -342,16 +326,10 @@ function openExpediaFlights(originIata: string, destIataOrCity: string, departYM
   window.open(url, "_blank", "noopener,noreferrer");
 }
 
-function openExpediaFlightHotelBundle(
-  originIata: string,
-  destination: string,
-  departYMD: string | null,
-  returnYMD: string | null
-) {
+function openExpediaFlightHotelBundle(originIata: string, destination: string, departYMD: string | null, returnYMD: string | null) {
   const o = String(originIata || "").trim().toUpperCase();
   const d = String(destination || "").trim();
 
-  // Need dates for the dated package deeplink
   if (!departYMD || !returnYMD || !o || !d) return;
 
   const qs = new URLSearchParams();
@@ -360,12 +338,9 @@ function openExpediaFlightHotelBundle(
   qs.set("NumRoom", "1");
   qs.set("NumAdult", "1");
 
-  // Expedia package deeplink format:
-  // https://www.expedia.com/go/package/search/FlightHotel/YYYY-MM-DD/YYYY-MM-DD?FromAirport=SEA&Destination=dallas...
   const url = `https://www.expedia.com/go/package/search/FlightHotel/${departYMD}/${returnYMD}?${qs.toString()}`;
   window.open(url, "_blank", "noopener,noreferrer");
 }
-
 
 /* -------------------- Page -------------------- */
 
@@ -382,21 +357,17 @@ export default function BuildTripPage() {
   const cities = useMemo(() => uniqueCitiesInOrder(events), [events]);
   const displayCityState = useMemo(() => pickDisplayCityState(cities), [cities]);
 
-
   const { start, end } = useMemo(() => minMaxYMD(events), [events]);
   const checkin = useMemo(() => addDaysUTC(start, -1), [start]);
   const checkout = useMemo(() => addDaysUTC(end, +1), [end]);
 
   const eventStart = start; // first event date
-const eventEnd = end;     // last event date
-
+  const eventEnd = end; // last event date
 
   const [airports, setAirports] = useState<Airport[]>([]);
   const initialAirport = useMemo(() => String(data?.airport || "").toUpperCase(), [data]);
   const [airportIata, setAirportIata] = useState<string>(initialAirport);
-const [copiedToast, setCopiedToast] = useState(false);
-
-
+  const [copiedToast, setCopiedToast] = useState(false);
 
   useEffect(() => setAirportIata(initialAirport), [initialAirport]);
 
@@ -436,35 +407,37 @@ const [copiedToast, setCopiedToast] = useState(false);
   const hasOrigin = Boolean(airportIata && airportIata.trim());
 
   const payloadForShare: BuildTripPayload = useMemo(() => {
-  return {
-    ...(data || {}),
-    airport: airportIata,
-    events,
-    cityState: displayCityState,   // ✅ uses the single/multi-city rule
-    // For displaying/sharing (event dates)
-startYMD: eventStart,
-endYMD: eventEnd,
-
-// Keep travel dates too (for share page / deep links if you want)
-checkinYMD: checkin,
-checkoutYMD: checkout,
-    
-    fallbackTitles: events.map((e) => e?.name).filter(Boolean) as string[],
-  };
-}, [data, airportIata, events, displayCityState, checkin, checkout]);
-
-
-
+    return {
+      ...(data || {}),
+      airport: airportIata,
+      events,
+      cityState: displayCityState,
+      // For displaying/sharing (event dates)
+      startYMD: eventStart,
+      endYMD: eventEnd,
+      // Travel dates (for deep links)
+      checkinYMD: checkin,
+      checkoutYMD: checkout,
+      fallbackTitles: events.map((e) => e?.name).filter(Boolean) as string[],
+    };
+  }, [data, airportIata, events, displayCityState, checkin, checkout, eventStart, eventEnd]);
 
   if (!data) {
     return (
-      <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
-        <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
+      <main className="min-h-screen bg-slate-50">
+        <div className="mx-auto w-full max-w-md px-4 py-10 lg:max-w-3xl">
           <div className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-rose-800 shadow-sm">
             <div className="text-sm font-black">Missing or invalid trip data.</div>
             <div className="mt-2 text-sm font-semibold text-rose-700">
               Go back to results and rebuild your trip selection.
             </div>
+            <button
+              type="button"
+              onClick={() => router.push("/")}
+              className="mt-5 h-11 w-full rounded-2xl bg-slate-900 text-sm font-extrabold text-white hover:bg-slate-800"
+            >
+              Back to search
+            </button>
           </div>
         </div>
       </main>
@@ -472,173 +445,168 @@ checkoutYMD: checkout,
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
-      <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
-        {/* Top bar */}
-        <div className="mb-6 flex items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={() => router.push("/")}
-className="rounded-2xl bg-slate-900 px-4 py-2.5 text-xs font-black text-white hover:bg-slate-800 transition"
-            title="Search again"
-          >
-            Search again
-          </button>
+    <main className="min-h-screen bg-slate-50">
+      {/* Brand bar */}
+      <div className="border-b border-slate-200 bg-white/85 backdrop-blur">
+        <div className="mx-auto w-full max-w-md px-4 py-4 lg:max-w-3xl">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+<BrandLogo />
+              <div className="min-w-0">
+                <div className="text-base font-black tracking-tight text-slate-900 truncate">
+                  Build trip
+                </div>
+                <div className="text-xs text-slate-600 truncate">
+  {TAGLINE}
+</div>
+              </div>
+            </div>
 
-<button
-  type="button"
-  
-onClick={async () => {
-  const homeUrl = "https://eventstack.vercel.app/";
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => router.push("/")}
+                className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2 text-[11px] font-extrabold text-slate-800 hover:bg-slate-50"
+                title="Search again"
+              >
+                Search
+              </button>
 
-  const city = payloadForShare.cityState || "Trip location";
+              <button
+                type="button"
+                onClick={async () => {
+                  const homeUrl = "https://eventstack.vercel.app/";
+                  const city = payloadForShare.cityState || "Trip location";
 
-  const startYMD = payloadForShare.startYMD || null;
-  const endYMD = payloadForShare.endYMD || null;
+                  const startYMD = payloadForShare.startYMD || null;
+                  const endYMD = payloadForShare.endYMD || null;
 
-  const startText = fmtYMDPretty(startYMD);
-  const endText = fmtYMDPretty(endYMD);
+                  const startText = fmtYMDPretty(startYMD);
+                  const endText = fmtYMDPretty(endYMD);
 
-  const dateLine =
-    startYMD && endYMD
-      ? startYMD === endYMD
-        ? startText
-        : `${startText} - ${endText}`
-      : startText || endText || "";
+                  const dateLine =
+                    startYMD && endYMD
+                      ? startYMD === endYMD
+                        ? startText
+                        : `${startText} - ${endText}`
+                      : startText || endText || "";
 
-    
-// Keep short for WhatsApp (and generally nicer)
-const titlesArr = (payloadForShare.fallbackTitles || [])
-  .filter(Boolean)
-  .map(String)
-  .slice(0, 3);
+                  const titlesArr = (payloadForShare.fallbackTitles || [])
+                    .filter(Boolean)
+                    .map(String)
+                    .slice(0, 3);
 
-// WhatsApp supports *bold* in plain text.
-// Outlook plain text will show the asterisks (acceptable tradeoff).
-const cityBold = `*${city}*`;
+                  const cityBold = `*${city}*`;
 
-const shareTextShort = [
-  "Check out what I found at EventStack!",
-  "",
-  cityBold,
-  "",
-  dateLine,
-  "",
-  ...titlesArr.map((t) => `✅ ${t}`),
-  "",
-  "We should definitely plan a trip!",
-  "",
-  `${homeUrl}`,
-]
-  // ✅ DO NOT use filter(Boolean) or you’ll delete "" spacer lines
-  .filter((v) => v !== null && v !== undefined)
-  .join("\n");
+                  const shareTextShort = [
+                    "Check out what I found at EventStack!",
+                    "",
+                    cityBold,
+                    "",
+                    dateLine,
+                    "",
+                    ...titlesArr.map((t) => `✅ ${t}`),
+                    "",
+                    "We should definitely plan a trip!",
+                    "",
+                    `${homeUrl}`,
+                  ]
+                    .filter((v) => v !== null && v !== undefined)
+                    .join("\n");
 
+                  try {
+                    if (navigator.share) {
+                      await navigator.share({
+                        title: "EventStack trip idea",
+                        text: shareTextShort,
+                      });
+                      return;
+                    }
+                  } catch {
+                    // user canceled OR share failed — fall back below
+                  }
 
+                  const textMessage = shareTextShort;
 
-  // 1) Prefer native share sheet when available
-  try {
-    if (navigator.share) {
-      await navigator.share({
-        title: "EventStack trip idea",
-        text: shareTextShort,
-        // omit url to avoid duplicate rendering in some targets
-      });
-      return;
-    }
-  } catch {
-    // user canceled OR share failed — fall back below
-  }
+                  const htmlMessage = `
+                    <div style="font-family: Arial, sans-serif; line-height: 1.35;">
+                      <p style="margin:0 0 10px 0;"><strong>Hear me out…</strong> we should do this trip:</p>
+                      <p style="margin:0 0 10px 0;">
+                        <strong>${escapeHtml(city)}</strong><br/>
+                        ${escapeHtml(dateLine)}
+                      </p>
+                      ${
+                        titlesArr.length
+                          ? `<p style="margin:0 0 10px 0;">${titlesArr
+                              .map((t) => `✅ ${escapeHtml(t)}`)
+                              .join("<br/>")}</p>`
+                          : ""
+                      }
+                      <p style="margin:0;">
+                        <a href="${homeUrl}" style="font-weight:700; text-decoration:none;">
+                          Check out EventStack!
+                        </a><br/>
+                        <span style="color:#64748b; font-size:12px;">${escapeHtml(homeUrl)}</span>
+                      </p>
+                    </div>
+                  `;
 
-  // 2) Clipboard fallback (Outlook paste)
-  const textMessage = shareTextShort;
-
-  const htmlMessage = `
-  <div style="font-family: Arial, sans-serif; line-height: 1.35;">
-    <p style="margin:0 0 10px 0;"><strong>Hear me out…</strong> we should do this trip:</p>
-
-    <p style="margin:0 0 10px 0;">
-      <strong>${escapeHtml(city)}</strong><br/>
-      ${escapeHtml(dateLine)}
-    </p>
-
-    ${
-      titlesArr.length
-        ? `<p style="margin:0 0 10px 0;">${titlesArr
-            .map((t) => `✅ ${escapeHtml(t)}`)
-            .join("<br/>")}</p>`
-        : ""
-    }
-
-    <p style="margin:0;">
-      <a href="${homeUrl}" style="font-weight:700; text-decoration:none;">
-        Check out EventStack!
-      </a>
-      <br/>
-      <span style="color:#64748b; font-size:12px;">${escapeHtml(homeUrl)}</span>
-    </p>
-  </div>
-`;
-
-
-
-
-  try {
-    await navigator.clipboard.write([
-      new ClipboardItem({
-        "text/html": new Blob([htmlMessage], { type: "text/html" }),
-        "text/plain": new Blob([textMessage], { type: "text/plain" }),
-      }),
-    ]);
-
-    setCopiedToast(true);
-    setTimeout(() => setCopiedToast(false), 2000);
-  } catch {
-    try {
-      await navigator.clipboard.writeText(textMessage);
-      setCopiedToast(true);
-      setTimeout(() => setCopiedToast(false), 2000);
-    } catch {
-      // clipboard blocked; nothing else we can do
-    }
-  }
-}}
-
-
-
-
-
-className="rounded-2xl bg-slate-900 px-4 py-2.5 text-xs font-black text-white hover:bg-slate-800 transition"
-  title="Share this trip"
->
-  Share trip
-</button>
-
-
-
-            
+                  try {
+                    await navigator.clipboard.write([
+                      new ClipboardItem({
+                        "text/html": new Blob([htmlMessage], { type: "text/html" }),
+                        "text/plain": new Blob([textMessage], { type: "text/plain" }),
+                      }),
+                    ]);
+                    setCopiedToast(true);
+                    setTimeout(() => setCopiedToast(false), 2000);
+                  } catch {
+                    try {
+                      await navigator.clipboard.writeText(textMessage);
+                      setCopiedToast(true);
+                      setTimeout(() => setCopiedToast(false), 2000);
+                    } catch {
+                      // clipboard blocked
+                    }
+                  }
+                }}
+                className="rounded-2xl bg-slate-900 px-3.5 py-2 text-[11px] font-extrabold text-white hover:bg-slate-800"
+                title="Share this trip"
+              >
+                Share
+              </button>
+            </div>
+          </div>
         </div>
+      </div>
 
-        {/* Summary */}
+      {/* Content */}
+      <div className="mx-auto w-full max-w-md px-4 py-6 lg:max-w-3xl lg:py-10">
+        {/* Summary card */}
         <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
           <div className="text-center">
-            <h1 className="text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
-  {displayCityState}
-</h1>
+            <h1 className="text-2xl font-black tracking-tight text-slate-900 sm:text-4xl">
+              {displayCityState}
+            </h1>
 
+            <div className="mt-3 text-base font-extrabold text-slate-800 sm:text-lg">
+              {fmtYMDPretty(eventStart)} → {fmtYMDPretty(eventEnd)}
+            </div>
 
-            <div className="mt-3 text-lg font-extrabold text-slate-800">
-  {fmtYMDPretty(eventStart)} → {fmtYMDPretty(eventEnd)}
-</div>
-
-
-
+            <div className="mt-2 text-xs text-slate-500">
+              Travel dates for booking: {fmtYMDPretty(checkin)} → {fmtYMDPretty(checkout)}
+            </div>
           </div>
         </section>
 
-        {/* Events */}
-        <section className="mt-6">
-          <div className="mt-2 space-y-2">
+        {/* Events card */}
+        <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <div className="mb-4 text-center">
+            <div className="text-xl font-extrabold tracking-tight text-slate-900">Events</div>
+            <div className="mt-1 text-xs text-slate-500">Tickets open in a new tab.</div>
+          </div>
+
+          <div className="space-y-2">
             {events.map((e) => {
               const where = String(e.location || "").trim() || "Location TBD";
               return (
@@ -648,13 +616,13 @@ className="rounded-2xl bg-slate-900 px-4 py-2.5 text-xs font-black text-white ho
                 >
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
-                      <div className="text-sm font-semibold text-slate-700">
+                      <div className="text-xs font-semibold text-slate-700 sm:text-sm">
                         {fmtYMDPretty(e.date || null)}
                         <span className="mx-2 text-slate-300">•</span>
                         {where}
                       </div>
 
-                      <div className="mt-1 text-base font-black text-slate-900">
+                      <div className="mt-1 text-sm font-black text-slate-900 sm:text-base">
                         {e.name || "Untitled event"}
                       </div>
                     </div>
@@ -664,12 +632,12 @@ className="rounded-2xl bg-slate-900 px-4 py-2.5 text-xs font-black text-white ho
                         href={e.url}
                         target="_blank"
                         rel="noreferrer"
-className="shrink-0 rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white hover:bg-slate-800 flex items-center justify-center"
+                        className="shrink-0 rounded-2xl bg-slate-900 px-4 py-2 text-xs font-extrabold text-white hover:bg-slate-800 flex items-center justify-center"
                       >
                         Tickets
                       </a>
                     ) : (
-                      <div className="shrink-0 rounded-xl bg-slate-200 px-3 py-2 text-xs font-black text-slate-500">
+                      <div className="shrink-0 rounded-2xl bg-slate-200 px-4 py-2 text-xs font-extrabold text-slate-500 text-center">
                         No link
                       </div>
                     )}
@@ -680,10 +648,15 @@ className="shrink-0 rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-wh
           </div>
         </section>
 
-        {/* Travel / Booking */}
+        {/* Travel / Booking card */}
         <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
           <div className="text-center">
-            <div className="text-xl font-black tracking-tight text-slate-900">Departing From</div>
+            <div className="text-xl font-extrabold tracking-tight text-slate-900">
+              Travel & Booking
+            </div>
+            <div className="mt-1 text-xs text-slate-500">
+              Choose your origin airport, then book via Expedia.
+            </div>
 
             <div className="mx-auto mt-4 w-full sm:max-w-md">
               <AirportPicker
@@ -698,7 +671,7 @@ className="shrink-0 rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-wh
               <button
                 type="button"
                 onClick={() => openExpediaHotels(destinationQuery, checkin, checkout)}
-                className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-black text-white hover:bg-slate-800"
+                className="h-12 rounded-2xl bg-slate-900 px-4 text-sm font-extrabold text-white hover:bg-slate-800"
               >
                 Hotels
               </button>
@@ -712,8 +685,10 @@ className="shrink-0 rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-wh
                   openExpediaFlights(airportIata, destForFlights, checkin, checkout);
                 }}
                 className={cx(
-                  "rounded-2xl px-4 py-3 text-sm font-black transition",
-                  hasOrigin ? "bg-slate-900 text-white hover:bg-slate-800" : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                  "h-12 rounded-2xl px-4 text-sm font-extrabold transition",
+                  hasOrigin
+                    ? "bg-slate-900 text-white hover:bg-slate-800"
+                    : "bg-slate-200 text-slate-400 cursor-not-allowed"
                 )}
               >
                 Flights
@@ -727,15 +702,21 @@ className="shrink-0 rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-wh
                   openExpediaFlightHotelBundle(airportIata, destinationQuery, checkin, checkout);
                 }}
                 className={cx(
-                  "rounded-2xl px-4 py-3 text-sm font-black transition",
-                  hasOrigin ? "bg-slate-900 text-white hover:bg-slate-800" : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                  "h-12 rounded-2xl px-4 text-sm font-extrabold transition",
+                  hasOrigin
+                    ? "bg-slate-900 text-white hover:bg-slate-800"
+                    : "bg-slate-200 text-slate-400 cursor-not-allowed"
                 )}
               >
                 Packages
               </button>
             </div>
           </div>
-                </section>
+        </section>
+
+        <div className="pb-6 pt-6 text-center text-xs text-slate-500">
+  {APP_NAME} • {TAGLINE}
+</div>
       </div>
 
       {/* Clipboard Toast */}
@@ -749,4 +730,3 @@ className="shrink-0 rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-wh
     </main>
   );
 }
-
