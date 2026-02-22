@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
+import crypto from "crypto";
 
 /**
  * /api/trips
@@ -16,11 +17,11 @@ import path from "path";
  * - scores buckets by counting matched genres in window (genre labels forced to selected genres)
  *
  * Primary goal: protect TM key (avoid 429) via:
- * - Redis-backed GLOBAL throttling (spacing gate)
+ * - Redis-backed GLOBAL throttling
  * - Circuit breaker on 429
- * - Redis cache for TM responses (canonical key excludes apikey)
- * - Per-request TM call budget (ONLY on cache MISS)
- * - Redis cache for /api/trips final payload (prevents rebuild on back nav)
+ * - Redis cache for TM responses (hashed key + pruned payload)
+ * - Per-request TM call budget
+ * - Redis cache for final trips payload (prevents rebuild on back nav)
  */
 
 function json(res, status = 200) {
@@ -75,7 +76,7 @@ function ymdLessEq(aYMD, bYMD) {
   return a.getTime() <= b.getTime();
 }
 
-/* -------------------- Server-side request dedupe/cache -------------------- */
+/* -------------------- Server-side request dedupe/cache (memory) -------------------- */
 
 const INFLIGHT = new Map(); // key -> Promise<{ status, payload }>
 const TTL_CACHE = new Map(); // key -> { ts, status, payload }
@@ -152,14 +153,10 @@ async function redisSetEx(key, ttlSeconds, value) {
   }
 }
 
-async function redisExpire(key, ttlSeconds) {
-  if (!HAS_REDIS) return false;
-  try {
-    await redisCommand("EXPIRE", [key, String(ttlSeconds)]);
-    return true;
-  } catch {
-    return false;
-  }
+/* -------------------- Hash helpers -------------------- */
+
+function sha1(s) {
+  return crypto.createHash("sha1").update(String(s)).digest("hex");
 }
 
 /* -------------------- Ticketmaster gateway (limiter + breaker + cache) -------------------- */
@@ -174,9 +171,9 @@ const TM_GLOBAL_SPACING_MS = 950;
 // Circuit breaker: when we see 429, pause TM calls until this timestamp.
 const TM_BREAKER_KEY = "tm:breaker:untilMs";
 
-// Response cache: canonical TM request -> response JSON
+// Response cache (hashed + pruned)
 const TM_CACHE_TTL_SECONDS = 6 * 60 * 60; // 6 hours
-const TM_CACHE_PREFIX = "tm:resp:v2:"; // bump version whenever keying logic changes
+const TM_CACHE_PREFIX = "tm:resp:v2:";
 
 // Memory fallback cache (dev / if Redis down)
 const MEM_TM_CACHE = new Map(); // key -> { expMs, value }
@@ -187,24 +184,51 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-// Canonicalize TM params deterministically, and NEVER include apikey.
-function tmCanonicalCacheKey(params) {
-  const entries = [];
+// Build a stable canonical query string (excluding apikey), then hash it.
+function safeTmCacheKeyFromParams(params) {
+  const u = new URL(TM_EVENTS);
   for (const [k, v] of params.entries()) {
-    if (String(k).toLowerCase() === "apikey") continue;
-    entries.push([String(k), String(v)]);
+    if (k.toLowerCase() === "apikey") continue;
+    u.searchParams.append(k, v);
   }
+  const entries = [];
+  u.searchParams.forEach((v, k) => entries.push([k, v]));
   entries.sort((a, b) => {
     if (a[0] !== b[0]) return a[0] < b[0] ? -1 : 1;
     return a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0;
   });
-
   const q = new URLSearchParams();
   for (const [k, v] of entries) q.append(k, v);
 
-  // include path so future endpoints don't collide
-  const u = new URL(TM_EVENTS);
-  return `${TM_CACHE_PREFIX}${u.pathname}?${q.toString()}`;
+  const canonical = `${u.pathname}?${q.toString()}`;
+  return `${TM_CACHE_PREFIX}${sha1(canonical)}`;
+}
+
+// Prune TM events to only the fields we actually use downstream.
+// This keeps Redis values small enough that SET succeeds reliably.
+function pruneTmEvent(e) {
+  const v = e?._embedded?.venues?.[0] || null;
+  const city = v?.city?.name ?? null;
+  const state = v?.state?.stateCode ?? null;
+  const country = v?.country?.countryCode ?? null;
+  const lat = v?.location?.latitude ?? null;
+  const lon = v?.location?.longitude ?? null;
+
+  return {
+    name: e?.name ?? "",
+    url: e?.url ?? null,
+    dates: { start: { localDate: e?.dates?.start?.localDate ?? null } },
+    _embedded: {
+      venues: [
+        {
+          city: { name: city },
+          state: { stateCode: state },
+          country: { countryCode: country },
+          location: { latitude: lat, longitude: lon },
+        },
+      ],
+    },
+  };
 }
 
 function parseRetryAfterMs(res) {
@@ -241,7 +265,6 @@ async function setBreakerMs(untilMs) {
 }
 
 async function globalThrottleWait() {
-  // Redis-backed spacing gate using a single "next allowed time" key.
   const key = "tm:gate:nextAllowedMs";
 
   if (HAS_REDIS) {
@@ -258,14 +281,12 @@ async function globalThrottleWait() {
     return;
   }
 
-  // Memory fallback
   const now = Date.now();
   const waitMs = Math.max(0, MEM_TM_LAST_CALL.t + TM_GLOBAL_SPACING_MS - now);
   if (waitMs > 0) await sleep(waitMs);
   MEM_TM_LAST_CALL.t = Date.now();
 }
 
-// IMPORTANT: budget is ONLY spent after cache MISS and after breaker check.
 async function tmFetchJson(params, { budget, debugArr, tag }) {
   if (!TM_KEY) {
     return {
@@ -279,20 +300,22 @@ async function tmFetchJson(params, { budget, debugArr, tag }) {
     };
   }
 
-  // Circuit breaker check (before cache miss spend is fine)
+  // Budget enforcement
+  if (budget.remaining <= 0) {
+    return {
+      ok: false,
+      status: 429,
+      events: [],
+      raw: null,
+      safeUrl: null,
+      error: "TM budget exhausted (protecting key)",
+      budget,
+    };
+  }
+
+  // Circuit breaker check
   const until = await breakerUntilMs();
   if (until && until > Date.now()) {
-    debugArr?.push({
-      tag,
-      cache: "SKIP",
-      status: 429,
-      ok: false,
-      url: null,
-      count: 0,
-      remainingBudget: budget?.remaining ?? null,
-      error: "TM circuit breaker active (protecting key)",
-      breakerUntilMs: until,
-    });
     return {
       ok: false,
       status: 429,
@@ -306,7 +329,7 @@ async function tmFetchJson(params, { budget, debugArr, tag }) {
   }
 
   // Cache check
-  const cacheKey = tmCanonicalCacheKey(params);
+  const cacheKey = safeTmCacheKeyFromParams(params);
   let cached = null;
 
   if (HAS_REDIS) {
@@ -322,19 +345,13 @@ async function tmFetchJson(params, { budget, debugArr, tag }) {
   }
 
   if (cached) {
-    const events =
-      (Array.isArray(cached?._embedded?.events) && cached._embedded.events) ||
-      (Array.isArray(cached?.events) && cached.events) ||
-      [];
+    const events = Array.isArray(cached?.events) ? cached.events : [];
     debugArr?.push({
       tag,
       cache: "HIT",
       key: cacheKey,
-      status: 200,
-      ok: true,
-      url: null,
       count: events.length,
-      remainingBudget: budget?.remaining ?? null,
+      remainingBudget: budget.remaining,
     });
     return {
       ok: true,
@@ -348,37 +365,12 @@ async function tmFetchJson(params, { budget, debugArr, tag }) {
     };
   }
 
-  // Budget enforcement ONLY on MISS
-  if (budget && budget.remaining <= 0) {
-    debugArr?.push({
-      tag,
-      cache: "MISS",
-      key: cacheKey,
-      status: 429,
-      ok: false,
-      url: null,
-      count: 0,
-      remainingBudget: 0,
-      error: "TM budget exhausted (protecting key)",
-    });
-    return {
-      ok: false,
-      status: 429,
-      events: [],
-      raw: null,
-      safeUrl: null,
-      error: "TM budget exhausted (protecting key)",
-      budget,
-    };
-  }
-
   // Global throttle before calling TM
   await globalThrottleWait();
 
-  // Spend budget now (only on true miss)
-  if (budget) budget.remaining -= 1;
+  // Spend budget ONLY on actual TM call
+  budget.remaining -= 1;
 
-  // Build URL
   params.set("apikey", TM_KEY);
   const url = `${TM_EVENTS}?${params.toString()}`;
   const safeUrl = url.replace(/apikey=[^&]+/i, "apikey=REDACTED");
@@ -389,42 +381,33 @@ async function tmFetchJson(params, { budget, debugArr, tag }) {
   try {
     const res = await fetch(url, { signal: controller.signal, cache: "no-store" });
     const raw = await res.json().catch(() => ({}));
-    const events =
+    const eventsRaw =
       (Array.isArray(raw?._embedded?.events) && raw._embedded.events) ||
       (Array.isArray(raw?.events) && raw.events) ||
       [];
 
+    const events = eventsRaw.map(pruneTmEvent);
+
     const retryAfterMs = res.status === 429 ? parseRetryAfterMs(res) : null;
 
-    let setOk = null;
-    if (res.ok) {
-      const str = JSON.stringify(raw);
-      if (HAS_REDIS) {
-        setOk = await redisSetEx(cacheKey, TM_CACHE_TTL_SECONDS, str);
-      } else {
-        MEM_TM_CACHE.set(cacheKey, {
-          expMs: Date.now() + TM_CACHE_TTL_SECONDS * 1000,
-          value: raw,
-        });
-        setOk = true;
-      }
-    }
-
-    debugArr?.push({
-      tag,
-      cache: "MISS",
-      key: cacheKey,
-      status: res.status,
-      ok: res.ok,
-      url: safeUrl,
-      count: events.length,
-      remainingBudget: budget?.remaining ?? null,
-      setOk,
-    });
-
+    // On 429: trip the breaker
     if (res.status === 429) {
       const untilMs = Date.now() + (retryAfterMs != null ? retryAfterMs : 60_000);
       await setBreakerMs(untilMs);
+
+      debugArr?.push({
+        tag,
+        cache: "MISS",
+        key: cacheKey,
+        setOk: false,
+        status: 429,
+        ok: false,
+        url: safeUrl,
+        count: 0,
+        remainingBudget: budget.remaining,
+        error: "Rate limited (429)",
+      });
+
       return {
         ok: false,
         status: 429,
@@ -437,11 +420,44 @@ async function tmFetchJson(params, { budget, debugArr, tag }) {
       };
     }
 
+    // Cache only if OK
+    let setOk = false;
+    let bytes = 0;
+
+    if (res.ok) {
+      const cacheObj = { events };
+      const str = JSON.stringify(cacheObj);
+      bytes = Buffer.byteLength(str, "utf8");
+
+      if (HAS_REDIS) {
+        setOk = await redisSetEx(cacheKey, TM_CACHE_TTL_SECONDS, str);
+      } else {
+        MEM_TM_CACHE.set(cacheKey, {
+          expMs: Date.now() + TM_CACHE_TTL_SECONDS * 1000,
+          value: cacheObj,
+        });
+        setOk = true;
+      }
+    }
+
+    debugArr?.push({
+      tag,
+      cache: "MISS",
+      key: cacheKey,
+      setOk,
+      bytes,
+      status: res.status,
+      ok: res.ok,
+      url: safeUrl,
+      count: events.length,
+      remainingBudget: budget.remaining,
+    });
+
     return {
       ok: res.ok,
       status: res.status,
       events,
-      raw,
+      raw: { events },
       safeUrl,
       error: res.ok ? null : `TM error (${res.status})`,
       budget,
@@ -450,11 +466,13 @@ async function tmFetchJson(params, { budget, debugArr, tag }) {
     debugArr?.push({
       tag,
       cache: "MISS",
+      key: cacheKey,
+      setOk: false,
       status: null,
       ok: false,
       url: safeUrl,
       error: String(e?.message || e),
-      remainingBudget: budget?.remaining ?? null,
+      remainingBudget: budget.remaining,
     });
     return {
       ok: false,
@@ -521,6 +539,14 @@ function norm(s) {
     .replace(/\s+/g, " ");
 }
 
+function airportToLabel(a) {
+  const city = String(a?.city || "").trim();
+  const region = String(a?.region || "").trim();
+  const bits = [city, region].filter(Boolean);
+  const loc = bits.length ? bits.join(", ") : String(a?.name || "").trim();
+  return loc ? `${loc} (${a.iata})` : `${a.iata}`;
+}
+
 function parseWhereInput(raw) {
   const s = String(raw || "").trim();
   if (!s) return { city: "", region: "" };
@@ -528,14 +554,6 @@ function parseWhereInput(raw) {
   const city = parts[0] || s;
   const region = parts[1] || "";
   return { city, region };
-}
-
-function airportToLabel(a) {
-  const city = String(a?.city || "").trim();
-  const region = String(a?.region || "").trim();
-  const bits = [city, region].filter(Boolean);
-  const loc = bits.length ? bits.join(", ") : String(a?.name || "").trim();
-  return loc ? `${loc} (${a.iata})` : `${a.iata}`;
 }
 
 function resolveCenterFromParams(searchParams) {
@@ -640,6 +658,7 @@ function eventLatLon(e) {
   if (Number.isFinite(la) && Number.isFinite(lo)) return { lat: la, lon: lo };
   return null;
 }
+
 function sanitizeDisplayName(name) {
   const raw = String(name || "Event");
   return raw
@@ -701,16 +720,13 @@ function airportSeedFromIata(index, iata) {
 
   const label = [a.city, regionShort].filter(Boolean).join(", ") || airportToLabel(a);
 
-  const cc = String(a.country || "").trim().toUpperCase();
-  const country = /^[A-Z]{2}$/.test(cc) ? cc : null;
-
   return {
     key: iata,
     iata,
     label,
     lat: a.lat,
     lon: a.lon,
-    country,
+    country: String(a.country || "").trim() || null,
   };
 }
 
@@ -725,34 +741,25 @@ function normalizeCountryCodes(raw) {
   return parts.length ? parts : ["US", "CA"];
 }
 
-// Prefer local-country only when we know it (cuts TM calls ~in half).
-function effectiveCountryCodesForSeed(seed, fallbackCountryCodes) {
-  const cc = String(seed?.country || "").trim().toUpperCase();
-  if (/^[A-Z]{2}$/.test(cc)) return [cc];
-  return Array.isArray(fallbackCountryCodes) && fallbackCountryCodes.length
-    ? fallbackCountryCodes
-    : ["US", "CA"];
-}
-
-function effectiveCountryCodesForBucket(bucket, fallbackCountryCodes) {
-  const cc = String(bucket?.seedCountry || "").trim().toUpperCase();
-  if (/^[A-Z]{2}$/.test(cc)) return [cc];
-  return Array.isArray(fallbackCountryCodes) && fallbackCountryCodes.length
-    ? fallbackCountryCodes
-    : ["US", "CA"];
+// IMPORTANT: Only query the country that matches the seed’s country if known.
+// This avoids wasting TM calls (and budget) on US airports with countryCode=CA (and vice versa).
+function effectiveCountryCodesForSeed(seed, requestedCodes) {
+  if (!seed?.country) return requestedCodes;
+  const c = String(seed.country).trim().toUpperCase();
+  if (!c) return requestedCodes;
+  return requestedCodes.includes(c) ? [c] : requestedCodes;
 }
 
 /**
- * Anchors: query ONLY Genre #1 (classificationName=genre1) for seed city.
- * Uses TM gateway with cache/breaker/budget.
+ * Anchors: query ONLY Genre #1 for seed city.
  */
 async function fetchGenreAnchorsForSeed({ seed, genre1, startYMD, endYMD, radiusMiles, countryCodes, budget, debugArr }) {
   const anchors = [];
   const perCountry = [];
 
-  const ccs = effectiveCountryCodesForSeed(seed, countryCodes);
+  const ccList = effectiveCountryCodesForSeed(seed, countryCodes);
 
-  for (const cc of ccs) {
+  for (const cc of ccList) {
     const p = new URLSearchParams();
     p.set("sort", "date,asc");
     p.set("latlong", `${seed.lat},${seed.lon}`);
@@ -791,7 +798,7 @@ async function fetchGenreAnchorsForSeed({ seed, genre1, startYMD, endYMD, radius
         date,
         name: sanitizeDisplayName(eventName(e)),
         location: [eventCity(e), eventRegion(e)].filter(Boolean).join(", "),
-        genre: genre1, // force to selected genre
+        genre: genre1,
         url,
         ...(ll ? { lat: ll.lat, lon: ll.lon } : null),
       });
@@ -857,11 +864,10 @@ function buildBucketCandidatesFromAnchors({ activeSeeds, startYMD, endYMD, tripD
 }
 
 /**
- * Bucket fetch (safe version):
- * - query TM per selected genre using classificationName=<genre>
+ * Bucket fetch:
+ * - query TM per selected genre
  * - force returned row.genre to exactly that selected genre
  * - de-dupe by url
- * Uses TM gateway (cache/breaker/budget).
  */
 async function fetchEventsForBucket({ bucket, radiusMiles, countryCodes, genres, budget, debugArr }) {
   const wanted = Array.isArray(genres) ? genres.map((g) => String(g || "").trim()).filter(Boolean) : [];
@@ -869,9 +875,9 @@ async function fetchEventsForBucket({ bucket, radiusMiles, countryCodes, genres,
   const debug = [];
 
   const SIZE_PER_QUERY = 120;
-  const ccs = effectiveCountryCodesForBucket(bucket, countryCodes);
+  const ccList = effectiveCountryCodesForSeed({ country: bucket.seedCountry }, countryCodes);
 
-  for (const cc of ccs) {
+  for (const cc of ccList) {
     for (const gWanted of wanted) {
       const p = new URLSearchParams();
       p.set("sort", "date,asc");
@@ -885,12 +891,7 @@ async function fetchEventsForBucket({ bucket, radiusMiles, countryCodes, genres,
       p.set("page", "0");
       if (cc) p.set("countryCode", cc);
 
-      const r = await tmFetchJson(p, {
-        budget,
-        debugArr,
-        tag: `bucket:${bucket.iata}:${bucket.windowStart}:${cc}:${gWanted}`,
-      });
-
+      const r = await tmFetchJson(p, { budget, debugArr, tag: `bucket:${bucket.iata}:${bucket.windowStart}:${cc}:${gWanted}` });
       const raw = Array.isArray(r.events) ? r.events : [];
 
       debug.push({
@@ -919,7 +920,7 @@ async function fetchEventsForBucket({ bucket, radiusMiles, countryCodes, genres,
           date,
           name: sanitizeDisplayName(eventName(e)),
           location: [eventCity(e), eventRegion(e)].filter(Boolean).join(", "),
-          genre: gWanted, // forced
+          genre: gWanted,
           url,
           ...(ll ? { lat: ll.lat, lon: ll.lon } : null),
         };
@@ -972,58 +973,14 @@ function scoreBucketEvents(genres, events) {
   };
 }
 
-/* -------------------- /api/trips output cache (Redis) -------------------- */
+/* -------------------- Trips output cache (Redis) -------------------- */
 
-const TRIPS_CACHE_TTL_SECONDS = 12 * 60; // 12 minutes
 const TRIPS_CACHE_PREFIX = "trips:resp:v1:";
+const TRIPS_CACHE_TTL_SECONDS = 60; // short TTL prevents staleness but kills back-nav recompute
 
-function stableJsonStringify(obj) {
-  // deterministic key order for objects
-  const seen = new WeakSet();
-  const norm = (x) => {
-    if (x === null || typeof x !== "object") return x;
-    if (seen.has(x)) return null;
-    seen.add(x);
-    if (Array.isArray(x)) return x.map(norm);
-    const out = {};
-    for (const k of Object.keys(x).sort()) out[k] = norm(x[k]);
-    return out;
-  };
-  return JSON.stringify(norm(obj));
-}
-
-function tripsCacheKeyFromInputs(inputs) {
-  // Keep this purely derived from query-relevant inputs + guardrail knobs that change outputs.
-  const s = stableJsonStringify(inputs);
-  // tiny hash to keep key length reasonable
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  const hex = (h >>> 0).toString(16).padStart(8, "0");
-  return `${TRIPS_CACHE_PREFIX}${hex}`;
-}
-
-async function tripsCacheGet(key) {
-  if (!HAS_REDIS) return null;
-  const str = await redisGet(key);
-  if (!str) return null;
-  try {
-    return JSON.parse(str);
-  } catch {
-    return null;
-  }
-}
-
-async function tripsCacheSet(key, payload) {
-  if (!HAS_REDIS) return false;
-  try {
-    const str = JSON.stringify(payload);
-    return await redisSetEx(key, TRIPS_CACHE_TTL_SECONDS, str);
-  } catch {
-    return false;
-  }
+function tripsCacheKeyForReq(req) {
+  const canonical = canonicalKeyFromUrl(req.url);
+  return `${TRIPS_CACHE_PREFIX}${sha1(canonical)}`;
 }
 
 /* -------------------- Core compute -------------------- */
@@ -1078,38 +1035,11 @@ async function computeTrips(req) {
       };
     }
 
-    // Guardrails (safe defaults)
-    const TM_BUDGET_MAX = 18;
+    // Guardrails
+    const TM_BUDGET_MAX = 22;        // slightly higher now that cache writes stick
     const ACTIVE_CITY_TARGET = 8;
     const ANCHOR_TARGET = 120;
     const BUCKETS_TO_SCORE = 24;
-
-    // Trips output cache key (prevents rebuild on back nav / repeated identical pastes)
-    const tripsInputs = {
-      mode: "B",
-      start: startYMD,
-      end: endYMD,
-      tripDays,
-      radiusMiles,
-      genres: [...genres].map(String),
-      // normalize ordering to keep key stable
-      countryCodes: [...countryCodes].map(String).sort(),
-      safety: {
-        tmGlobalSpacingMs: TM_GLOBAL_SPACING_MS,
-        tmBudgetMax: TM_BUDGET_MAX,
-        activeCityTarget: ACTIVE_CITY_TARGET,
-        anchorTarget: ANCHOR_TARGET,
-        bucketsToScore: BUCKETS_TO_SCORE,
-      },
-    };
-
-    const tripsKey = tripsCacheKeyFromInputs(tripsInputs);
-    const cachedTrips = await tripsCacheGet(tripsKey);
-    if (cachedTrips) {
-      // Add a tiny hint for debugging without changing payload structure
-      if (cachedTrips?.debug?.redis) cachedTrips.debug.redis.tripsCache = "HIT";
-      return { status: 200, payload: cachedTrips };
-    }
 
     const budget = { remaining: TM_BUDGET_MAX };
 
@@ -1123,7 +1053,7 @@ async function computeTrips(req) {
 
     const debug = {
       mode: "B",
-      redis: { enabled: HAS_REDIS, tripsCache: "MISS", tripsKey },
+      redis: { enabled: HAS_REDIS, tripsCache: null, tripsKey: null },
       inputs: { start: startYMD, end: endYMD, tripDays, radiusMiles, genres, countryCodes },
       safety: {
         tmGlobalSpacingMs: TM_GLOBAL_SPACING_MS,
@@ -1136,7 +1066,30 @@ async function computeTrips(req) {
       tm: { calls: [], anchorChecks: [], bucketFetches: [] },
     };
 
-    // If breaker already active, bail early with friendly response
+    // Trips output cache: prevents back-nav rebuilds and makes 2nd paste instant.
+    const tripsKey = tripsCacheKeyForReq(req);
+    debug.redis.tripsKey = tripsKey;
+
+    if (HAS_REDIS) {
+      const cachedTripsStr = await redisGet(tripsKey);
+      if (cachedTripsStr) {
+        try {
+          const cachedPayload = JSON.parse(cachedTripsStr);
+          debug.redis.tripsCache = "HIT";
+          // Keep debug visible but indicate it was cached.
+          cachedPayload.debug = cachedPayload.debug || {};
+          cachedPayload.debug.redis = { ...(cachedPayload.debug.redis || {}), enabled: HAS_REDIS, tripsCache: "HIT", tripsKey };
+          return { status: 200, payload: cachedPayload };
+        } catch {
+          // fallthrough
+        }
+      }
+      debug.redis.tripsCache = "MISS";
+    } else {
+      debug.redis.tripsCache = "DISABLED";
+    }
+
+    // If breaker already active, bail early
     const breaker = await breakerUntilMs();
     if (breaker && breaker > Date.now()) {
       const payload = {
@@ -1149,15 +1102,13 @@ async function computeTrips(req) {
         error: `Ticketmaster is throttling right now. Try again in ~${Math.ceil((breaker - Date.now()) / 1000)}s.`,
         debug: { ...debug, breakerUntilMs: breaker, remainingBudget: budget.remaining },
       };
-      // cache the throttled response briefly (optional)
-      await tripsCacheSet(tripsKey, payload);
+      if (HAS_REDIS) await redisSetEx(tripsKey, TRIPS_CACHE_TTL_SECONDS, JSON.stringify(payload));
       return { status: 200, payload };
     }
 
     const active = [];
     let scanned = 0;
 
-    // Sequential scan (safe): find active cities with Genre #1 anchors
     for (const seed of seedList) {
       if (budget.remaining <= 0) {
         debug.scan.stopReason = "tmBudgetExhausted";
@@ -1202,7 +1153,6 @@ async function computeTrips(req) {
         break;
       }
 
-      // If breaker tripped mid-scan, stop immediately
       const b2 = await breakerUntilMs();
       if (b2 && b2 > Date.now()) {
         debug.scan.stopReason = "breakerTrippedDuringAnchorScan";
@@ -1230,11 +1180,10 @@ async function computeTrips(req) {
         debug: { ...debug, breakerUntilMs: b3 || 0, remainingBudget: budget.remaining },
       };
 
-      await tripsCacheSet(tripsKey, payload);
+      if (HAS_REDIS) await redisSetEx(tripsKey, TRIPS_CACHE_TTL_SECONDS, JSON.stringify(payload));
       return { status: 200, payload };
     }
 
-    // Build buckets around anchors
     let buckets = buildBucketCandidatesFromAnchors({ activeSeeds: active, startYMD, endYMD, tripDays });
 
     buckets.sort((a, b) => {
@@ -1278,7 +1227,6 @@ async function computeTrips(req) {
 
       const s = scoreBucketEvents(genres, fetch.events);
 
-      // Ensure Genre #1 exists in bucket
       const g1Lower = String(genre1).toLowerCase();
       const hasG1 = (fetch.events || []).some((e) => String(e?.genre || "").toLowerCase() === g1Lower);
       if (!hasG1) continue;
@@ -1358,7 +1306,11 @@ async function computeTrips(req) {
       debug: { ...debug, breakerUntilMs: breakerNow || 0, remainingBudget: budget.remaining },
     };
 
-    await tripsCacheSet(tripsKey, payload);
+    if (HAS_REDIS) {
+      // Cache the final payload briefly to prevent rebuilds + instantly serve identical repeats.
+      await redisSetEx(tripsKey, TRIPS_CACHE_TTL_SECONDS, JSON.stringify(payload));
+    }
+
     return { status: 200, payload };
   }
 
