@@ -16,10 +16,11 @@ import path from "path";
  * - scores buckets by counting matched genres in window (genre labels forced to selected genres)
  *
  * Primary goal: protect TM key (avoid 429) via:
- * - Redis-backed GLOBAL throttling (leaky bucket)
+ * - Redis-backed GLOBAL throttling (spacing gate)
  * - Circuit breaker on 429
- * - Redis cache for TM responses
- * - Per-request TM call budget
+ * - Redis cache for TM responses (canonical key excludes apikey)
+ * - Per-request TM call budget (ONLY on cache MISS)
+ * - Redis cache for /api/trips final payload (prevents rebuild on back nav)
  */
 
 function json(res, status = 200) {
@@ -127,9 +128,9 @@ async function redisCommand(cmd, args) {
     body: JSON.stringify({ command: cmd, args }),
     cache: "no-store",
   });
-  const json = await res.json().catch(() => null);
+  const j = await res.json().catch(() => null);
   if (!res.ok) throw new Error(`Redis error: ${res.status}`);
-  return json?.result;
+  return j?.result;
 }
 
 async function redisGet(key) {
@@ -144,20 +145,10 @@ async function redisGet(key) {
 async function redisSetEx(key, ttlSeconds, value) {
   if (!HAS_REDIS) return false;
   try {
-    // SET key value EX ttl
     await redisCommand("SET", [key, value, "EX", String(ttlSeconds)]);
     return true;
   } catch {
     return false;
-  }
-}
-
-async function redisIncr(key) {
-  if (!HAS_REDIS) return null;
-  try {
-    return await redisCommand("INCR", [key]);
-  } catch {
-    return null;
   }
 }
 
@@ -183,9 +174,9 @@ const TM_GLOBAL_SPACING_MS = 950;
 // Circuit breaker: when we see 429, pause TM calls until this timestamp.
 const TM_BREAKER_KEY = "tm:breaker:untilMs";
 
-// Response cache: cache TM URL (without apikey) -> response JSON
+// Response cache: canonical TM request -> response JSON
 const TM_CACHE_TTL_SECONDS = 6 * 60 * 60; // 6 hours
-const TM_CACHE_PREFIX = "tm:resp:";
+const TM_CACHE_PREFIX = "tm:resp:v2:"; // bump version whenever keying logic changes
 
 // Memory fallback cache (dev / if Redis down)
 const MEM_TM_CACHE = new Map(); // key -> { expMs, value }
@@ -196,22 +187,24 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-function safeTmCacheKeyFromParams(params) {
-  // canonicalize query string, exclude apikey
-  const u = new URL(TM_EVENTS);
-  for (const [k, v] of params.entries()) {
-    if (k.toLowerCase() === "apikey") continue;
-    u.searchParams.append(k, v);
-  }
+// Canonicalize TM params deterministically, and NEVER include apikey.
+function tmCanonicalCacheKey(params) {
   const entries = [];
-  u.searchParams.forEach((v, k) => entries.push([k, v]));
+  for (const [k, v] of params.entries()) {
+    if (String(k).toLowerCase() === "apikey") continue;
+    entries.push([String(k), String(v)]);
+  }
   entries.sort((a, b) => {
     if (a[0] !== b[0]) return a[0] < b[0] ? -1 : 1;
     return a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0;
   });
+
   const q = new URLSearchParams();
   for (const [k, v] of entries) q.append(k, v);
-  return `${TM_CACHE_PREFIX}${q.toString()}`;
+
+  // include path so future endpoints don't collide
+  const u = new URL(TM_EVENTS);
+  return `${TM_CACHE_PREFIX}${u.pathname}?${q.toString()}`;
 }
 
 function parseRetryAfterMs(res) {
@@ -248,57 +241,80 @@ async function setBreakerMs(untilMs) {
 }
 
 async function globalThrottleWait() {
-  // Redis-backed leaky bucket using a per-second counter with spacing.
-  // Simpler: enforce spacing by storing "next allowed time".
+  // Redis-backed spacing gate using a single "next allowed time" key.
   const key = "tm:gate:nextAllowedMs";
 
   if (HAS_REDIS) {
     const now = Date.now();
     const cur = await redisGet(key);
     const nextAllowed = Number(cur);
-    const waitMs = Number.isFinite(nextAllowed) && nextAllowed > now ? nextAllowed - now : 0;
+    const waitMs =
+      Number.isFinite(nextAllowed) && nextAllowed > now ? nextAllowed - now : 0;
 
-    // Try to set nextAllowed = max(now, nextAllowed) + spacing, with a small retry loop.
-    // Upstash REST doesn’t support full Lua easily; we’ll do a conservative approach:
-    // wait first, then set to now+spacing. This slightly reduces throughput but improves safety.
     if (waitMs > 0) await sleep(waitMs);
 
     const next = Date.now() + TM_GLOBAL_SPACING_MS;
-    await redisSetEx(key, 5, String(next)); // short TTL so it doesn't stick forever
+    await redisSetEx(key, 5, String(next));
     return;
   }
 
   // Memory fallback
   const now = Date.now();
-  const waitMs = Math.max(0, (MEM_TM_LAST_CALL.t + TM_GLOBAL_SPACING_MS) - now);
+  const waitMs = Math.max(0, MEM_TM_LAST_CALL.t + TM_GLOBAL_SPACING_MS - now);
   if (waitMs > 0) await sleep(waitMs);
   MEM_TM_LAST_CALL.t = Date.now();
 }
 
+// IMPORTANT: budget is ONLY spent after cache MISS and after breaker check.
 async function tmFetchJson(params, { budget, debugArr, tag }) {
   if (!TM_KEY) {
-    return { ok: false, status: 500, events: [], raw: null, safeUrl: null, error: "Missing TICKETMASTER_API_KEY", budget };
+    return {
+      ok: false,
+      status: 500,
+      events: [],
+      raw: null,
+      safeUrl: null,
+      error: "Missing TICKETMASTER_API_KEY",
+      budget,
+    };
   }
 
-  // Budget enforcement
-  if (budget.remaining <= 0) {
-    return { ok: false, status: 429, events: [], raw: null, safeUrl: null, error: "TM budget exhausted (protecting key)", budget };
-  }
-
-  // Circuit breaker check
+  // Circuit breaker check (before cache miss spend is fine)
   const until = await breakerUntilMs();
   if (until && until > Date.now()) {
-    return { ok: false, status: 429, events: [], raw: null, safeUrl: null, error: "TM circuit breaker active (protecting key)", budget, breakerUntilMs: until };
+    debugArr?.push({
+      tag,
+      cache: "SKIP",
+      status: 429,
+      ok: false,
+      url: null,
+      count: 0,
+      remainingBudget: budget?.remaining ?? null,
+      error: "TM circuit breaker active (protecting key)",
+      breakerUntilMs: until,
+    });
+    return {
+      ok: false,
+      status: 429,
+      events: [],
+      raw: null,
+      safeUrl: null,
+      error: "TM circuit breaker active (protecting key)",
+      budget,
+      breakerUntilMs: until,
+    };
   }
 
   // Cache check
-  const cacheKey = safeTmCacheKeyFromParams(params);
+  const cacheKey = tmCanonicalCacheKey(params);
   let cached = null;
 
   if (HAS_REDIS) {
     const str = await redisGet(cacheKey);
     if (str) {
-      try { cached = JSON.parse(str); } catch {}
+      try {
+        cached = JSON.parse(str);
+      } catch {}
     }
   } else {
     const m = MEM_TM_CACHE.get(cacheKey);
@@ -310,16 +326,59 @@ async function tmFetchJson(params, { budget, debugArr, tag }) {
       (Array.isArray(cached?._embedded?.events) && cached._embedded.events) ||
       (Array.isArray(cached?.events) && cached.events) ||
       [];
-    debugArr?.push({ tag, cache: "HIT", key: cacheKey, count: events.length });
-    return { ok: true, status: 200, events, raw: cached, safeUrl: null, error: null, budget, cache: "HIT" };
+    debugArr?.push({
+      tag,
+      cache: "HIT",
+      key: cacheKey,
+      status: 200,
+      ok: true,
+      url: null,
+      count: events.length,
+      remainingBudget: budget?.remaining ?? null,
+    });
+    return {
+      ok: true,
+      status: 200,
+      events,
+      raw: cached,
+      safeUrl: null,
+      error: null,
+      budget,
+      cache: "HIT",
+    };
+  }
+
+  // Budget enforcement ONLY on MISS
+  if (budget && budget.remaining <= 0) {
+    debugArr?.push({
+      tag,
+      cache: "MISS",
+      key: cacheKey,
+      status: 429,
+      ok: false,
+      url: null,
+      count: 0,
+      remainingBudget: 0,
+      error: "TM budget exhausted (protecting key)",
+    });
+    return {
+      ok: false,
+      status: 429,
+      events: [],
+      raw: null,
+      safeUrl: null,
+      error: "TM budget exhausted (protecting key)",
+      budget,
+    };
   }
 
   // Global throttle before calling TM
   await globalThrottleWait();
 
-  // Spend budget
-  budget.remaining -= 1;
+  // Spend budget now (only on true miss)
+  if (budget) budget.remaining -= 1;
 
+  // Build URL
   params.set("apikey", TM_KEY);
   const url = `${TM_EVENTS}?${params.toString()}`;
   const safeUrl = url.replace(/apikey=[^&]+/i, "apikey=REDACTED");
@@ -337,37 +396,75 @@ async function tmFetchJson(params, { budget, debugArr, tag }) {
 
     const retryAfterMs = res.status === 429 ? parseRetryAfterMs(res) : null;
 
+    let setOk = null;
+    if (res.ok) {
+      const str = JSON.stringify(raw);
+      if (HAS_REDIS) {
+        setOk = await redisSetEx(cacheKey, TM_CACHE_TTL_SECONDS, str);
+      } else {
+        MEM_TM_CACHE.set(cacheKey, {
+          expMs: Date.now() + TM_CACHE_TTL_SECONDS * 1000,
+          value: raw,
+        });
+        setOk = true;
+      }
+    }
+
     debugArr?.push({
       tag,
       cache: "MISS",
+      key: cacheKey,
       status: res.status,
       ok: res.ok,
       url: safeUrl,
       count: events.length,
-      remainingBudget: budget.remaining,
+      remainingBudget: budget?.remaining ?? null,
+      setOk,
     });
 
-    // On 429: trip the breaker
     if (res.status === 429) {
       const untilMs = Date.now() + (retryAfterMs != null ? retryAfterMs : 60_000);
       await setBreakerMs(untilMs);
-      return { ok: false, status: 429, events: [], raw, safeUrl, error: "Rate limited (429)", budget, retryAfterMs };
+      return {
+        ok: false,
+        status: 429,
+        events: [],
+        raw,
+        safeUrl,
+        error: "Rate limited (429)",
+        budget,
+        retryAfterMs,
+      };
     }
 
-    // Cache only if OK
-    if (res.ok) {
-      const str = JSON.stringify(raw);
-      if (HAS_REDIS) {
-        await redisSetEx(cacheKey, TM_CACHE_TTL_SECONDS, str);
-      } else {
-        MEM_TM_CACHE.set(cacheKey, { expMs: Date.now() + TM_CACHE_TTL_SECONDS * 1000, value: raw });
-      }
-    }
-
-    return { ok: res.ok, status: res.status, events, raw, safeUrl, error: res.ok ? null : `TM error (${res.status})`, budget };
+    return {
+      ok: res.ok,
+      status: res.status,
+      events,
+      raw,
+      safeUrl,
+      error: res.ok ? null : `TM error (${res.status})`,
+      budget,
+    };
   } catch (e) {
-    debugArr?.push({ tag, cache: "MISS", status: null, ok: false, url: safeUrl, error: String(e?.message || e), remainingBudget: budget.remaining });
-    return { ok: false, status: null, events: [], raw: null, safeUrl, error: String(e?.message || e), budget };
+    debugArr?.push({
+      tag,
+      cache: "MISS",
+      status: null,
+      ok: false,
+      url: safeUrl,
+      error: String(e?.message || e),
+      remainingBudget: budget?.remaining ?? null,
+    });
+    return {
+      ok: false,
+      status: null,
+      events: [],
+      raw: null,
+      safeUrl,
+      error: String(e?.message || e),
+      budget,
+    };
   } finally {
     clearTimeout(t);
   }
@@ -553,26 +650,6 @@ function sanitizeDisplayName(name) {
     .trim();
 }
 
-/* -------------------- Concurrency limiter (kept, but we use low concurrency) -------------------- */
-
-async function runWithConcurrency(items, limit, worker) {
-  const out = new Array(items.length);
-  let idx = 0;
-
-  async function runner() {
-    while (true) {
-      const i = idx++;
-      if (i >= items.length) return;
-      out[i] = await worker(items[i], i);
-    }
-  }
-
-  const n = Math.max(1, Math.min(limit, items.length));
-  const runners = Array.from({ length: n }, () => runner());
-  await Promise.all(runners);
-  return out;
-}
-
 /* -------------------- Mode B: Popular destination seed list (IATA) -------------------- */
 
 const POPULAR_IATAS = [
@@ -624,13 +701,16 @@ function airportSeedFromIata(index, iata) {
 
   const label = [a.city, regionShort].filter(Boolean).join(", ") || airportToLabel(a);
 
+  const cc = String(a.country || "").trim().toUpperCase();
+  const country = /^[A-Z]{2}$/.test(cc) ? cc : null;
+
   return {
     key: iata,
     iata,
     label,
     lat: a.lat,
     lon: a.lon,
-    country: String(a.country || "").trim() || null,
+    country,
   };
 }
 
@@ -645,6 +725,23 @@ function normalizeCountryCodes(raw) {
   return parts.length ? parts : ["US", "CA"];
 }
 
+// Prefer local-country only when we know it (cuts TM calls ~in half).
+function effectiveCountryCodesForSeed(seed, fallbackCountryCodes) {
+  const cc = String(seed?.country || "").trim().toUpperCase();
+  if (/^[A-Z]{2}$/.test(cc)) return [cc];
+  return Array.isArray(fallbackCountryCodes) && fallbackCountryCodes.length
+    ? fallbackCountryCodes
+    : ["US", "CA"];
+}
+
+function effectiveCountryCodesForBucket(bucket, fallbackCountryCodes) {
+  const cc = String(bucket?.seedCountry || "").trim().toUpperCase();
+  if (/^[A-Z]{2}$/.test(cc)) return [cc];
+  return Array.isArray(fallbackCountryCodes) && fallbackCountryCodes.length
+    ? fallbackCountryCodes
+    : ["US", "CA"];
+}
+
 /**
  * Anchors: query ONLY Genre #1 (classificationName=genre1) for seed city.
  * Uses TM gateway with cache/breaker/budget.
@@ -653,7 +750,9 @@ async function fetchGenreAnchorsForSeed({ seed, genre1, startYMD, endYMD, radius
   const anchors = [];
   const perCountry = [];
 
-  for (const cc of countryCodes) {
+  const ccs = effectiveCountryCodesForSeed(seed, countryCodes);
+
+  for (const cc of ccs) {
     const p = new URLSearchParams();
     p.set("sort", "date,asc");
     p.set("latlong", `${seed.lat},${seed.lon}`);
@@ -677,7 +776,6 @@ async function fetchGenreAnchorsForSeed({ seed, genre1, startYMD, endYMD, radius
     });
 
     if (!r.ok) {
-      // if breaker is active or 429: stop early; no point continuing
       if (Number(r.status) === 429) break;
       continue;
     }
@@ -770,10 +868,10 @@ async function fetchEventsForBucket({ bucket, radiusMiles, countryCodes, genres,
   const byUrl = new Map();
   const debug = [];
 
-  // smaller size reduces payload; still OK for short windows
   const SIZE_PER_QUERY = 120;
+  const ccs = effectiveCountryCodesForBucket(bucket, countryCodes);
 
-  for (const cc of countryCodes) {
+  for (const cc of ccs) {
     for (const gWanted of wanted) {
       const p = new URLSearchParams();
       p.set("sort", "date,asc");
@@ -787,7 +885,12 @@ async function fetchEventsForBucket({ bucket, radiusMiles, countryCodes, genres,
       p.set("page", "0");
       if (cc) p.set("countryCode", cc);
 
-      const r = await tmFetchJson(p, { budget, debugArr, tag: `bucket:${bucket.iata}:${bucket.windowStart}:${cc}:${gWanted}` });
+      const r = await tmFetchJson(p, {
+        budget,
+        debugArr,
+        tag: `bucket:${bucket.iata}:${bucket.windowStart}:${cc}:${gWanted}`,
+      });
+
       const raw = Array.isArray(r.events) ? r.events : [];
 
       debug.push({
@@ -801,7 +904,6 @@ async function fetchEventsForBucket({ bucket, radiusMiles, countryCodes, genres,
 
       if (!r.ok) {
         if (Number(r.status) === 429) {
-          // breaker likely set; stop further TM calls for this bucket
           return { ok: false, status: 429, events: [], debug };
         }
         continue;
@@ -870,6 +972,60 @@ function scoreBucketEvents(genres, events) {
   };
 }
 
+/* -------------------- /api/trips output cache (Redis) -------------------- */
+
+const TRIPS_CACHE_TTL_SECONDS = 12 * 60; // 12 minutes
+const TRIPS_CACHE_PREFIX = "trips:resp:v1:";
+
+function stableJsonStringify(obj) {
+  // deterministic key order for objects
+  const seen = new WeakSet();
+  const norm = (x) => {
+    if (x === null || typeof x !== "object") return x;
+    if (seen.has(x)) return null;
+    seen.add(x);
+    if (Array.isArray(x)) return x.map(norm);
+    const out = {};
+    for (const k of Object.keys(x).sort()) out[k] = norm(x[k]);
+    return out;
+  };
+  return JSON.stringify(norm(obj));
+}
+
+function tripsCacheKeyFromInputs(inputs) {
+  // Keep this purely derived from query-relevant inputs + guardrail knobs that change outputs.
+  const s = stableJsonStringify(inputs);
+  // tiny hash to keep key length reasonable
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  const hex = (h >>> 0).toString(16).padStart(8, "0");
+  return `${TRIPS_CACHE_PREFIX}${hex}`;
+}
+
+async function tripsCacheGet(key) {
+  if (!HAS_REDIS) return null;
+  const str = await redisGet(key);
+  if (!str) return null;
+  try {
+    return JSON.parse(str);
+  } catch {
+    return null;
+  }
+}
+
+async function tripsCacheSet(key, payload) {
+  if (!HAS_REDIS) return false;
+  try {
+    const str = JSON.stringify(payload);
+    return await redisSetEx(key, TRIPS_CACHE_TTL_SECONDS, str);
+  } catch {
+    return false;
+  }
+}
+
 /* -------------------- Core compute -------------------- */
 
 async function computeTrips(req) {
@@ -923,12 +1079,37 @@ async function computeTrips(req) {
     }
 
     // Guardrails (safe defaults)
-    const TM_BUDGET_MAX = 18;        // hard cap TM calls per /api/trips request
-    const ACTIVE_CITY_TARGET = 8;    // scan until we find this many “active” cities
-    const ANCHOR_TARGET = 120;       // or until we have this many anchors
-    const BUCKETS_TO_SCORE = 24;     // max buckets we’ll score
-    const BUCKET_CONCURRENCY = 1;    // keep TM safe (global limiter already exists, but keep low)
-    const SEED_CONCURRENCY = 1;      // keep TM safe
+    const TM_BUDGET_MAX = 18;
+    const ACTIVE_CITY_TARGET = 8;
+    const ANCHOR_TARGET = 120;
+    const BUCKETS_TO_SCORE = 24;
+
+    // Trips output cache key (prevents rebuild on back nav / repeated identical pastes)
+    const tripsInputs = {
+      mode: "B",
+      start: startYMD,
+      end: endYMD,
+      tripDays,
+      radiusMiles,
+      genres: [...genres].map(String),
+      // normalize ordering to keep key stable
+      countryCodes: [...countryCodes].map(String).sort(),
+      safety: {
+        tmGlobalSpacingMs: TM_GLOBAL_SPACING_MS,
+        tmBudgetMax: TM_BUDGET_MAX,
+        activeCityTarget: ACTIVE_CITY_TARGET,
+        anchorTarget: ANCHOR_TARGET,
+        bucketsToScore: BUCKETS_TO_SCORE,
+      },
+    };
+
+    const tripsKey = tripsCacheKeyFromInputs(tripsInputs);
+    const cachedTrips = await tripsCacheGet(tripsKey);
+    if (cachedTrips) {
+      // Add a tiny hint for debugging without changing payload structure
+      if (cachedTrips?.debug?.redis) cachedTrips.debug.redis.tripsCache = "HIT";
+      return { status: 200, payload: cachedTrips };
+    }
 
     const budget = { remaining: TM_BUDGET_MAX };
 
@@ -942,7 +1123,7 @@ async function computeTrips(req) {
 
     const debug = {
       mode: "B",
-      redis: { enabled: HAS_REDIS },
+      redis: { enabled: HAS_REDIS, tripsCache: "MISS", tripsKey },
       inputs: { start: startYMD, end: endYMD, tripDays, radiusMiles, genres, countryCodes },
       safety: {
         tmGlobalSpacingMs: TM_GLOBAL_SPACING_MS,
@@ -958,19 +1139,19 @@ async function computeTrips(req) {
     // If breaker already active, bail early with friendly response
     const breaker = await breakerUntilMs();
     if (breaker && breaker > Date.now()) {
-      return {
-        status: 200,
-        payload: {
-          ok: false,
-          tripStyle: "B",
-          mode: "B",
-          constraints: { start: startYMD, end: endYMD, tripDays, radiusMiles, genres, countryCodes },
-          count: 0,
-          trips: [],
-          error: `Ticketmaster is throttling right now. Try again in ~${Math.ceil((breaker - Date.now()) / 1000)}s.`,
-          debug: { ...debug, breakerUntilMs: breaker },
-        },
+      const payload = {
+        ok: false,
+        tripStyle: "B",
+        mode: "B",
+        constraints: { start: startYMD, end: endYMD, tripDays, radiusMiles, genres, countryCodes },
+        count: 0,
+        trips: [],
+        error: `Ticketmaster is throttling right now. Try again in ~${Math.ceil((breaker - Date.now()) / 1000)}s.`,
+        debug: { ...debug, breakerUntilMs: breaker, remainingBudget: budget.remaining },
       };
+      // cache the throttled response briefly (optional)
+      await tripsCacheSet(tripsKey, payload);
+      return { status: 200, payload };
     }
 
     const active = [];
@@ -1032,26 +1213,25 @@ async function computeTrips(req) {
     if (!debug.scan.stopReason) debug.scan.stopReason = "scannedAllSeeds";
 
     if (active.length === 0) {
-      // If breaker tripped, return friendly 200
       const b3 = await breakerUntilMs();
       const errMsg =
         b3 && b3 > Date.now()
           ? `Ticketmaster throttled. Try again in ~${Math.ceil((b3 - Date.now()) / 1000)}s.`
           : null;
 
-      return {
-        status: 200,
-        payload: {
-          ok: true,
-          tripStyle: "B",
-          mode: "B",
-          constraints: { start: startYMD, end: endYMD, tripDays, radiusMiles, genres, countryCodes },
-          count: 0,
-          trips: [],
-          ...(errMsg ? { error: errMsg } : null),
-          debug,
-        },
+      const payload = {
+        ok: true,
+        tripStyle: "B",
+        mode: "B",
+        constraints: { start: startYMD, end: endYMD, tripDays, radiusMiles, genres, countryCodes },
+        count: 0,
+        trips: [],
+        ...(errMsg ? { error: errMsg } : null),
+        debug: { ...debug, breakerUntilMs: b3 || 0, remainingBudget: budget.remaining },
       };
+
+      await tripsCacheSet(tripsKey, payload);
+      return { status: 200, payload };
     }
 
     // Build buckets around anchors
@@ -1064,7 +1244,6 @@ async function computeTrips(req) {
 
     const toScore = buckets.slice(0, Math.max(10, Math.min(BUCKETS_TO_SCORE, buckets.length)));
 
-    // Score buckets (safe): sequential-ish, and stop early if we already have enough good trips
     const scored = [];
 
     for (const bucket of toScore) {
@@ -1092,7 +1271,6 @@ async function computeTrips(req) {
       });
 
       if (!fetch.ok) {
-        // If breaker tripped, stop scoring; return best-so-far
         const b = await breakerUntilMs();
         if (Number(fetch.status) === 429 || (b && b > Date.now())) break;
         continue;
@@ -1131,7 +1309,6 @@ async function computeTrips(req) {
       openQs.set("radiusMiles", String(radiusMiles));
       openQs.set("countryCode", countryCodes.join(","));
       openQs.set("genreOrder", genres.join(","));
-      // Keep compatibility with your /events route which reads musicGenres/sportsGenres sometimes
       for (const g of genres) openQs.append("musicGenres", g);
 
       scored.push({
@@ -1158,33 +1335,31 @@ async function computeTrips(req) {
         openUrl: `/events?${openQs.toString()}`,
       });
 
-      // If we already have 10 solid trips, we can stop early to protect TM
       if (scored.length >= 10) break;
     }
 
     scored.sort((a, b) => b.score - a.score);
     const top = scored.slice(0, 10);
 
-    // If breaker tripped but we have partial results, return them as 200 (no hard failure)
     const breakerNow = await breakerUntilMs();
     const warning =
       breakerNow && breakerNow > Date.now()
         ? `TM throttled during processing. Returning best-so-far. Try again in ~${Math.ceil((breakerNow - Date.now()) / 1000)}s for fuller results.`
         : null;
 
-    return {
-      status: 200,
-      payload: {
-        ok: true,
-        tripStyle: "B",
-        mode: "B",
-        constraints: { start: startYMD, end: endYMD, tripDays, radiusMiles, genres, countryCodes },
-        count: top.length,
-        trips: top,
-        ...(warning ? { warning } : null),
-        debug: { ...debug, breakerUntilMs: breakerNow || 0, remainingBudget: budget.remaining },
-      },
+    const payload = {
+      ok: true,
+      tripStyle: "B",
+      mode: "B",
+      constraints: { start: startYMD, end: endYMD, tripDays, radiusMiles, genres, countryCodes },
+      count: top.length,
+      trips: top,
+      ...(warning ? { warning } : null),
+      debug: { ...debug, breakerUntilMs: breakerNow || 0, remainingBudget: budget.remaining },
     };
+
+    await tripsCacheSet(tripsKey, payload);
+    return { status: 200, payload };
   }
 
   // -------------------- Non-B modes (unchanged fallback) --------------------
