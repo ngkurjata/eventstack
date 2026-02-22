@@ -2,612 +2,903 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { APP_NAME, TAGLINE, LOGO_VERSION } from "../lib/brand";
+import { useRouter } from "next/navigation";
+import BrandLogo from "./components/BrandLogo";
+import { APP_NAME, TAGLINE } from "../lib/brand";
+
+/* -------------------- Types -------------------- */
+
+type Airport = {
+  iata: string;
+  name: string;
+  city: string;
+  region: string; // e.g. "US-CA"
+  country: string; // "US" | "CA"
+  lat: number | null;
+  lon: number | null;
+};
+
+type City = {
+  id: string; // "US|CA|Anaheim"
+  name: string;
+  region: string; // "CA" | "BC" etc
+  country: string; // "US" | "CA"
+  lat: number;
+  lon: number;
+  airportIata?: string | null;
+};
 
 type CombinedOption = {
   id: string;
   label: string;
-  group: string; // NHL/NBA/MLB/NFL/MLS/CFL/Artists
+  group: string;
   kind: "team" | "artist";
   league?: string;
-
-  attractionId?: string; // Ticketmaster attractionId
-  tmAttractionId?: string; // alternate name
+  attractionId?: string;
+  tmAttractionId?: string;
 };
 
 type MenuItem =
   | { type: "group"; group: string }
   | { type: "item"; group: string; option: CombinedOption };
 
-type AvailabilityRecord = {
-  hasUpcomingEvents: boolean;
-  nextEventDate: string | null;
-  checkedAt?: string;
-  warning?: string;
+const LS_SEARCH = "eventstack_search_A_v5_city_p1p2_ranked_genres_tripdays";
+
+type SavedSearch = {
+  destCityId?: string;
+  destCityLabel?: string;
+  destLat?: number;
+  destLon?: number;
+  destAirportIata?: string;
+
+  start?: string;
+  end?: string;
+
+  tripDays?: number;
+
+  primaryId?: string;
+  primaryLabel?: string;
+  secondaryId?: string;
+  secondaryLabel?: string;
+
+  genreOrderCsv?: string;
+
+  radiusText?: string;
+  countryCode?: string;
 };
 
-const LS_KEY = "eventstack_search_v3_primary_secondary_genres";
+/* -------------------- Helpers -------------------- */
 
-/* Trip-length presets */
-const TRIP_DAYS_OPTIONS: Array<3 | 5 | 7> = [3, 5, 7];
-
-/* Genre lists (UI buttons) */
-const MUSIC_GENRES = [
-  "Country",
-  "Rock",
-  "Pop",
-  "Comedy",
-  "Hip-Hop / Rap",
-  "R&B",
-  "Dance / Electronic",
-  "Alternative",
-  "Latin",
-  "Metal",
-  "Jazz",
-  "Folk",
-  "Classical",
-  "Blues",
-  "Reggae",
-  "World",
-  "Religious",
-  "Holiday",
-  "Children’s Music",
-  "New Age",
-] as const;
-
-const SPORTS_GENRES = [
-  "Football",
-  "Baseball",
-  "Hockey",
-  "Basketball",
-  "Curling",
-  "Soccer",
-  "Golf",
-  "Tennis",
-  "Motorsports",
-  "Wrestling",
-  "Lacrosse",
-  "Martial Arts",
-  "Volleyball",
-  "Boxing",
-  "Rodeo",
-  "Cricket",
-  "Equestrian",
-] as const;
-
-function sanitizeGenreList(input: string[], allowed: readonly string[]) {
-  const allowedSet = new Set(allowed.map((x) => String(x)));
-  return Array.from(
-    new Set(
-      (Array.isArray(input) ? input : [])
-        .map((s) => String(s || "").trim())
-        .map((s) => {
-          if (allowedSet.has(s)) return s;
-          const hit = Array.from(allowedSet).find((a) =>
-            s.toLowerCase().includes(a.toLowerCase())
-          );
-          return hit || "";
-        })
-        .filter(Boolean)
-    )
-  );
-}
-
-function clampTotalGenres(music: string[], sports: string[], maxTotal: number) {
-  const m = Array.isArray(music) ? music : [];
-  const s = Array.isArray(sports) ? sports : [];
-
-  if (m.length + s.length <= maxTotal) return { music: m, sports: s };
-
-  // Keep earlier items; prioritize music first (stable + predictable)
-  const musicKeep = m.slice(0, Math.min(m.length, maxTotal));
-  const remaining = maxTotal - musicKeep.length;
-  const sportsKeep = remaining > 0 ? s.slice(0, remaining) : [];
-
-  return { music: musicKeep, sports: sportsKeep };
-}
-
-function safeParseInt(v: string | null, fallback: number) {
-  if (v == null) return fallback;
-  const n = Number(v);
-  return Number.isFinite(n) ? Math.max(1, Math.floor(n)) : fallback;
-}
-
-function isYMD(s: string) {
+function isYMD(s: any): s is string {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(s || ""));
 }
 
-function normalizeDateRange(start: string, end: string) {
-  const s = (start || "").trim();
-  const e = (end || "").trim();
-  if (!isYMD(s) || !isYMD(e)) return { start: s, end: e };
-  return s <= e ? { start: s, end: e } : { start: e, end: s };
+function toYMDLocal(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
-function labelForId(id: string, options: CombinedOption[]) {
-  if (!id) return "";
-  return options.find((o) => o.id === id)?.label || "";
+function tomorrowYMD() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return toYMDLocal(d);
 }
 
-function groupOptions(options: CombinedOption[]) {
-  const map = new Map<string, CombinedOption[]>();
-  for (const o of options) {
-    const g = o.group || "Other";
-    if (!map.has(g)) map.set(g, []);
-    map.get(g)!.push(o);
+function clamp(n: number, lo: number, hi: number) {
+  return Math.max(lo, Math.min(hi, n));
+}
+
+function parseCsv(raw: string) {
+  return String(raw || "")
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
+
+function uniqLowerKeepOrder(xs: string[]) {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const x of xs) {
+    const k = x.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(x);
   }
-  const groups = Array.from(map.keys());
-  return { map, groups };
+  return out;
 }
 
-function normalizeQuery(q: string) {
-  return q.trim().toLowerCase();
-}
-
-function buildGroupedListForQuery(
-  query: string,
-  grouped: Map<string, CombinedOption[]>,
-  groups: string[]
-): MenuItem[] {
-  const q = normalizeQuery(query);
-  const items: MenuItem[] = [];
-  if (!q) return items;
-
-  for (const group of groups) {
-    const opts = grouped.get(group) || [];
-    const matches = opts
-      .filter((o) => o.label.toLowerCase().includes(q))
-      .slice(0, 25);
-
-    if (matches.length) {
-      items.push({ type: "group", group });
-      for (const option of matches) items.push({ type: "item", group, option });
-    }
+function readSavedSearch(): SavedSearch | null {
+  try {
+    if (typeof window === "undefined") return null;
+    const raw = localStorage.getItem(LS_SEARCH);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    return parsed as SavedSearch;
+  } catch {
+    return null;
   }
-  return items;
 }
 
-function cleanupLegacyLocalStorage() {
-  // keep as a no-op
+function writeSavedSearch(payload: SavedSearch) {
+  try {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(LS_SEARCH, JSON.stringify(payload));
+  } catch {}
 }
 
-function useOutsideClick<T extends HTMLElement>(
-  ref: React.RefObject<T | null>,
-  onOutside: () => void
-) {
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      const el = ref.current;
-      if (!el) return;
-      if (e.target instanceof Node && !el.contains(e.target)) onOutside();
+/* -------------------- Geo helpers -------------------- */
+
+function toRad(d: number) {
+  return (d * Math.PI) / 180;
+}
+
+function haversineMiles(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 3958.7613;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+function regionShort(region: string) {
+  if (!region) return "";
+  return region.includes("-") ? region.split("-")[1] : region;
+}
+
+function keyCity(country: string, region: string, name: string) {
+  return `${country}|${region}|${name}`.toUpperCase();
+}
+
+/* -------------------- Overrides -------------------- */
+
+const OVERRIDE_CITIES: Array<Omit<City, "airportIata">> = [
+  { id: "US|CA|Anaheim", name: "Anaheim", region: "CA", country: "US", lat: 33.835293, lon: -117.914505 },
+];
+
+/* -------------------- City building -------------------- */
+
+function buildCitiesFromAirports(airports: Airport[]): City[] {
+  const byKey = new Map<string, { city: City; airports: Airport[] }>();
+
+  for (const a of airports) {
+    const cName = String(a.city || "").trim();
+    const cCountry = String(a.country || "").trim().toUpperCase();
+    const cRegion = regionShort(String(a.region || "").trim()).toUpperCase();
+
+    if (!cName || !cCountry || !cRegion) continue;
+    const lat = a.lat == null ? null : Number(a.lat);
+    const lon = a.lon == null ? null : Number(a.lon);
+    if (!Number.isFinite(lat as any) || !Number.isFinite(lon as any)) continue;
+
+    const k = keyCity(cCountry, cRegion, cName);
+
+    if (!byKey.has(k)) {
+      byKey.set(k, {
+        city: {
+          id: `${cCountry}|${cRegion}|${cName}`,
+          name: cName,
+          region: cRegion,
+          country: cCountry,
+          lat: Number(lat),
+          lon: Number(lon),
+          airportIata: null,
+        },
+        airports: [],
+      });
     }
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [ref, onOutside]);
+    byKey.get(k)!.airports.push(a);
+  }
+
+  const out: City[] = [];
+  for (const { city, airports: aps } of byKey.values()) {
+    let sumLat = 0;
+    let sumLon = 0;
+    let n = 0;
+    for (const a of aps) {
+      if (a.lat == null || a.lon == null) continue;
+      const lat = Number(a.lat);
+      const lon = Number(a.lon);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+      sumLat += lat;
+      sumLon += lon;
+      n += 1;
+    }
+    if (n > 0) {
+      city.lat = sumLat / n;
+      city.lon = sumLon / n;
+    }
+    out.push(city);
+  }
+
+  return out;
 }
 
-/* -------------------- BRAND -------------------- */
-function LogoMark({ className = "" }: { className?: string }) {
-  return (
-    <img
-      src={`/brand/logo.svg?v=${encodeURIComponent(LOGO_VERSION)}`}
-      alt={`${APP_NAME} logo`}
-      className={["h-12 w-12", className].join(" ")}
-      loading="eager"
-      decoding="async"
-    />
-  );
+function mergeOverrides(base: City[], overrides: Array<Omit<City, "airportIata">>): City[] {
+  const map = new Map<string, City>();
+  for (const c of base) map.set(keyCity(c.country, c.region, c.name), c);
+
+  for (const o of overrides) {
+    const k = keyCity(o.country, o.region, o.name);
+    if (!map.has(k)) map.set(k, { ...o, airportIata: null });
+  }
+
+  return Array.from(map.values());
 }
 
-/* -------------------- UI components -------------------- */
+function computeNearestAirportIata(c: City, airports: Airport[]): string | null {
+  if (!Number.isFinite(c.lat) || !Number.isFinite(c.lon)) return null;
 
-function Card({
-  title,
-  subtitle,
-  children,
-}: {
-  title: string;
-  subtitle?: React.ReactNode;
-  children: React.ReactNode;
+  let best: { iata: string; d: number } | null = null;
+
+  for (const a of airports) {
+    const iata = String(a.iata || "").trim().toUpperCase();
+    const lat = a.lat == null ? null : Number(a.lat);
+    const lon = a.lon == null ? null : Number(a.lon);
+    if (iata.length !== 3) continue;
+    if (!Number.isFinite(lat as any) || !Number.isFinite(lon as any)) continue;
+
+    const d = haversineMiles(c.lat, c.lon, Number(lat), Number(lon));
+    if (!best || d < best.d) best = { iata, d };
+  }
+
+  if (!best) return null;
+  if (best.d > 250) return null;
+  return best.iata;
+}
+
+/* -------------------- CityPicker -------------------- */
+
+function cityLabel(c: City) {
+  return `${c.name}${c.region ? `, ${c.region}` : ""} (${c.country})`;
+}
+
+function CityPicker(props: {
+  cities: City[];
+  valueCityId: string;
+  onPick: (city: City | null) => void;
+  placeholder?: string;
 }) {
-  return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-      <div className="mb-4 text-center">
-        <h2 className="text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl">
-          {title}
-        </h2>
-        {subtitle ? (
-          <div className="mt-2 text-xs text-slate-500 sm:text-sm">{subtitle}</div>
-        ) : null}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function Combobox({
-  label,
-  optionsAll,
-  grouped,
-  groups,
-  valueId,
-  setValueId,
-  help,
-  disabled,
-}: {
-  label: string;
-  optionsAll: CombinedOption[];
-  grouped: Map<string, CombinedOption[]>;
-  groups: string[];
-  valueId: string;
-  setValueId: (v: string) => void;
-  help?: string;
-  disabled?: boolean;
-}) {
-  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const [q, setQ] = useState("");
+  const [activeIdx, setActiveIdx] = useState<number>(-1);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const [inputValue, setInputValue] = useState("");
-  const [activeIdx, setActiveIdx] = useState<number>(-1);
+  const selected = useMemo(() => {
+    const v = (props.valueCityId || "").trim();
+    return props.cities.find((c) => c.id === v) || null;
+  }, [props.valueCityId, props.cities]);
 
-  const selectedLabel = useMemo(
-    () => labelForId(valueId, optionsAll),
-    [valueId, optionsAll]
-  );
+  const results = useMemo(() => {
+    const query = q.trim().toLowerCase();
+    if (!query || selected) return [];
 
-  const menuItems = useMemo(
-    () => buildGroupedListForQuery(query, grouped, groups),
-    [query, grouped, groups]
-  );
+    const matches = props.cities.filter((c) => {
+      const n = (c.name || "").toLowerCase();
+      const r = (c.region || "").toLowerCase();
+      const cc = (c.country || "").toLowerCase();
+      const iata = (c.airportIata || "").toLowerCase();
+      return (
+        n.startsWith(query) ||
+        n.includes(query) ||
+        r.startsWith(query) ||
+        r.includes(query) ||
+        cc === query ||
+        iata.startsWith(query)
+      );
+    });
 
-  useEffect(() => {
-    if (!open) {
-      setInputValue(selectedLabel);
-      setQuery("");
-      setActiveIdx(-1);
-    }
-  }, [selectedLabel, open]);
+    matches.sort((a, b) => {
+      const qi = query;
+      const aN = (a.name || "").toLowerCase();
+      const bN = (b.name || "").toLowerCase();
+      const aR = (a.region || "").toLowerCase();
+      const bR = (b.region || "").toLowerCase();
 
-  useEffect(() => {
-    if (disabled) {
-      setOpen(false);
-      setQuery("");
-      setActiveIdx(-1);
-    }
-  }, [disabled]);
+      const pref = (s: string) => (s.startsWith(qi) ? 0 : s.includes(qi) ? 3 : 10);
+      const sa = pref(aN) + pref(aR);
+      const sb = pref(bN) + pref(bR);
+      if (sa !== sb) return sa - sb;
 
-  useOutsideClick(wrapRef, () => setOpen(false));
+      return (a.name + a.region + a.country).localeCompare(b.name + b.region + b.country);
+    });
 
-  function choose(id: string) {
-    if (disabled) return;
-    setValueId(id);
-    const lbl = labelForId(id, optionsAll);
-    setInputValue(lbl);
-    setQuery("");
-    setOpen(false);
+    return matches.slice(0, 12);
+  }, [q, props.cities, selected]);
+
+  const isOpen = results.length > 0 && !selected;
+
+  function commitCity(c: City) {
+    props.onPick(c);
+    setQ("");
     setActiveIdx(-1);
-    inputRef.current?.blur();
-  }
-
-  function clear() {
-    if (disabled) return;
-    setValueId("");
-    setInputValue("");
-    setQuery("");
-    setOpen(false);
-    setActiveIdx(-1);
-    inputRef.current?.focus();
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (disabled) return;
-
-    if (!open && (e.key === "ArrowDown" || e.key === "Enter")) {
-      if (inputValue.trim().length > 0) {
-        setQuery(inputValue);
-        setOpen(true);
-      }
-      return;
-    }
-    if (!open) return;
+    if (!isOpen) return;
 
     if (e.key === "Escape") {
-      setOpen(false);
-      return;
-    }
-
-    if (e.key === "Tab") {
-      const it = menuItems[activeIdx];
-      if (it && it.type === "item") {
-        setValueId(it.option.id);
-        setInputValue(it.option.label);
-      }
-      setQuery("");
-      setOpen(false);
       setActiveIdx(-1);
       return;
     }
-
-    const selectableIndexes = menuItems
-      .map((it, idx) => ({ it, idx }))
-      .filter((x) => x.it.type === "item")
-      .map((x) => x.idx);
-
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      if (selectableIndexes.length === 0) return;
-      const pos = selectableIndexes.indexOf(activeIdx);
-      const next =
-        pos === -1
-          ? selectableIndexes[0]
-          : selectableIndexes[Math.min(pos + 1, selectableIndexes.length - 1)];
-      setActiveIdx(next);
+      setActiveIdx((idx) => (idx < 0 ? 0 : Math.min(idx + 1, results.length - 1)));
       return;
     }
-
     if (e.key === "ArrowUp") {
       e.preventDefault();
-      if (selectableIndexes.length === 0) return;
-      const pos = selectableIndexes.indexOf(activeIdx);
-      const prev =
-        pos <= 0
-          ? selectableIndexes[selectableIndexes.length - 1]
-          : selectableIndexes[pos - 1];
-      setActiveIdx(prev);
+      setActiveIdx((idx) => (idx <= 0 ? results.length - 1 : idx - 1));
       return;
     }
-
-    if (e.key === "Enter") {
+    if (e.key === "Enter" || e.key === "Tab") {
       e.preventDefault();
-      const it = menuItems[activeIdx];
-      if (it && it.type === "item") choose(it.option.id);
+      const pick = results[activeIdx];
+      if (pick) commitCity(pick);
       return;
     }
   }
 
-  const showLoading = !!disabled;
-
   return (
-    <div ref={wrapRef} className="w-full">
-      <div className="mb-2">
-        <div className="text-sm font-semibold text-slate-900">{label}</div>
-        {help ? <div className="mt-1 text-xs text-slate-500">{help}</div> : null}
+    <div style={{ position: "relative" }}>
+      <input
+        ref={inputRef}
+        value={selected ? cityLabel(selected) : q}
+        onFocus={() => {
+          if (selected) requestAnimationFrame(() => inputRef.current?.select());
+        }}
+        onChange={(e) => {
+          props.onPick(null);
+          setQ(e.target.value);
+          setActiveIdx(-1);
+        }}
+        onKeyDown={onKeyDown}
+        placeholder={props.placeholder ?? "Type a city (e.g., Anaheim, Kelowna)"}
+        className="text-slate-900 placeholder:text-slate-400"
+        style={{
+          width: "100%",
+          padding: 10,
+          borderRadius: 12,
+          border: "1px solid #d7d7d7",
+          background: "#fff",
+          outline: "none",
+        }}
+        autoComplete="off"
+      />
+
+      <div className="mt-2 text-xs text-center text-slate-600">
+        City sets the event radius. Nearest airport is auto-selected for one-click Expedia.
       </div>
 
-      <div className="relative">
-        <input
-          ref={inputRef}
-          disabled={showLoading}
-          className={[
-            "w-full rounded-2xl border px-4 py-3 text-[15px] shadow-sm outline-none",
-            "transition-all duration-200",
-            showLoading
-              ? "bg-slate-50 text-slate-500 border-slate-200"
-              : "bg-white text-slate-900 border-slate-200 placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100",
-          ].join(" ")}
-          value={showLoading ? "Loading ..." : inputValue}
-          placeholder={showLoading ? "Loading ..." : "Type to search…"}
-          onFocus={() => {
-            if (showLoading) return;
-            setActiveIdx(-1);
-            requestAnimationFrame(() => inputRef.current?.select());
+      {isOpen ? (
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 6px)",
+            left: 0,
+            right: 0,
+            zIndex: 50,
+            maxHeight: 320,
+            overflow: "auto",
+            border: "1px solid #e6e6e6",
+            background: "#fff",
+            borderRadius: 12,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
+            padding: 4,
           }}
-          onChange={(e) => {
-            if (showLoading) return;
-
-            const next = e.target.value;
-            setInputValue(next);
-
-            if (next.trim().length === 0) {
-              setValueId("");
-              setQuery("");
-              setOpen(false);
-              setActiveIdx(-1);
-              return;
-            }
-
-            setQuery(next);
-            setOpen(true);
-            setActiveIdx(-1);
-          }}
-          onKeyDown={onKeyDown}
-          aria-expanded={open}
-          aria-label={label}
-        />
-
-        {showLoading && (
-          <div className="absolute right-3 top-1/2 -translate-y-1/2">
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700" />
-          </div>
-        )}
-
-        {!showLoading && (valueId || inputValue) && (
-          <button
-            type="button"
-            onClick={clear}
-            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl px-2 py-1 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
-            aria-label="Clear selection"
-          >
-            ✕
-          </button>
-        )}
-
-        {open && !showLoading && query.trim().length > 0 && (
-          <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
-            <div className="max-h-[320px] overflow-auto p-1">
-              {menuItems.length === 0 ? (
-                <div className="px-3 py-3 text-sm text-slate-500">No matches.</div>
-              ) : (
-                menuItems.map((it, idx) => {
-                  if (it.type === "group") return null;
-
-                  const isActive = idx === activeIdx;
-
-                  return (
-                    <div
-                      key={it.option.id}
-                      className={[
-                        "mt-1 flex cursor-pointer items-center justify-between gap-3 rounded-xl px-3 py-2.5",
-                        isActive
-                          ? "bg-slate-900 text-white"
-                          : "bg-white text-slate-900 hover:bg-slate-50",
-                      ].join(" ")}
-                      onMouseEnter={() => setActiveIdx(idx)}
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        choose(it.option.id);
-                      }}
-                    >
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-extrabold leading-tight">
-                          {it.option.label}
-                        </div>
-                      </div>
-
-                      <div
-                        className={[
-                          "shrink-0 text-xs font-bold",
-                          isActive ? "text-slate-200" : "text-slate-600",
-                        ].join(" ")}
-                      >
-                        {it.group}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        )}
-      </div>
+        >
+          {results.map((c, idx) => {
+            const isActive = idx === activeIdx;
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onMouseEnter={() => setActiveIdx(idx)}
+                onMouseDown={(ev) => {
+                  ev.preventDefault();
+                  commitCity(c);
+                }}
+                style={{
+                  width: "100%",
+                  textAlign: "left",
+                  padding: "10px 12px",
+                  border: "none",
+                  cursor: "pointer",
+                  borderRadius: 10,
+                  background: isActive ? "#0f172a" : "transparent",
+                  color: isActive ? "#fff" : "#0f172a",
+                }}
+              >
+                <div style={{ fontWeight: 900 }}>{cityLabel(c)}</div>
+                <div style={{ fontSize: 12, opacity: isActive ? 0.85 : 0.75 }}>
+                  {c.lat.toFixed(3)}, {c.lon.toFixed(3)}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function Pill({
-  label,
-  selected,
-  onClick,
-}: {
+/* -------------------- P1/P2 Picker -------------------- */
+
+function buildMenu(options: CombinedOption[], query: string): MenuItem[] {
+  const q = query.trim().toLowerCase();
+
+  const filtered =
+    q.length < 2
+      ? []
+      : options.filter((o) => {
+          const lbl = (o.label || "").toLowerCase();
+          const grp = (o.group || "").toLowerCase();
+          const id = (o.id || "").toLowerCase();
+          return lbl.includes(q) || grp.includes(q) || id.includes(q);
+        });
+
+  const groups: string[] = [];
+  const byGroup = new Map<string, CombinedOption[]>();
+  for (const o of filtered) {
+    const g = o.group || "Other";
+    if (!byGroup.has(g)) {
+      byGroup.set(g, []);
+      groups.push(g);
+    }
+    byGroup.get(g)!.push(o);
+  }
+
+  for (const g of groups) {
+    byGroup.get(g)!.sort((a, b) => (a.label || "").localeCompare(b.label || ""));
+  }
+
+  const menu: MenuItem[] = [];
+  for (const g of groups) {
+    menu.push({ type: "group", group: g });
+    for (const o of byGroup.get(g)!) menu.push({ type: "item", group: g, option: o });
+  }
+
+  return menu.slice(0, 240);
+}
+
+function OptionPicker(props: {
   label: string;
-  selected: boolean;
-  onClick: () => void;
+  options: CombinedOption[];
+  valueId: string;
+  valueLabel: string;
+  onPick: (opt: CombinedOption | null) => void;
+  placeholder?: string;
 }) {
+  const [q, setQ] = useState("");
+  const [activeIdx, setActiveIdx] = useState(-1);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  const isSelected = Boolean(props.valueId);
+
+  const menu = useMemo(() => {
+    if (isSelected) return [];
+    return buildMenu(props.options, q);
+  }, [props.options, q, isSelected]);
+
+  const isOpen = !isSelected && menu.length > 0;
+
+  function commit(opt: CombinedOption | null) {
+    props.onPick(opt);
+    setQ("");
+    setActiveIdx(-1);
+  }
+
+  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (!isOpen) return;
+
+    if (e.key === "Escape") {
+      setActiveIdx(-1);
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIdx((idx) => (idx < 0 ? 0 : Math.min(idx + 1, menu.length - 1)));
+      return;
+    }
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIdx((idx) => (idx <= 0 ? menu.length - 1 : idx - 1));
+      return;
+    }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const item = menu[activeIdx];
+      if (item?.type === "item") commit(item.option);
+      return;
+    }
+  }
+
+  return (
+    <div style={{ position: "relative" }}>
+      <div className="text-xs font-black text-slate-700">{props.label}</div>
+
+      <div className="mt-1 flex items-stretch gap-2">
+        <input
+          ref={inputRef}
+          value={isSelected ? props.valueLabel : q}
+          onFocus={() => {
+            if (isSelected) requestAnimationFrame(() => inputRef.current?.select());
+          }}
+          onChange={(e) => {
+            if (isSelected) commit(null);
+            setQ(e.target.value);
+            setActiveIdx(-1);
+          }}
+          onKeyDown={onKeyDown}
+          placeholder={props.placeholder ?? "Type 2+ letters to search…"}
+          className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 placeholder:text-slate-400"
+          autoComplete="off"
+        />
+
+        {isSelected ? (
+          <button
+            type="button"
+            onClick={() => commit(null)}
+            className="rounded-2xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 hover:bg-slate-50"
+            title="Clear"
+          >
+            Clear
+          </button>
+        ) : null}
+      </div>
+
+      {isOpen ? (
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 8px)",
+            left: 0,
+            right: 0,
+            zIndex: 60,
+            maxHeight: 360,
+            overflow: "auto",
+            border: "1px solid #e6e6e6",
+            background: "#fff",
+            borderRadius: 14,
+            boxShadow: "0 10px 28px rgba(0,0,0,0.10)",
+            padding: 6,
+          }}
+        >
+          {menu.map((it, idx) => {
+            if (it.type === "group") {
+              return (
+                <div
+                  key={`g:${it.group}:${idx}`}
+                  className="px-3 py-2 text-[11px] font-black uppercase tracking-wide text-slate-500"
+                >
+                  {it.group}
+                </div>
+              );
+            }
+            const isActive = idx === activeIdx;
+            return (
+              <button
+                key={it.option.id}
+                type="button"
+                onMouseEnter={() => setActiveIdx(idx)}
+                onMouseDown={(ev) => {
+                  ev.preventDefault();
+                  commit(it.option);
+                }}
+                className="block w-full rounded-xl px-3 py-2 text-left"
+                style={{
+                  background: isActive ? "#0f172a" : "transparent",
+                  color: isActive ? "#fff" : "#0f172a",
+                }}
+              >
+                <div className="text-sm font-extrabold">{it.option.label}</div>
+                <div className="text-[11px]" style={{ opacity: isActive ? 0.85 : 0.65 }}>
+                  {it.option.kind === "team" ? "Team" : "Artist"} • {it.option.group}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/* -------------------- Genres -------------------- */
+
+const MUSIC_GENRES = [
+  "Country",
+  "Rock",
+  "Pop",
+  "Hip-Hop",
+  "R&B",
+  "Electronic",
+  "Latin",
+  "Metal",
+  "Indie",
+  "Jazz",
+  "Classical",
+  "Reggae",
+  "Folk",
+  "Blues",
+];
+
+const SPORTS_GENRES = [
+  "Hockey",
+  "Baseball",
+  "Basketball",
+  "Football",
+  "Soccer",
+  "Golf",
+  "Tennis",
+  "MMA",
+  "Boxing",
+  "Racing",
+];
+
+function GenreChip(props: { label: string; active: boolean; badge?: string; onClick: () => void }) {
   return (
     <button
       type="button"
-      onClick={onClick}
-      className={[
-        "w-full rounded-2xl px-3 py-2 text-xs font-extrabold transition border text-center",
-        selected
-          ? "bg-slate-900 text-white border-slate-900"
-          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50",
-      ].join(" ")}
+      onClick={props.onClick}
+      className="rounded-full border px-3 py-2 text-xs font-black"
+      style={{
+        borderColor: props.active ? "#0f172a" : "#e2e8f0",
+        background: props.active ? "#0f172a" : "#ffffff",
+        color: props.active ? "#ffffff" : "#0f172a",
+      }}
+      title={props.active ? "Click to remove" : "Click to select"}
     >
-      {label}
+      <span className="inline-flex items-center gap-2">
+        {props.badge ? (
+          <span
+            className="inline-flex h-5 items-center rounded-full bg-white/20 px-2 text-[10px] font-black"
+            style={{ border: "1px solid rgba(255,255,255,0.28)" }}
+          >
+            {props.badge}
+          </span>
+        ) : null}
+        {props.label}
+      </span>
     </button>
   );
 }
 
-/* -------------------- Ticketmaster attractionId extraction -------------------- */
+/* -------------------- Page -------------------- */
 
-function attractionIdFromOption(opt: CombinedOption | undefined | null): string {
-  if (!opt) return "";
-
-  const direct = String(opt.attractionId || opt.tmAttractionId || "").trim();
-  if (direct) return direct;
-
-  const raw = String(opt.id || "").trim();
-
-  // team:<LEAGUE>:<ATTRACTION_ID>:<NAME...>
-  if (raw.startsWith("team:")) {
-    const parts = raw.split(":");
-    return String(parts[2] || "").trim();
-  }
-
-  // artist:<ATTRACTION_ID>:<NAME...>
-  if (raw.startsWith("artist:")) {
-    const parts = raw.split(":");
-    return String(parts[1] || "").trim();
-  }
-
-  return "";
-}
-
-function radiusMilesForTripDays(tripDays: 3 | 5 | 7) {
-  if (tripDays <= 3) return 60;
-  if (tripDays <= 5) return 120;
-  return 180;
-}
-
-export default function Page() {
+export default function HomePage() {
   const router = useRouter();
-  const sp = useSearchParams();
 
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
-  const [combined, setCombined] = useState<CombinedOption[]>([]);
+  // City-based destination (optional now)
+  const [destCityId, setDestCityId] = useState("");
+  const [destCityLabelState, setDestCityLabelState] = useState("");
+  const [destLat, setDestLat] = useState<number | null>(null);
+  const [destLon, setDestLon] = useState<number | null>(null);
+  const [destAirportIata, setDestAirportIata] = useState("");
 
+  // Dates
+  const [start, setStart] = useState("");
+  const [end, setEnd] = useState("");
+
+  // Trip days
+  const [tripDaysText, setTripDaysText] = useState("4");
+  const tripDays = useMemo(() => {
+    const v = Number(tripDaysText);
+    if (!Number.isFinite(v)) return 4;
+    return clamp(Math.trunc(v), 2, 7);
+  }, [tripDaysText]);
+
+  // P1 / P2
   const [primaryId, setPrimaryId] = useState("");
+  const [primaryLabel, setPrimaryLabel] = useState("");
   const [secondaryId, setSecondaryId] = useState("");
+  const [secondaryLabel, setSecondaryLabel] = useState("");
 
-  const [tripDays, setTripDays] = useState<3 | 5 | 7>(3);
-  const [startDate, setStartDate] = useState<string>("");
-  const [endDate, setEndDate] = useState<string>("");
+  // Genres ranked (cap 3 total)
+  const [genreOrder, setGenreOrder] = useState<string[]>([]);
+  const genreOrderCsv = useMemo(() => genreOrder.join(","), [genreOrder]);
 
-  const [musicGenres, setMusicGenres] = useState<string[]>([]);
-  const [sportsGenres, setSportsGenres] = useState<string[]>([]);
+  const [showMoreMusic, setShowMoreMusic] = useState(false);
+  const [showMoreSports, setShowMoreSports] = useState(false);
 
-  const MAX_GENRES_TOTAL = 4; // hard cap across Music+Sports
-  const TOP_GENRE_COUNT = 5; // show before “Show more”
+  // Radius
+  const [radiusText, setRadiusText] = useState("120");
+  const radiusMiles = useMemo(() => {
+    const v = Number(radiusText);
+    if (!Number.isFinite(v)) return 120;
+    return clamp(Math.trunc(v), 1, 120);
+  }, [radiusText]);
 
-  const [showAllSports, setShowAllSports] = useState(false);
-  const [showAllMusic, setShowAllMusic] = useState(false);
+  // Country code (hidden)
+  const [countryCode] = useState("US,CA");
 
-  const didInitRef = useRef(false);
-  const [searchPulse, setSearchPulse] = useState(false);
+  // Data (cities)
+  const [airports, setAirports] = useState<Airport[]>([]);
+  const [cities, setCities] = useState<City[]>([]);
+  const [airportsErr, setAirportsErr] = useState("");
 
-  // Availability cache: key = attractionId
-  const availabilityCacheRef = useRef<Map<string, AvailabilityRecord>>(new Map());
-  const availabilityAbortRef = useRef<{ primary: AbortController | null; secondary: AbortController | null }>({
-    primary: null,
-    secondary: null,
-  });
-  const availabilityDebounceRef = useRef<{ primary: number | null; secondary: number | null }>({
-    primary: null,
-    secondary: null,
-  });
+  // Data (P1/P2 options)
+  const [options, setOptions] = useState<CombinedOption[]>([]);
+  const [optionsErr, setOptionsErr] = useState("");
 
-  const [availabilityByKey, setAvailabilityByKey] = useState<Record<string, AvailabilityRecord>>({});
-  const [primaryNoEvents, setPrimaryNoEvents] = useState(false);
-  const [secondaryNoEvents, setSecondaryNoEvents] = useState(false);
+  // Guards
+  const hydratedRef = useRef(false);
+  const hydratingRef = useRef(false);
 
-  /* -------------------- Load options (dropdown data) -------------------- */
+  function hydrateFromStorage() {
+    try {
+      hydratingRef.current = true;
 
+      const saved = readSavedSearch();
+      if (saved) {
+        if (typeof saved.destCityId === "string") setDestCityId(saved.destCityId);
+        if (typeof saved.destCityLabel === "string") setDestCityLabelState(saved.destCityLabel);
+
+        if (saved.destLat != null && Number.isFinite(Number(saved.destLat))) setDestLat(Number(saved.destLat));
+        if (saved.destLon != null && Number.isFinite(Number(saved.destLon))) setDestLon(Number(saved.destLon));
+
+        if (typeof saved.destAirportIata === "string") setDestAirportIata(saved.destAirportIata);
+
+        if (typeof saved.start === "string") setStart(saved.start);
+        if (typeof saved.end === "string") setEnd(saved.end);
+
+        if (typeof saved.tripDays === "number" && Number.isFinite(saved.tripDays)) {
+          setTripDaysText(String(clamp(Math.trunc(saved.tripDays), 2, 7)));
+        }
+
+        if (typeof saved.primaryId === "string") setPrimaryId(saved.primaryId);
+        if (typeof saved.primaryLabel === "string") setPrimaryLabel(saved.primaryLabel);
+
+        if (typeof saved.secondaryId === "string") setSecondaryId(saved.secondaryId);
+        if (typeof saved.secondaryLabel === "string") setSecondaryLabel(saved.secondaryLabel);
+
+        if (typeof saved.genreOrderCsv === "string") {
+          setGenreOrder(uniqLowerKeepOrder(parseCsv(saved.genreOrderCsv)).slice(0, 3));
+        }
+
+        if (typeof saved.radiusText === "string") {
+          setRadiusText(saved.radiusText);
+        } else if ((saved as any)?.radiusMiles != null && Number.isFinite(Number((saved as any).radiusMiles))) {
+          setRadiusText(String(Number((saved as any).radiusMiles)));
+        }
+      }
+
+      hydratedRef.current = true;
+
+      setTimeout(() => {
+        hydratingRef.current = false;
+      }, 0);
+    } catch {
+      hydratedRef.current = true;
+      hydratingRef.current = false;
+    }
+  }
+
+  useEffect(() => {
+    hydrateFromStorage();
+
+    const onPageShow = () => hydrateFromStorage();
+    const onPopState = () => hydrateFromStorage();
+    const onFocus = () => hydrateFromStorage();
+    const onVis = () => {
+      if (document.visibilityState === "visible") hydrateFromStorage();
+    };
+
+    window.addEventListener("pageshow", onPageShow);
+    window.addEventListener("popstate", onPopState);
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVis);
+
+    return () => {
+      window.removeEventListener("pageshow", onPageShow);
+      window.removeEventListener("popstate", onPopState);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Default Start date to tomorrow (only if empty/invalid)
+  useEffect(() => {
+    const t = tomorrowYMD();
+    setStart((prev) => (prev && isYMD(prev) ? prev : t));
+  }, []);
+
+  // persist on change (but not during hydration)
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    if (hydratingRef.current) return;
+
+    writeSavedSearch({
+      destCityId,
+      destCityLabel: destCityLabelState,
+      destLat: destLat ?? undefined,
+      destLon: destLon ?? undefined,
+      destAirportIata,
+
+      start,
+      end,
+
+      tripDays,
+
+      primaryId,
+      primaryLabel,
+      secondaryId,
+      secondaryLabel,
+
+      genreOrderCsv,
+
+      radiusText,
+      countryCode,
+    });
+  }, [
+    destCityId,
+    destCityLabelState,
+    destLat,
+    destLon,
+    destAirportIata,
+    start,
+    end,
+    tripDays,
+    primaryId,
+    primaryLabel,
+    secondaryId,
+    secondaryLabel,
+    genreOrderCsv,
+    radiusText,
+    countryCode,
+  ]);
+
+  // Load airports -> build cities -> compute nearest airport
   useEffect(() => {
     let cancelled = false;
 
     (async () => {
-      setLoading(true);
-      setLoadError("");
-
+      setAirportsErr("");
       try {
-        const res = await fetch("/api/options", { cache: "no-store" });
-        const data = await res.json();
-
+        const res = await fetch("/airports.usca.min.json", { cache: "force-cache" });
+        if (!res.ok) throw new Error(`airports.usca.min.json failed (${res.status})`);
+        const json = await res.json();
         if (cancelled) return;
 
-        setCombined(Array.isArray(data?.combined) ? data.combined : []);
-        if (data?.error) setLoadError(String(data.error));
-      } catch (err: any) {
+        const arr = Array.isArray(json)
+          ? json
+          : Array.isArray((json as any)?.airports)
+          ? (json as any).airports
+          : [];
+
+        const cleaned: Airport[] = (arr || [])
+          .map((a: any) => ({
+            iata: String(a?.iata || "").trim().toUpperCase(),
+            name: String(a?.name || "").trim(),
+            city: String(a?.city || "").trim(),
+            region: String(a?.region || "").trim(),
+            country: String(a?.country || "").trim().toUpperCase(),
+            lat: a?.lat == null ? null : Number(a.lat),
+            lon: a?.lon == null ? null : Number(a.lon),
+          }))
+          .filter((a: Airport) => a.iata.length === 3);
+
+        setAirports(cleaned);
+
+        const baseCities = buildCitiesFromAirports(cleaned);
+        const merged = mergeOverrides(baseCities, OVERRIDE_CITIES);
+
+        const withNearest: City[] = merged.map((c) => ({
+          ...c,
+          airportIata: computeNearestAirportIata(c, cleaned),
+        }));
+
+        withNearest.sort((a, b) => (a.name + a.region + a.country).localeCompare(b.name + b.region + b.country));
+        setCities(withNearest);
+      } catch (e: any) {
         if (cancelled) return;
-        setLoadError(err?.message || "Failed to load options");
-        setCombined([]);
-      } finally {
-        if (!cancelled) setLoading(false);
+        setAirports([]);
+        setCities([]);
+        setAirportsErr(String(e?.message || e));
       }
     })();
 
@@ -616,600 +907,422 @@ export default function Page() {
     };
   }, []);
 
-  const { map: grouped, groups } = useMemo(() => groupOptions(combined), [combined]);
-  const optionById = (id: string) => combined.find((o) => o.id === id);
+  // ✅ Backfill destAirportIata after cities are loaded + a city is selected (post-hydration safe)
+  useEffect(() => {
+    const currentId = (destCityId || "").trim();
+    if (!currentId) return;
 
-  function clearSlotNoEvents(slot: "primary" | "secondary") {
-    if (slot === "primary") setPrimaryNoEvents(false);
-    else setSecondaryNoEvents(false);
-  }
+    if ((destAirportIata || "").trim().length === 3) return;
+    if (!cities.length) return;
 
-  function setSlotNoEvents(slot: "primary" | "secondary", noEvents: boolean) {
-    if (slot === "primary") setPrimaryNoEvents(noEvents);
-    else setSecondaryNoEvents(noEvents);
-  }
+    const found = cities.find((x) => x.id === currentId);
+    if (found?.airportIata) setDestAirportIata(String(found.airportIata).toUpperCase());
+  }, [cities, destCityId, destAirportIata]);
 
-  function abortAvailability(slot: "primary" | "secondary") {
-    const cur = availabilityAbortRef.current[slot];
-    cur?.abort();
-    availabilityAbortRef.current[slot] = null;
-  }
+  // Load P1/P2 options
+  useEffect(() => {
+    let cancelled = false;
 
-  function clearAvailabilityDebounce(slot: "primary" | "secondary") {
-    const t = availabilityDebounceRef.current[slot];
-    if (t) window.clearTimeout(t);
-    availabilityDebounceRef.current[slot] = null;
-  }
+    (async () => {
+      setOptionsErr("");
+      try {
+        const res = await fetch("/api/options", { cache: "force-cache" });
+        const json = await res.json().catch(() => ({}));
+        if (cancelled) return;
 
-  async function fetchAvailability(attractionId: string, slot: "primary" | "secondary") {
-    // in-memory cache first
-    const cached = availabilityCacheRef.current.get(attractionId);
-    if (cached) {
-      setAvailabilityByKey((prev) => ({ ...prev, [attractionId]: cached }));
-      setSlotNoEvents(slot, !cached.hasUpcomingEvents);
-      return;
-    }
+        const combined = Array.isArray(json?.combined) ? (json.combined as CombinedOption[]) : [];
+        const cleaned = combined
+          .map((o: any) => ({
+            id: String(o?.id || ""),
+            label: String(o?.label || ""),
+            group: String(o?.group || "Other"),
+            kind: (o?.kind === "team" ? "team" : "artist") as "team" | "artist",
+            league: o?.league ? String(o.league) : undefined,
+            attractionId: o?.attractionId ? String(o.attractionId) : undefined,
+            tmAttractionId: o?.tmAttractionId ? String(o.tmAttractionId) : undefined,
+          }))
+          .filter((o: CombinedOption) => o.id && o.label);
 
-    // state cache (for your existing UI)
-    const cachedState = availabilityByKey[attractionId];
-    if (cachedState) {
-      availabilityCacheRef.current.set(attractionId, cachedState);
-      setSlotNoEvents(slot, !cachedState.hasUpcomingEvents);
-      return;
-    }
-
-    abortAvailability(slot);
-    const ac = new AbortController();
-    availabilityAbortRef.current[slot] = ac;
-
-    try {
-      const res = await fetch(`/api/availability?id=${encodeURIComponent(attractionId)}`, {
-        cache: "no-store",
-        signal: ac.signal,
-      });
-
-      const data = await res.json().catch(() => ({}));
-      if (ac.signal.aborted) return;
-
-      const rec = (data && data[attractionId]) as AvailabilityRecord | undefined;
-
-      if (!rec) {
-        // don’t show a scary warning if response shape is unexpected
-        setSlotNoEvents(slot, false);
-        return;
+        setOptions(cleaned);
+        if (!res.ok) setOptionsErr(String(json?.error || `Options failed (${res.status})`));
+      } catch (e: any) {
+        if (cancelled) return;
+        setOptions([]);
+        setOptionsErr(String(e?.message || e));
       }
+    })();
 
-      const normalized: AvailabilityRecord = {
-        hasUpcomingEvents: !!rec.hasUpcomingEvents,
-        nextEventDate: rec.nextEventDate ?? null,
-        checkedAt: rec.checkedAt ?? new Date().toISOString(),
-        warning: rec.warning,
-      };
-
-      availabilityCacheRef.current.set(attractionId, normalized);
-      setAvailabilityByKey((prev) => ({ ...prev, [attractionId]: normalized }));
-      setSlotNoEvents(slot, !normalized.hasUpcomingEvents);
-    } catch {
-      if (ac.signal.aborted) return;
-      setSlotNoEvents(slot, false);
-    } finally {
-      if (availabilityAbortRef.current[slot] === ac) availabilityAbortRef.current[slot] = null;
-    }
-  }
-
-  function ensureAvailability(optionId: string, slot: "primary" | "secondary") {
-    if (!optionId) {
-      clearSlotNoEvents(slot);
-      return;
-    }
-
-    const opt = optionById(optionId);
-    const tmAttractionId = attractionIdFromOption(opt);
-    if (!tmAttractionId) {
-      clearSlotNoEvents(slot);
-      return;
-    }
-
-    // Debounce to avoid burst calls if user clicks rapidly
-    clearAvailabilityDebounce(slot);
-    availabilityDebounceRef.current[slot] = window.setTimeout(() => {
-      fetchAvailability(tmAttractionId, slot);
-    }, 250);
-  }
-
-  /* -------------------- Initial hydrate from URL or localStorage -------------------- */
-
-  useEffect(() => {
-    if (didInitRef.current) return;
-    didInitRef.current = true;
-
-    cleanupLegacyLocalStorage();
-
-    const qPrimary = sp.get("primaryId") || "";
-    const qSecondary = sp.get("secondaryId") || "";
-    const qTripDays = safeParseInt(sp.get("tripDays"), 3);
-
-    const qStart = sp.get("start") || "";
-    const qEnd = sp.get("end") || "";
-
-    const qMusicGenres = (sp.getAll("musicGenres") || []).flatMap((v) =>
-      String(v || "")
-        .split(",")
-        .map((x) => x.trim())
-        .filter(Boolean)
-    );
-    const qSportsGenres = (sp.getAll("sportsGenres") || []).flatMap((v) =>
-      String(v || "")
-        .split(",")
-        .map((x) => x.trim())
-        .filter(Boolean)
-    );
-
-    const qMusicGenresClean = sanitizeGenreList(qMusicGenres, MUSIC_GENRES);
-    const qSportsGenresClean = sanitizeGenreList(qSportsGenres, SPORTS_GENRES);
-
-    const hasAnyUrlState = Boolean(
-      qPrimary ||
-        qSecondary ||
-        sp.get("tripDays") ||
-        qStart ||
-        qEnd ||
-        qMusicGenres.length ||
-        qSportsGenres.length
-    );
-
-    const coerceTripDays = (n: number): 3 | 5 | 7 => (n === 5 ? 5 : n === 7 ? 7 : 3);
-
-    const applyState = (next: {
-      primaryId: string;
-      secondaryId: string;
-      tripDays: 3 | 5 | 7;
-      start: string;
-      end: string;
-      musicGenres: string[];
-      sportsGenres: string[];
-    }) => {
-      setPrimaryId(next.primaryId);
-      setSecondaryId(next.secondaryId);
-      setTripDays(next.tripDays);
-      setStartDate(isYMD(next.start) ? next.start : "");
-      setEndDate(isYMD(next.end) ? next.end : "");
-
-      const clamped = clampTotalGenres(next.musicGenres, next.sportsGenres, MAX_GENRES_TOTAL);
-      setMusicGenres(clamped.music);
-      setSportsGenres(clamped.sports);
+    return () => {
+      cancelled = true;
     };
+  }, []);
 
-    if (hasAnyUrlState) {
-      applyState({
-        primaryId: qPrimary,
-        secondaryId: qSecondary,
-        tripDays: coerceTripDays(qTripDays),
-        start: qStart,
-        end: qEnd,
-        musicGenres: qMusicGenresClean,
-        sportsGenres: qSportsGenresClean,
-      });
+  // genre helpers
+  function isGenreSelected(g: string) {
+    return genreOrder.some((x) => x.toLowerCase() === g.toLowerCase());
+  }
+
+  function rankBadgeFor(g: string): string | undefined {
+    const idx = genreOrder.findIndex((x) => x.toLowerCase() === g.toLowerCase());
+    if (idx < 0) return undefined;
+    return idx === 0 ? "1st" : idx === 1 ? "2nd" : "3rd";
+  }
+
+  function toggleGenre(g: string) {
+    setGenreOrder((prev) => {
+      const idx = prev.findIndex((x) => x.toLowerCase() === g.toLowerCase());
+      if (idx >= 0) {
+        const copy = prev.slice();
+        copy.splice(idx, 1);
+        return copy;
+      }
+      if (prev.length >= 3) {
+        alert("You can only select up to 3 genres.");
+        return prev;
+      }
+      return [...prev, g];
+    });
+  }
+
+  async function onSearch() {
+    const tmr = tomorrowYMD();
+
+    if (genreOrder.length < 1) {
+      alert("Pick at least 1 genre.");
       return;
     }
 
-    try {
-      const raw = localStorage.getItem(LS_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-
-      applyState({
-        primaryId: String(parsed?.primaryId || ""),
-        secondaryId: String(parsed?.secondaryId || ""),
-        tripDays: coerceTripDays(Number(parsed?.tripDays || 3)),
-        start: String(parsed?.start || ""),
-        end: String(parsed?.end || ""),
-        musicGenres: sanitizeGenreList(
-          Array.isArray(parsed?.musicGenres) ? parsed.musicGenres : [],
-          MUSIC_GENRES
-        ),
-        sportsGenres: sanitizeGenreList(
-          Array.isArray(parsed?.sportsGenres) ? parsed.sportsGenres : [],
-          SPORTS_GENRES
-        ),
-      });
-    } catch {
-      // ignore
+    if (!isYMD(start)) {
+      alert("Pick a valid Start date.");
+      return;
     }
-  }, [sp]);
+    if (start < tmr) {
+      alert(`Start date must be ${tmr} or later.`);
+      return;
+    }
 
-  /* -------------------- Keep URL + LS in sync (guarded; no churn) -------------------- */
+    if (!isYMD(end)) {
+      alert("Pick a valid End date.");
+      return;
+    }
+    if (end < start) {
+      alert("End date must be the same as or after the Start date.");
+      return;
+    }
 
-  const lastAppliedUrlRef = useRef<string>("");
+    // “Where” is optional. If city is filled properly, A; otherwise B (api/search decides).
+    const hasCity = Boolean(destCityId) && Number.isFinite(destLat as any) && Number.isFinite(destLon as any);
 
-  useEffect(() => {
-    if (!didInitRef.current) return;
+    // Split genres by known lists
+    const sportsSet = new Set(SPORTS_GENRES.map((x) => x.toLowerCase()));
+    const splitSports: string[] = [];
+    const splitMusic: string[] = [];
+    for (const g of genreOrder) {
+      if (sportsSet.has(String(g).toLowerCase())) splitSports.push(g);
+      else splitMusic.push(g);
+    }
 
-    const { start: startNorm, end: endNorm } = normalizeDateRange(startDate, endDate);
-
-    const musicGenresClean = sanitizeGenreList(musicGenres, MUSIC_GENRES);
-    const sportsGenresClean = sanitizeGenreList(sportsGenres, SPORTS_GENRES);
-
-    const clamped = clampTotalGenres(musicGenresClean, sportsGenresClean, MAX_GENRES_TOTAL);
-
-    const effective = {
-      primaryId,
-      secondaryId,
+    writeSavedSearch({
+      destCityId,
+      destCityLabel: destCityLabelState,
+      destLat: destLat ?? undefined,
+      destLon: destLon ?? undefined,
+      destAirportIata,
+      start,
+      end,
       tripDays,
-      start: isYMD(startNorm) ? startNorm : "",
-      end: isYMD(endNorm) ? endNorm : "",
-      musicGenres: clamped.music,
-      sportsGenres: clamped.sports,
-    };
-
-    try {
-      localStorage.setItem(LS_KEY, JSON.stringify(effective));
-    } catch {}
+      primaryId,
+      primaryLabel,
+      secondaryId,
+      secondaryLabel,
+      genreOrderCsv,
+      radiusText,
+      countryCode,
+    });
 
     const qs = new URLSearchParams();
-    if (effective.primaryId) qs.set("primaryId", effective.primaryId);
-    if (effective.secondaryId) qs.set("secondaryId", effective.secondaryId);
+    qs.set("tripDays", String(tripDays));
+    qs.set("start", start);
+    qs.set("end", end);
+    qs.set("radiusMiles", String(radiusMiles));
+    qs.set("countryCode", countryCode);
 
-    qs.set("tripDays", String(effective.tripDays));
-    qs.set("radiusMiles", String(radiusMilesForTripDays(effective.tripDays)));
-    qs.set("countryCode", "US,CA");
+    if (primaryId) qs.set("primaryId", primaryId);
+    if (secondaryId) qs.set("secondaryId", secondaryId);
 
-    if (effective.start) qs.set("start", effective.start);
-    if (effective.end) qs.set("end", effective.end);
+    qs.set("genreOrder", genreOrder.join(","));
 
-    for (const g of effective.musicGenres) qs.append("musicGenres", g);
-    for (const g of effective.sportsGenres) qs.append("sportsGenres", g);
+    for (const g of splitSports) qs.append("sportsGenres", g);
+    for (const g of splitMusic) qs.append("musicGenres", g);
 
-    const next = qs.toString() ? `/?${qs.toString()}` : "/";
+    // ✅ only include destination params when we truly have a destination
+    if (hasCity) {
+      qs.set("destCityId", destCityId);
+      qs.set("destCityLabel", destCityLabelState || "");
+      qs.set("lat", String(destLat));
+      qs.set("lon", String(destLon));
 
-    // Guard: only replaceState if it actually changed
-    if (lastAppliedUrlRef.current !== next && window.location.pathname + window.location.search !== next) {
-      lastAppliedUrlRef.current = next;
-      window.history.replaceState(null, "", next);
+      // IMPORTANT: only send destIata when hasCity is true
+      if ((destAirportIata || "").trim().length === 3) {
+        qs.set("destIata", destAirportIata.trim().toUpperCase());
+      }
     }
-  }, [primaryId, secondaryId, tripDays, startDate, endDate, musicGenres, sportsGenres]);
 
-  /* -------------------- CTA state -------------------- */
+    const res = await fetch(`/api/search?${qs.toString()}`, { cache: "no-store" });
+    const json = await res.json().catch(() => ({}));
 
-  const canSearch = Boolean(primaryId) && !primaryNoEvents;
-
-  useEffect(() => {
-    if (!loading && canSearch) {
-      setSearchPulse(true);
-      const t = window.setTimeout(() => setSearchPulse(false), 900);
-      return () => window.clearTimeout(t);
-    }
-  }, [loading, canSearch]);
-
-  /* -------------------- Genres (hard cap) -------------------- */
-
-  function toggleGenreTotalCap(which: "music" | "sports", value: string) {
-    const cur = which === "music" ? musicGenres : sportsGenres;
-    const other = which === "music" ? sportsGenres : musicGenres;
-
-    // remove if already selected
-    if (cur.includes(value)) {
-      const next = cur.filter((x) => x !== value);
-      if (which === "music") setMusicGenres(next);
-      else setSportsGenres(next);
+    if (!res.ok || !json?.ok || !json?.nextUrl) {
+      alert(json?.error || `Search failed (${res.status})`);
       return;
     }
 
-    // add only if under TOTAL cap
-    const totalSelected = cur.length + other.length;
-    if (totalSelected >= MAX_GENRES_TOTAL) {
-      alert(`Max ${MAX_GENRES_TOTAL} total genres (Music + Sports).`);
-      return;
-    }
-
-    const next = [...cur, value];
-    if (which === "music") setMusicGenres(next);
-    else setSportsGenres(next);
+    router.push(String(json.nextUrl));
   }
 
-  /* -------------------- Search navigation -------------------- */
+  const minStart = tomorrowYMD();
+  const minEnd = isYMD(start) ? start : minStart;
 
-  function onSearch() {
-    if (!primaryId) {
-      alert("Pick a Primary favorite (team or artist).");
-      return;
-    }
-    if (primaryNoEvents) return;
+  const shownMusic = showMoreMusic ? MUSIC_GENRES : MUSIC_GENRES.slice(0, 4);
+  const shownSports = showMoreSports ? SPORTS_GENRES : SPORTS_GENRES.slice(0, 4);
 
-    const { start: startNorm, end: endNorm } = normalizeDateRange(startDate, endDate);
-
-    const params = new URLSearchParams();
-    params.set("primaryId", primaryId);
-    if (secondaryId) params.set("secondaryId", secondaryId);
-
-    params.set("tripDays", String(tripDays));
-    params.set("radiusMiles", String(radiusMilesForTripDays(tripDays)));
-    params.set("countryCode", "US,CA");
-
-    if (isYMD(startNorm)) params.set("start", startNorm);
-    if (isYMD(endNorm)) params.set("end", endNorm);
-
-    const musicClean = sanitizeGenreList(musicGenres, MUSIC_GENRES);
-    const sportsClean = sanitizeGenreList(sportsGenres, SPORTS_GENRES);
-    const clamped = clampTotalGenres(musicClean, sportsClean, MAX_GENRES_TOTAL);
-
-    for (const g of clamped.music) params.append("musicGenres", g);
-    for (const g of clamped.sports) params.append("sportsGenres", g);
-
-    router.push(`/results?${params.toString()}`);
-  }
-
-  /* -------------------- Render -------------------- */
+  const pref1 = genreOrder[0] || "";
+  const pref2 = genreOrder[1] || "";
+  const pref3 = genreOrder[2] || "";
 
   return (
     <main className="min-h-screen bg-slate-50">
-      {/* Top brand bar */}
       <div className="border-b border-slate-200 bg-white/85 backdrop-blur">
         <div className="mx-auto w-full max-w-md px-4 py-5 lg:max-w-3xl">
           <div className="flex items-center gap-3">
-            <LogoMark />
+            <BrandLogo />
             <div className="min-w-0">
-              <div className="text-lg font-black tracking-tight text-slate-900 sm:text-xl">
-                {APP_NAME}
-              </div>
+              <div className="text-lg font-black tracking-tight text-slate-900 sm:text-xl">{APP_NAME}</div>
               <div className="text-xs text-slate-600 sm:text-sm">{TAGLINE}</div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Content column */}
       <div className="mx-auto w-full max-w-md px-4 py-6 lg:max-w-3xl lg:py-10">
-        <div className="space-y-6">
-          <Card title="Favorites" subtitle="Pick a Primary, and optionally a Secondary.">
-            <div className="grid gap-4">
-              <Combobox
-                label="Primary*"
-                optionsAll={combined}
-                grouped={grouped}
-                groups={groups}
-                valueId={primaryId}
-                setValueId={(v) => {
-                  setPrimaryId(v);
-
-                  if (!v) {
-                    setPrimaryNoEvents(false);
-                    abortAvailability("primary");
-                    clearAvailabilityDebounce("primary");
-                    return;
-                  }
-
-                  // If Primary changed to equal existing Secondary, clear Secondary
-                  if (secondaryId && v === secondaryId) {
-                    setSecondaryId("");
-                    setSecondaryNoEvents(false);
-                    abortAvailability("secondary");
-                    clearAvailabilityDebounce("secondary");
-                  }
-
-                  // Debounced availability
-                  ensureAvailability(v, "primary");
-                }}
-                help="We’ll build trip options around this schedule."
-                disabled={loading}
-              />
-
-              {primaryId && primaryNoEvents ? (
-                <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-900">
-                  <span className="font-extrabold">
-                    {labelForId(primaryId, combined) || "this selection"}
-                  </span>{" "}
-                  has no upcoming live events listed.
-                </div>
-              ) : null}
-
-              <Combobox
-                label="Secondary (optional)"
-                optionsAll={combined}
-                grouped={grouped}
-                groups={groups}
-                valueId={secondaryId}
-                setValueId={(v) => {
-                  if (!v) {
-                    setSecondaryId("");
-                    setSecondaryNoEvents(false);
-                    abortAvailability("secondary");
-                    clearAvailabilityDebounce("secondary");
-                    return;
-                  }
-
-                  if (primaryId && v === primaryId) {
-                    alert("Secondary must be different from Primary.");
-                    return;
-                  }
-
-                  setSecondaryId(v);
-                  setSecondaryNoEvents(false);
-
-                  ensureAvailability(v, "secondary");
-                }}
-                help="We’ll look for nearby dates where both have events."
-                disabled={loading}
-              />
-
-              {secondaryId && secondaryNoEvents ? (
-                <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-900">
-                  <span className="font-extrabold">
-                    {labelForId(secondaryId, combined) || "this selection"}
-                  </span>{" "}
-                  has no upcoming live events listed.
-                </div>
-              ) : null}
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+          <div className="text-center">
+            <h1 className="text-2xl font-black tracking-tight text-slate-900 sm:text-4xl">Search</h1>
+            <div className="mt-2 text-sm font-semibold text-slate-700">
+              Genre #1 is required. Everything else is optional.
             </div>
-          </Card>
+            {airportsErr ? <div className="mt-3 text-xs text-rose-700">Airports file error: {airportsErr}</div> : null}
+            {optionsErr ? <div className="mt-2 text-xs text-rose-700">Options error: {optionsErr}</div> : null}
+          </div>
 
-          <Card title="Trip Length & Dates" subtitle="Choose a window, optionally constrain by date.">
+          <div className="mt-6 grid gap-4">
+            {/* Genres */}
             <div>
-              <div className="mb-2 text-sm font-semibold text-slate-900">
-                Length (select one)
+              <div className="text-xs font-black text-slate-700">Preferred genres (max 3)</div>
+
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                <GenreChip label={pref1 || "Genre 1"} active={Boolean(pref1)} badge="1st" onClick={() => pref1 && toggleGenre(pref1)} />
+                <GenreChip label={pref2 || "Genre 2"} active={Boolean(pref2)} badge="2nd" onClick={() => pref2 && toggleGenre(pref2)} />
+                <GenreChip label={pref3 || "Genre 3"} active={Boolean(pref3)} badge="3rd" onClick={() => pref3 && toggleGenre(pref3)} />
               </div>
-              <div className="grid grid-cols-3 gap-2">
-                {TRIP_DAYS_OPTIONS.map((d) => {
-                  const half = Math.floor(d / 2);
-                  return (
-                    <Pill
-                      key={d}
-                      label={`${d} days (±${half})`}
-                      selected={tripDays === d}
-                      onClick={() => setTripDays(d)}
-                    />
-                  );
-                })}
+
+              <div className="mt-3">
+                <div className="text-[11px] font-black uppercase tracking-wide text-slate-500">Music</div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {shownMusic.map((g) => (
+                    <GenreChip key={g} label={g} active={isGenreSelected(g)} badge={rankBadgeFor(g)} onClick={() => toggleGenre(g)} />
+                  ))}
+                  {MUSIC_GENRES.length > 4 ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowMoreMusic((v) => !v)}
+                      className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-50"
+                    >
+                      {showMoreMusic ? "Hide more" : "Show more"}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <div className="text-[11px] font-black uppercase tracking-wide text-slate-500">Sports</div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {shownSports.map((g) => (
+                    <GenreChip key={g} label={g} active={isGenreSelected(g)} badge={rankBadgeFor(g)} onClick={() => toggleGenre(g)} />
+                  ))}
+                  {SPORTS_GENRES.length > 4 ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowMoreSports((v) => !v)}
+                      className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-50"
+                    >
+                      {showMoreSports ? "Hide more" : "Show more"}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="mt-2 text-[11px] text-slate-500">
+                Click chips to add/remove. Order is set by selection order (1st, 2nd, 3rd).
               </div>
             </div>
 
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              <label className="block">
-                <div className="mb-2 text-sm font-semibold text-slate-900">
-                  Start Date <span className="text-slate-400">(optional)</span>
-                </div>
-                <input
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[15px] text-slate-900 shadow-sm outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                />
-                <div className="mt-2 text-xs text-slate-500">
-                  Only trips starting after this date will be considered.
-                </div>
-              </label>
-
-              <label className="block">
-                <div className="mb-2 text-sm font-semibold text-slate-900">
-                  End Date <span className="text-slate-400">(optional)</span>
-                </div>
-                <input
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-[15px] text-slate-900 shadow-sm outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                />
-                <div className="mt-2 text-xs text-slate-500">
-                  Only trips ending before this date will be considered.
-                </div>
-              </label>
+            {/* Destination (optional) */}
+            <div>
+              <div className="text-xs font-black text-slate-700">Destination city (optional)</div>
+              <CityPicker
+                cities={cities}
+                valueCityId={destCityId}
+                onPick={(c) => {
+                  if (!c) {
+                    setDestCityId("");
+                    setDestCityLabelState("");
+                    setDestLat(null);
+                    setDestLon(null);
+                    setDestAirportIata("");
+                    return;
+                  }
+                  setDestCityId(c.id);
+                  setDestCityLabelState(cityLabel(c));
+                  setDestLat(c.lat);
+                  setDestLon(c.lon);
+                  setDestAirportIata((c.airportIata || "").toUpperCase());
+                }}
+                placeholder="Type a city (optional)"
+              />
+              {destCityLabelState ? <div className="mt-1 text-xs font-semibold text-slate-600">{destCityLabelState}</div> : null}
             </div>
-          </Card>
 
-          <Card
-            title="Other Interests"
-            subtitle={
-              <>
-                These help us suggest other events near your Primary.
-                <br />
-                <span>
-                  <i>Select up to 4</i>
-                </span>
-              </>
-            }
-          >
-            <div className="mt-2 grid gap-8 md:grid-cols-2">
-              {/* SPORTS */}
+            {/* Dates */}
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <div className="mb-3 text-center text-base font-extrabold text-slate-900">
-                  Sports
-                </div>
-
-                <div className="grid gap-2">
-                  {(showAllSports ? SPORTS_GENRES : SPORTS_GENRES.slice(0, TOP_GENRE_COUNT)).map(
-                    (g) => (
-                      <Pill
-                        key={g}
-                        label={g}
-                        selected={sportsGenres.includes(g)}
-                        onClick={() => toggleGenreTotalCap("sports", g)}
-                      />
-                    )
-                  )}
-                </div>
-
-                {SPORTS_GENRES.length > TOP_GENRE_COUNT ? (
-                  <button
-                    type="button"
-                    onClick={() => setShowAllSports((v) => !v)}
-                    className="mt-3 w-full rounded-2xl border border-slate-300 bg-slate-100 px-3 py-2 text-xs font-extrabold text-slate-800 shadow-sm transition hover:bg-slate-200 active:scale-[0.99]"
-                  >
-                    {showAllSports
-                      ? "Show less"
-                      : `Show more (${SPORTS_GENRES.length - TOP_GENRE_COUNT})`}
-                  </button>
-                ) : null}
+                <div className="text-xs font-black text-slate-700">Start date</div>
+                <input
+                  type="date"
+                  value={start}
+                  min={minStart}
+                  onChange={(e) => setStart(e.target.value)}
+                  className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-extrabold text-slate-900"
+                />
               </div>
-
-              {/* MUSIC */}
               <div>
-                <div className="mb-3 text-center text-base font-extrabold text-slate-900">
-                  Music
-                </div>
-
-                <div className="grid gap-2">
-                  {(showAllMusic ? MUSIC_GENRES : MUSIC_GENRES.slice(0, TOP_GENRE_COUNT)).map(
-                    (g) => (
-                      <Pill
-                        key={g}
-                        label={g}
-                        selected={musicGenres.includes(g)}
-                        onClick={() => toggleGenreTotalCap("music", g)}
-                      />
-                    )
-                  )}
-                </div>
-
-                {MUSIC_GENRES.length > TOP_GENRE_COUNT ? (
-                  <button
-                    type="button"
-                    onClick={() => setShowAllMusic((v) => !v)}
-                    className="mt-3 w-full rounded-2xl border border-slate-300 bg-slate-100 px-3 py-2 text-xs font-extrabold text-slate-800 shadow-sm transition hover:bg-slate-200 active:scale-[0.99]"
-                  >
-                    {showAllMusic
-                      ? "Show less"
-                      : `Show more (${MUSIC_GENRES.length - TOP_GENRE_COUNT})`}
-                  </button>
-                ) : null}
+                <div className="text-xs font-black text-slate-700">End date</div>
+                <input
+                  type="date"
+                  value={end}
+                  min={minEnd}
+                  onChange={(e) => setEnd(e.target.value)}
+                  className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-extrabold text-slate-900"
+                />
               </div>
             </div>
-          </Card>
 
-          {/* Primary CTA */}
-          <div className="pt-1">
+            {/* Trip days */}
+            <div>
+              <div className="text-xs font-black text-slate-700">Trip days (2–7)</div>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={tripDaysText}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw === "") {
+                    setTripDaysText("");
+                    return;
+                  }
+                  if (!/^\d+$/.test(raw)) return;
+                  setTripDaysText(raw);
+                }}
+                onBlur={() => {
+                  const v = Number(tripDaysText);
+                  if (!Number.isFinite(v)) {
+                    setTripDaysText("4");
+                    return;
+                  }
+                  setTripDaysText(String(clamp(Math.trunc(v), 2, 7)));
+                }}
+                className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-extrabold text-slate-900"
+              />
+              <div className="mt-1 text-[11px] text-slate-500">Current: {tripDays} days</div>
+            </div>
+
+            {/* P1/P2 */}
+            <div className="grid gap-3">
+              <OptionPicker
+                label="P1 (optional)"
+                options={options}
+                valueId={primaryId}
+                valueLabel={primaryLabel}
+                onPick={(opt) => {
+                  if (!opt) {
+                    setPrimaryId("");
+                    setPrimaryLabel("");
+                    return;
+                  }
+                  setPrimaryId(opt.id);
+                  setPrimaryLabel(opt.label);
+                }}
+                placeholder="Type 2+ letters (e.g., Oilers, Dodgers, Luke)…"
+              />
+
+              <OptionPicker
+                label="P2 (optional)"
+                options={options}
+                valueId={secondaryId}
+                valueLabel={secondaryLabel}
+                onPick={(opt) => {
+                  if (!opt) {
+                    setSecondaryId("");
+                    setSecondaryLabel("");
+                    return;
+                  }
+                  setSecondaryId(opt.id);
+                  setSecondaryLabel(opt.label);
+                }}
+                placeholder="Type 2+ letters…"
+              />
+            </div>
+
+            {/* Radius */}
+            <div>
+              <div className="text-xs font-black text-slate-700">Radius (miles)</div>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={radiusText}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw === "") {
+                    setRadiusText("");
+                    return;
+                  }
+                  if (!/^\d+$/.test(raw)) return;
+                  setRadiusText(raw);
+                }}
+                onBlur={() => {
+                  const v = Number(radiusText);
+                  if (!Number.isFinite(v)) {
+                    setRadiusText("120");
+                    return;
+                  }
+                  setRadiusText(String(clamp(Math.trunc(v), 1, 120)));
+                }}
+                className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-extrabold text-slate-900"
+              />
+              <div className="mt-1 text-[11px] text-slate-500">Max 120 miles (UI cap for now).</div>
+            </div>
+
             <button
               type="button"
               onClick={onSearch}
-              disabled={!canSearch || loading}
-              title={
-                !primaryId
-                  ? "Pick a Primary favorite to enable Search."
-                  : primaryNoEvents
-                  ? "This Primary has no upcoming events listed."
-                  : "Search"
-              }
-              className={[
-                "h-12 w-full rounded-2xl px-5 text-sm font-extrabold shadow-sm transition",
-                "focus:outline-none focus:ring-4 focus:ring-slate-200",
-                searchPulse ? "animate-pulse" : "",
-                canSearch && !loading
-                  ? "bg-slate-900 text-white hover:bg-slate-800"
-                  : "bg-slate-200 text-slate-500 cursor-not-allowed",
-              ].join(" ")}
+              className="mt-2 h-12 w-full rounded-2xl bg-slate-900 px-4 text-sm font-extrabold text-white hover:bg-slate-800"
             >
-              Find Trips
+              Search
             </button>
-
-            {loadError ? (
-              <div className="mt-4 text-center text-xs font-semibold text-rose-700">
-                {loadError}
-              </div>
-            ) : null}
           </div>
+        </section>
 
-          <div className="pb-6 text-center text-xs text-slate-500">
-            Tip: Install EventStack for the best mobile experience.
-          </div>
+        <div className="pb-6 pt-6 text-center text-xs text-slate-500">
+          {APP_NAME} • {TAGLINE}
         </div>
       </div>
     </main>
