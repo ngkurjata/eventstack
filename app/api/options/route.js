@@ -1,442 +1,401 @@
-// app/api/options/route.js
+// FILE: app/api/options/route.js
 import { NextResponse } from "next/server";
-
-const TM_BASE = "https://app.ticketmaster.com/discovery/v2";
-const TM_ATTRACTIONS = `${TM_BASE}/attractions.json`;
-const TM_KEY = process.env.TICKETMASTER_API_KEY;
-const TM_EVENTS = `${TM_BASE}/events.json`;
-
-// Tune these
-const OPTIONS_TTL_SECONDS = 60 * 60; // 1 hour (CDN + memory cache)
-const STALE_WHILE_REVALIDATE_SECONDS = 60 * 60 * 24; // 24 hours
-
-function sortByLabel(a, b) {
-  return String(a.label).localeCompare(String(b.label));
-}
-
-function sleep(ms) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
-async function resolveWithRetry(fn, { tries = 3, baseDelayMs = 250 } = {}) {
-  let last = null;
-
-  for (let i = 0; i < tries; i++) {
-    try {
-      const out = await fn();
-      if (out) return out;
-      last = out;
-    } catch (e) {
-      last = null;
-
-      // If TM is rate-limiting, back off harder
-      const msg = String(e?.message || e || "");
-      const is429 = msg.includes("429");
-      const delay = is429 ? 1200 + i * 800 : baseDelayMs * Math.pow(2, i);
-      await sleep(delay);
-      continue;
-    }
-
-    // small backoff even if result is null (common when TM is flaky)
-    await sleep(baseDelayMs * Math.pow(2, i));
-  }
-
-  return last;
-}
-
-
-// Canonical team rosters
-const TEAMS_BY_LEAGUE = {
-  NHL: [
-    "Anaheim Ducks","Arizona Coyotes","Boston Bruins","Buffalo Sabres","Calgary Flames","Carolina Hurricanes",
-    "Chicago Blackhawks","Colorado Avalanche","Columbus Blue Jackets","Dallas Stars","Detroit Red Wings",
-    "Edmonton Oilers","Florida Panthers","Los Angeles Kings","Minnesota Wild","Montreal Canadiens",
-    "Nashville Predators","New Jersey Devils","New York Islanders","New York Rangers","Ottawa Senators",
-    "Philadelphia Flyers","Pittsburgh Penguins","San Jose Sharks","Seattle Kraken","St. Louis Blues",
-    "Tampa Bay Lightning","Toronto Maple Leafs","Vancouver Canucks","Vegas Golden Knights","Washington Capitals",
-    "Winnipeg Jets"
-  ],
-  NBA: [
-    "Atlanta Hawks","Boston Celtics","Brooklyn Nets","Charlotte Hornets","Chicago Bulls","Cleveland Cavaliers",
-    "Dallas Mavericks","Denver Nuggets","Detroit Pistons","Golden State Warriors","Houston Rockets","Indiana Pacers",
-    "LA Clippers","Los Angeles Lakers","Memphis Grizzlies","Miami Heat","Milwaukee Bucks","Minnesota Timberwolves",
-    "New Orleans Pelicans","New York Knicks","Oklahoma City Thunder","Orlando Magic","Philadelphia 76ers",
-    "Phoenix Suns","Portland Trail Blazers","Sacramento Kings","San Antonio Spurs","Toronto Raptors",
-    "Utah Jazz","Washington Wizards"
-  ],
-  MLB: [
-    "Arizona Diamondbacks","Atlanta Braves","Baltimore Orioles","Boston Red Sox","Chicago Cubs","Chicago White Sox",
-    "Cincinnati Reds","Cleveland Guardians","Colorado Rockies","Detroit Tigers","Houston Astros","Kansas City Royals",
-    "Los Angeles Angels","Los Angeles Dodgers","Miami Marlins","Milwaukee Brewers","Minnesota Twins","New York Mets",
-    "New York Yankees","Oakland Athletics","Philadelphia Phillies","Pittsburgh Pirates","San Diego Padres",
-    "San Francisco Giants","Seattle Mariners","St. Louis Cardinals","Tampa Bay Rays","Texas Rangers",
-    "Toronto Blue Jays","Washington Nationals"
-  ],
-  NFL: [
-    "Arizona Cardinals","Atlanta Falcons","Baltimore Ravens","Buffalo Bills","Carolina Panthers","Chicago Bears",
-    "Cincinnati Bengals","Cleveland Browns","Dallas Cowboys","Denver Broncos","Detroit Lions","Green Bay Packers",
-    "Houston Texans","Indianapolis Colts","Jacksonville Jaguars","Kansas City Chiefs","Las Vegas Raiders",
-    "Los Angeles Chargers","Los Angeles Rams","Miami Dolphins","Minnesota Vikings","New England Patriots",
-    "New Orleans Saints","New York Giants","New York Jets","Philadelphia Eagles","Pittsburgh Steelers",
-    "San Francisco 49ers","Seattle Seahawks","Tampa Bay Buccaneers","Tennessee Titans","Washington Commanders"
-  ],
-  MLS: [
-    "Atlanta United","Austin FC","CF Montréal","Charlotte FC","Chicago Fire FC","Colorado Rapids","Columbus Crew",
-    "D.C. United","FC Cincinnati","FC Dallas","Houston Dynamo FC","Inter Miami CF","LA Galaxy",
-    "Los Angeles Football Club","Minnesota United FC","Nashville SC","New England Revolution",
-    "New York City FC","New York Red Bulls","Orlando City SC","Philadelphia Union","Portland Timbers",
-    "Real Salt Lake","San Diego FC","San Jose Earthquakes","Seattle Sounders FC","Sporting Kansas City",
-    "St. Louis CITY SC","Toronto FC","Vancouver Whitecaps FC"
-  ],
-  CFL: [
-    "BC Lions","Calgary Stampeders","Edmonton Elks","Saskatchewan Roughriders","Winnipeg Blue Bombers",
-    "Hamilton Tiger-Cats","Toronto Argonauts","Ottawa Redblacks","Montreal Alouettes"
-  ],
-};
-
-/* -------------------- ID builders (Option A) -------------------- */
-
-function tmTeamId(league, attractionId, name) {
-  const L = String(league || "").trim();
-  const A = String(attractionId || "").trim();
-  const N = String(name || "").trim();
-  // team:<LEAGUE>:<ATTRACTION_ID>:<NAME>
-  return `team:${L}:${A}:${N}`;
-}
-
-function tmArtistId(attractionId, name) {
-  const A = String(attractionId || "").trim();
-  const N = String(name || "").trim();
-  // artist:<ATTRACTION_ID>:<NAME>
-  return `artist:${A}:${N}`;
-}
-
-/* -------------------- fetch helper -------------------- */
-
-async function fetchJson(url) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8000);
-
-  try {
-    const res = await fetch(url, {
-      signal: controller.signal,
-      next: { revalidate: OPTIONS_TTL_SECONDS },
-    });
-
-    const text = await res.text();
-    let json = null;
-    try {
-      json = JSON.parse(text);
-    } catch {}
-    return { ok: res.ok, status: res.status, json, text };
-  } catch (e) {
-    return { ok: false, status: 0, json: null, text: String(e?.message || e) };
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-/* -------------------- small concurrency limiter -------------------- */
-
-async function mapWithConcurrency(list, limit, mapper) {
-  const out = new Array(list.length);
-  let i = 0;
-
-  async function worker() {
-    while (true) {
-      const idx = i++;
-      if (idx >= list.length) return;
-      out[idx] = await mapper(list[idx], idx);
-    }
-  }
-
-  const workers = Array.from({ length: Math.max(1, limit) }, () => worker());
-  await Promise.all(workers);
-  return out;
-}
-
-/* -------------------- Attraction resolution (Teams + Artists) -------------------- */
+import path from "path";
+import { promises as fs } from "fs";
 
 /**
- * Resolve best Sports attractionId for a given team name.
- * We use segmentName=Sports and keyword=teamName, restricted to US/CA.
+ * Data files expected (relative to project root):
+ *   /data/artist_options.json
+ *   /data/team_attraction_ids.json
+ *   /data/genres_config.json
  *
- * NOTE: Ticketmaster is not perfectly consistent; this is a best-effort resolver
- * used only at options-build time (then cached).
+ * Optional (for city autocomplete):
+ *   /data/airports.json  (preferred, used to derive cities)
+ *   /data/cities.json    (fallback)
  */
 
-async function resolveTeamAttractionId(teamName, league) {
-  if (!TM_KEY) return null;
+function json(payload, status = 200) {
+  return NextResponse.json(payload, {
+    status,
+    headers: {
+      "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400",
+    },
+  });
+}
 
-  const name = String(teamName || "").trim();
-  const leagueName = String(league || "").trim(); // e.g. "NHL"
+async function readJson(relPath) {
+  const abs = path.join(process.cwd(), relPath);
+  const raw = await fs.readFile(abs, "utf8");
+  return JSON.parse(raw);
+}
 
-  // ---------- Attempt 1: Attractions search (current approach) ----------
-  {
-    const params = new URLSearchParams();
-    params.set("apikey", TM_KEY);
-    params.set("segmentName", "Sports");
-    params.set("keyword", name);
-    params.set("size", "20");
-    params.set("countryCode", "US,CA");
+function sortByLabel(a, b) {
+  return String(a.label || "").localeCompare(String(b.label || ""));
+}
 
-    const url = `${TM_ATTRACTIONS}?${params.toString()}`;
-    const r = await fetchJson(url);
+/* -------------------- In-memory cache (module scope) -------------------- */
 
-    if (r.ok) {
-      const list = r.json?._embedded?.attractions || [];
-      if (Array.isArray(list) && list.length) {
-        const q = name.toLowerCase();
+let CACHE = null;
+let CACHE_AT = 0;
+const TTL_MS = 10 * 60 * 1000; // 10 minutes
 
-        const exact = list.find((a) => String(a?.name || "").trim().toLowerCase() === q && a?.id);
-        if (exact?.id) return exact.id;
+let CITY_CACHE = null;
+let CITY_CACHE_AT = 0;
+const CITY_TTL_MS = 60 * 60 * 1000; // 60 minutes
 
-        const incl = list.find((a) => String(a?.name || "").trim().toLowerCase().includes(q) && a?.id);
-        if (incl?.id) return incl.id;
+function shouldBypassCache(sp) {
+  return sp?.get("fresh") === "1";
+}
 
-        const first = list.find((a) => a?.id);
-        if (first?.id) return first.id;
-      }
+/* -------------------- Normalizers -------------------- */
+
+function normalizeTeams(teamData) {
+  const out = [];
+
+  const pushTeam = ({ league, label, attractionId }) => {
+    const L = String(league || "TEAM").trim();
+    const lbl = String(label || "").trim();
+    const aid = String(attractionId || "").trim();
+    if (!lbl || !aid) return;
+
+    out.push({
+      id: `team:${L}:${aid}:${lbl}`,
+      label: lbl,
+      kind: "team",
+      league: L,
+      attractionId: aid,
+      group: L,
+    });
+  };
+
+  if (Array.isArray(teamData)) {
+    for (const it of teamData) {
+      if (!it || typeof it !== "object") continue;
+      const label = it.label || it.name || it.team;
+      const league = it.league || it.group || it.sport || it.type || "TEAM";
+      const attractionId = it.attractionId || it.id || it.attractionID;
+      pushTeam({ league, label, attractionId });
     }
+    return out;
   }
 
-  // ---------- Attempt 2 (NEW): Events search fallback ----------
-  // Pull the team attractionId from a real event that matches the team.
-  {
-    const params = new URLSearchParams();
-    params.set("apikey", TM_KEY);
-    params.set("keyword", name);
-    params.set("size", "10");
-    params.set("sort", "relevance,desc");
-    params.set("countryCode", "US,CA");
+  if (teamData && typeof teamData === "object") {
+    for (const [leagueKey, val] of Object.entries(teamData)) {
+      const league = leagueKey;
 
-    // This filter tends to help a lot for teams:
-    params.set("segmentName", "Sports");
+      if (Array.isArray(val)) {
+        for (const it of val) {
+          if (!it || typeof it !== "object") continue;
+          const label = it.label || it.name || it.team;
+          const attractionId = it.attractionId || it.id;
+          pushTeam({ league, label, attractionId });
+        }
+        continue;
+      }
 
-    // If Ticketmaster accepts classificationName for league, try it (harmless if ignored)
-    if (leagueName) params.set("classificationName", leagueName);
+      if (val && typeof val === "object") {
+        const arr = Array.isArray(val.teams)
+          ? val.teams
+          : Array.isArray(val.entries)
+          ? val.entries
+          : Array.isArray(val.items)
+          ? val.items
+          : null;
 
-    const url = `${TM_EVENTS}?${params.toString()}`;
-    const r = await fetchJson(url);
+        if (arr) {
+          for (const it of arr) {
+            if (!it || typeof it !== "object") continue;
+            const label = it.label || it.name || it.team;
+            const attractionId = it.attractionId || it.id;
+            pushTeam({ league, label, attractionId });
+          }
+          continue;
+        }
 
-    if (r.ok) {
-      const events = r.json?._embedded?.events || [];
-      if (Array.isArray(events) && events.length) {
-        // Search embedded attractions for a matching name; otherwise take first attraction id.
-        const q = name.toLowerCase();
+        for (const [labelKey, v] of Object.entries(val)) {
+          if (labelKey === "segmentName" || labelKey === "enabled" || labelKey === "meta") continue;
 
-        for (const ev of events) {
-          const atts = ev?._embedded?.attractions;
-          if (!Array.isArray(atts)) continue;
+          let attractionId = null;
+          if (typeof v === "string") attractionId = v;
+          else if (v && typeof v === "object") attractionId = v.attractionId || v.id || null;
 
-          const exact = atts.find((a) => String(a?.name || "").trim().toLowerCase() === q && a?.id);
-          if (exact?.id) return exact.id;
-
-          const incl = atts.find((a) => String(a?.name || "").trim().toLowerCase().includes(q) && a?.id);
-          if (incl?.id) return incl.id;
-
-          const first = atts.find((a) => a?.id);
-          if (first?.id) return first.id;
+          pushTeam({ league, label: labelKey, attractionId });
         }
       }
     }
   }
 
-  return null;
+  return out;
 }
 
-async function findArtistByKeyword(name) {
-  if (!TM_KEY) return null;
-  const params = new URLSearchParams();
-  params.set("apikey", TM_KEY);
-  params.set("segmentName", "Music");
-  params.set("keyword", name);
-  params.set("size", "20");
-  params.set("countryCode", "US,CA");
+function normalizeArtists(artistData) {
+  const out = [];
+  const arr = Array.isArray(artistData) ? artistData : [];
 
-  const url = `${TM_ATTRACTIONS}?${params.toString()}`;
-  const r = await fetchJson(url);
-  const list = r.json?._embedded?.attractions || [];
-  const best = list.find((a) => a?.id && a?.name) || null;
-  return best ? { id: best.id, name: best.name } : null;
-}
+  for (const it of arr) {
+    if (!it || typeof it !== "object") continue;
 
-async function getMusicArtists(limit = 1200) {
-  if (!TM_KEY) return [];
+    const label = String(it.label || it.name || "").trim();
+    const attractionId = String(it.attractionId || it.id || "").trim();
+    if (!label || !attractionId) continue;
 
-  const pagesToFetch = 10; // up to ~2000 raw records
-  const size = 200;
-
-  const all = [];
-
-  for (let page = 0; page < pagesToFetch; page++) {
-    const url =
-      `${TM_ATTRACTIONS}?apikey=${TM_KEY}` +
-      `&classificationName=music` +
-      `&size=${size}&page=${page}&sort=relevance,desc` +
-      `&countryCode=US,CA`;
-
-    const r = await fetchJson(url);
-    if (!r.ok) continue;
-
-    const attractions = r.json?._embedded?.attractions ?? [];
-    for (const a of attractions) {
-      if (!a?.id || !a?.name) continue;
-
-      all.push({
-        id: tmArtistId(a.id, a.name), // ✅ Option A artist id
-        label: a.name,
-        group: "Artists",
-        kind: "artist",
-      });
-    }
+    out.push({
+      id: `artist:${attractionId}:${label}`,
+      label,
+      kind: "artist",
+      attractionId,
+      group: "Artists",
+    });
   }
 
-  // Force include Luke Combs if still missing
-  const mustHave = ["Luke Combs"];
-  for (const name of mustHave) {
-    const exists = all.some((x) => x.label.toLowerCase() === name.toLowerCase());
-    if (!exists) {
-      const found = await findArtistByKeyword(name);
-      if (found?.id) {
-        all.push({
-          id: tmArtistId(found.id, found.name), // ✅ Option A artist id
-          label: found.name,
-          group: "Artists",
-          kind: "artist",
+  return out;
+}
+
+function normalizeGenresFromConfig(cfg) {
+  const aliases = cfg && typeof cfg === "object" && cfg.aliases ? cfg.aliases : {};
+
+  function fromBucket(domain) {
+    const bucket = cfg?.[domain];
+    if (!bucket || typeof bucket !== "object") return [];
+
+    const segmentName = bucket.segmentName || null;
+    const entries = Array.isArray(bucket.entries) ? bucket.entries : [];
+
+    const out = [];
+    for (const e of entries) {
+      if (!e || typeof e !== "object") continue;
+      if (e.enabled === false) continue;
+
+      const rawName = String(e.name || "").trim();
+      if (!rawName) continue;
+
+      const label = String(aliases[rawName] || rawName);
+
+      out.push({
+        id: `genre:${domain}:${rawName}`,
+        label,
+        rawName,
+        kind: "genre",
+        domain,
+        group: `Genres (${domain})`,
+        segmentName,
+        tmClassificationNames: [rawName],
+      });
+    }
+    return out;
+  }
+
+  return {
+    musicGenres: fromBucket("music"),
+    sportsGenres: fromBucket("sports"),
+    artsGenres: fromBucket("arts"),
+  };
+}
+
+/* -------------------- Cities (derived from airports, fallback to cities.json) -------------------- */
+
+function toNum(x) {
+  const n = Number(x);
+  return Number.isFinite(n) ? n : null;
+}
+
+function regionShort(region) {
+  const s = String(region || "").trim();
+  if (!s) return "";
+  return s.includes("-") ? s.split("-")[1] : s;
+}
+
+async function buildCities({ bypass = false } = {}) {
+  const now = Date.now();
+  if (!bypass && CITY_CACHE && now - CITY_CACHE_AT < CITY_TTL_MS) return CITY_CACHE;
+
+  // 1) Try airports.json
+  try {
+    const raw = await readJson("data/airports.json");
+    const airports = Array.isArray(raw) ? raw : [];
+
+    const byKey = new Map();
+
+    for (const a of airports) {
+      if (!a || typeof a !== "object") continue;
+
+      const city = String(a.city || a.town || a.municipality || "").trim();
+      const country = String(a.country || a.countryCode || "").trim().toUpperCase();
+      const reg = regionShort(a.region || a.state || a.province);
+      const iata = String(a.iata || "").trim().toUpperCase();
+
+      const lat = toNum(a.lat ?? a.latitude);
+      const lon = toNum(a.lon ?? a.lng ?? a.longitude);
+
+      if (!city || !country) continue;
+      if (lat === null || lon === null) continue;
+
+      const key = `${country}|${reg}|${city}`.toLowerCase();
+      if (!byKey.has(key)) {
+        byKey.set(key, {
+          id: `${country}|${reg}|${city}`.replace(/\|\|/g, "|"),
+          label: `${city}${reg ? `, ${reg}` : ""}`,
+          lat,
+          lon,
+          country,
+          airportIata: iata || null,
         });
       }
     }
+
+    const cities = Array.from(byKey.values());
+    if (cities.length) {
+      CITY_CACHE = cities;
+      CITY_CACHE_AT = now;
+      return CITY_CACHE;
+    }
+  } catch {
+    // ignore; fallback to cities.json
   }
 
-  // dedupe by label
-  const map = new Map();
-  for (const o of all) {
-    const key = o.label.trim().toLowerCase();
-    if (!map.has(key)) map.set(key, o);
-  }
+  // 2) Fallback cities.json
+  try {
+    const raw = await readJson("data/cities.json");
+    const arr = Array.isArray(raw) ? raw : Array.isArray(raw?.cities) ? raw.cities : [];
 
-  return Array.from(map.values()).sort(sortByLabel).slice(0, limit);
+    const out = [];
+    const seen = new Set();
+
+    for (const x of arr) {
+      if (!x || typeof x !== "object") continue;
+
+      const id = String(x.id || "").trim();
+      const label = String(x.label || x.name || "").trim();
+      const lat = toNum(x.lat ?? x.latitude);
+      const lon = toNum(x.lon ?? x.lng ?? x.longitude);
+      const country = x.country ? String(x.country).trim().toUpperCase() : null;
+
+      if (!id || !label) continue;
+      if (lat === null || lon === null) continue;
+      if (seen.has(id)) continue;
+      seen.add(id);
+
+      out.push({ id, label, lat, lon, country });
+    }
+
+    CITY_CACHE = out;
+    CITY_CACHE_AT = now;
+    return CITY_CACHE;
+  } catch {
+    CITY_CACHE = [];
+    CITY_CACHE_AT = now;
+    return CITY_CACHE;
+  }
 }
 
-/* -------------------- Teams (resolve attractionId + build options) -------------------- */
+function searchCities(cities, q, limit = 10) {
+  const query = String(q || "").trim().toLowerCase();
+  if (query.length < 2) return [];
 
-async function buildTeamOptionsResolved() {
-  // Flatten roster
-  const roster = [];
-  for (const league of Object.keys(TEAMS_BY_LEAGUE)) {
-    const teams = TEAMS_BY_LEAGUE[league].slice().sort((a, b) => a.localeCompare(b));
-    for (const name of teams) roster.push({ league, name });
+  const scored = [];
+  for (const c of cities) {
+    const lbl = String(c?.label || "").toLowerCase();
+    const idx = lbl.indexOf(query);
+    if (idx === -1) continue;
+
+    const score = (idx === 0 ? 0 : 1000) + idx * 5 + Math.min(200, lbl.length);
+    scored.push({ c, score });
   }
 
-  // Resolve attractionIds with a conservative concurrency cap
-  const CONCURRENCY = 6;
-
-  const resolved = await mapWithConcurrency(roster, CONCURRENCY, async ({ league, name }) => {
-const attractionId = await resolveWithRetry(
-  () => resolveTeamAttractionId(name, league),
-  { tries: 3, baseDelayMs: 300 }
-);
-    return { league, name, attractionId: attractionId || "" };
-  });
-
-  const unresolved = resolved.filter((x) => !x.attractionId).map((x) => `${x.league}:${x.name}`);
-
-  const options = resolved.map((t) => ({
-    id: tmTeamId(t.league, t.attractionId, t.name), // ✅ Option A team id
-    label: t.name,
-    group: t.league,
-    kind: "team",
-    league: t.league,
-    attractionId: t.attractionId, // optional, useful for debugging
-  }));
-
-  return { options, unresolved };
+  scored.sort((a, b) => a.score - b.score);
+  return scored.slice(0, limit).map((x) => x.c);
 }
 
-/**
- * In-memory cache (per warm instance). Greatly reduces repeated work
- * during bursts and repeat visits; CDN cache headers cover the bigger picture.
- */
-function getCacheBucket() {
-  if (!globalThis.__EVENTSTACK_OPTIONS_CACHE__) {
-    globalThis.__EVENTSTACK_OPTIONS_CACHE__ = {
-      value: null,
-      expiresAt: 0,
-      inflight: null,
-    };
-  }
-  return globalThis.__EVENTSTACK_OPTIONS_CACHE__;
-}
+/* -------------------- Builder -------------------- */
 
-async function buildCombinedOptions() {
-  const teamsRes = await buildTeamOptionsResolved();
-  const artists = await getMusicArtists(1200);
+async function buildOptions() {
+  const [artistData, teamData, genresCfg] = await Promise.all([
+    readJson("data/artist_options.json"),
+    readJson("data/team_attraction_ids.json"),
+    readJson("data/genres_config.json"),
+  ]);
 
-  const combined = [...teamsRes.options, ...artists];
+  const teams = normalizeTeams(teamData);
+  const artists = normalizeArtists(artistData);
+
+  const favorites = [...teams, ...artists].sort(sortByLabel);
+
+  const { musicGenres, sportsGenres, artsGenres } = normalizeGenresFromConfig(genresCfg);
+  const genres = [...musicGenres, ...sportsGenres, ...artsGenres].sort(sortByLabel);
+
+  const leagueCounts = teams.reduce((acc, t) => {
+    const k = String(t.league || "TEAM");
+    acc[k] = (acc[k] || 0) + 1;
+    return acc;
+  }, {});
 
   return {
-    combined,
-    debug: {
-      teamsCount: teamsRes.options.length,
+    favorites,
+    genres,
+    musicGenres,
+    sportsGenres,
+    artsGenres,
+    meta: {
+      favoritesCount: favorites.length,
+      genresCount: genres.length,
+      teamsCount: teams.length,
       artistsCount: artists.length,
-      combinedCount: combined.length,
-      teamAttractionIdsResolved: teamsRes.options.filter((x) => !!x.attractionId).length,
-      teamAttractionIdsMissing: teamsRes.options.filter((x) => !x.attractionId).length,
-      // Keep this list short; it can be large otherwise
-      teamAttractionIdsMissingSample: teamsRes.unresolved.slice(0, 25),
+      musicGenresCount: musicGenres.length,
+      sportsGenresCount: sportsGenres.length,
+      artsGenresCount: artsGenres.length,
+      leagueCounts,
     },
   };
 }
 
-export async function GET() {
-  const cache = getCacheBucket();
-  const now = Date.now();
+/* -------------------- Route -------------------- */
 
-  // Serve from memory cache
-  if (cache.value && cache.expiresAt > now) {
-    return NextResponse.json(cache.value, {
-      headers: {
-        "Cache-Control": `public, s-maxage=${OPTIONS_TTL_SECONDS}, stale-while-revalidate=${STALE_WHILE_REVALIDATE_SECONDS}`,
-        "X-Options-Cache": "HIT",
-      },
-    });
-  }
+export async function GET(req) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const bypass = shouldBypassCache(searchParams);
 
-  // Deduplicate concurrent requests
-  if (cache.inflight) {
-    const payload = await cache.inflight;
-    return NextResponse.json(payload, {
-      headers: {
-        "Cache-Control": `public, s-maxage=${OPTIONS_TTL_SECONDS}, stale-while-revalidate=${STALE_WHILE_REVALIDATE_SECONDS}`,
-        "X-Options-Cache": "HIT-INFLIGHT",
-      },
-    });
-  }
+    const kind = String(searchParams.get("kind") || "").trim();
 
-  cache.inflight = (async () => {
-    try {
-      const payload = await buildCombinedOptions();
-      cache.value = payload;
-      cache.expiresAt = Date.now() + OPTIONS_TTL_SECONDS * 1000;
-      return payload;
-    } catch (err) {
-      return { combined: [], error: err?.message || "Unknown error" };
-    } finally {
-      cache.inflight = null;
+    // Cities endpoint
+    if (kind === "cities") {
+      const q = String(searchParams.get("q") || "").trim();
+      const all = searchParams.get("all") === "1";
+      const debug = searchParams.get("debug") === "1";
+
+      const cities = await buildCities({ bypass });
+      const hits = all ? cities : searchCities(cities, q, 10);
+
+      if (debug) {
+        return json({
+          ok: true,
+          q,
+          all,
+          meta: { citiesTotal: cities.length },
+          cities: hits,
+        });
+      }
+
+      return json({ ok: true, cities: hits });
     }
-  })();
 
-  const payload = await cache.inflight;
+    // Base options (favorites/genres)
+    const now = Date.now();
+    if (!bypass && CACHE && now - CACHE_AT < TTL_MS) return json(CACHE);
 
-  // If buildCombinedOptions failed, respond 500; otherwise 200.
-  const status = payload?.error ? 500 : 200;
-
-  return NextResponse.json(payload, {
-    status,
-    headers: {
-      "Cache-Control": `public, s-maxage=${OPTIONS_TTL_SECONDS}, stale-while-revalidate=${STALE_WHILE_REVALIDATE_SECONDS}`,
-      "X-Options-Cache": "MISS",
-    },
-  });
+    const built = await buildOptions();
+    CACHE = built;
+    CACHE_AT = now;
+    return json(built);
+  } catch (e) {
+    return json(
+      {
+        ok: false,
+        error: String(e?.message || e),
+        hint:
+          "Check /data files: artist_options.json, team_attraction_ids.json, genres_config.json. For cities: airports.json or cities.json.",
+      },
+      500
+    );
+  }
 }

@@ -1,1328 +1,926 @@
-// FILE: app/page.tsx
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import BrandLogo from "./components/BrandLogo";
-import { APP_NAME, TAGLINE } from "../lib/brand";
+import { listToCsv } from "@/lib/url";
+import { loadSession, saveSession } from "@/lib/home/persist";
 
-/* -------------------- Types -------------------- */
+type Mode = "area" | "favorites";
 
-type Airport = {
-  iata: string;
-  name: string;
-  city: string;
-  region: string; // e.g. "US-CA"
-  country: string; // "US" | "CA"
-  lat: number | null;
-  lon: number | null;
-};
+/* -------------------- utils -------------------- */
 
-type City = {
-  id: string; // "US|CA|Anaheim"
-  name: string;
-  region: string; // "CA" | "BC" etc
-  country: string; // "US" | "CA"
-  lat: number;
-  lon: number;
-  airportIata?: string | null;
-};
+function cx(...parts: Array<string | false | null | undefined>) {
+  return parts.filter(Boolean).join(" ");
+}
 
-type CombinedOption = {
-  id: string;
-  label: string;
-  group: string;
-  kind: "team" | "artist";
-  league?: string;
-  attractionId?: string;
-  tmAttractionId?: string;
-};
-
-type MenuItem =
-  | { type: "group"; group: string }
-  | { type: "item"; group: string; option: CombinedOption };
-
-const LS_SEARCH = "eventstack_search_A_v5_city_p1p2_ranked_genres_tripdays";
-
-type SavedSearch = {
-  destCityId?: string;
-  destCityLabel?: string;
-  destLat?: number;
-  destLon?: number;
-  destAirportIata?: string;
-
-  start?: string;
-  end?: string;
-
-  tripDays?: number;
-
-  primaryId?: string;
-  primaryLabel?: string;
-  secondaryId?: string;
-  secondaryLabel?: string;
-
-  genreOrderCsv?: string;
-
-  radiusText?: string;
-  countryCode?: string;
-};
-
-/* -------------------- Helpers -------------------- */
-
-function isYMD(s: any): s is string {
+function isYMD(s: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(s || ""));
-}
-
-function toYMDLocal(d: Date) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function tomorrowYMD() {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  return toYMDLocal(d);
 }
 
 function clamp(n: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, n));
 }
 
-function parseCsv(raw: string) {
-  return String(raw || "")
-    .split(",")
-    .map((x) => x.trim())
-    .filter(Boolean);
+function ymdFromLocalDate(dt: Date) {
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth() + 1).padStart(2, "0");
+  const d = String(dt.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
-function uniqLowerKeepOrder(xs: string[]) {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const x of xs) {
-    const k = x.toLowerCase();
-    if (seen.has(k)) continue;
-    seen.add(k);
-    out.push(x);
-  }
-  return out;
+function addDaysLocal(ymd: string, days: number) {
+  if (!isYMD(ymd)) return "";
+  const [yy, mm, dd] = ymd.split("-").map((x) => parseInt(x, 10));
+  const dt = new Date(yy, mm - 1, dd);
+  dt.setDate(dt.getDate() + days);
+  return ymdFromLocalDate(dt);
 }
 
-function readSavedSearch(): SavedSearch | null {
-  try {
-    if (typeof window === "undefined") return null;
-    const raw = localStorage.getItem(LS_SEARCH);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") return null;
-    return parsed as SavedSearch;
-  } catch {
-    return null;
-  }
+function tomorrowYMD() {
+  const dt = new Date();
+  dt.setDate(dt.getDate() + 1);
+  return ymdFromLocalDate(dt);
 }
 
-function writeSavedSearch(payload: SavedSearch) {
-  try {
-    if (typeof window === "undefined") return;
-    localStorage.setItem(LS_SEARCH, JSON.stringify(payload));
-  } catch {}
+function norm(s: any) {
+  return String(s || "").trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-/* -------------------- Geo helpers -------------------- */
+/* -------------------- data shapes -------------------- */
 
-function toRad(d: number) {
-  return (d * Math.PI) / 180;
-}
+type CityOpt = {
+  id?: string;
+  label: string;
+  lat: number;
+  lon: number;
+  country?: string;
+  airportIata?: string;
+};
 
-function haversineMiles(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 3958.7613;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(a));
-}
+type TeamMasterRow = { league: string; teamName: string };
+type TeamAttractionIds = Record<string, Record<string, string>>; // { NHL: { "Edmonton Oilers": "K8vZ..." }, ... }
 
-function regionShort(region: string) {
-  if (!region) return "";
-  return region.includes("-") ? region.split("-")[1] : region;
-}
+type ArtistOpt = {
+  id: string; // "artist:Luke_Combs"
+  label: string; // "Luke Combs"
+  group?: string;
+  kind?: string;
+  genres?: string[]; // ["Country"] etc (not always TM classificationName)
+};
 
-function keyCity(country: string, region: string, name: string) {
-  return `${country}|${region}|${name}`.toUpperCase();
-}
+type GenresConfig = {
+  music?: { entries?: Array<{ name: string; enabled?: boolean }> };
+  sports?: { entries?: Array<{ name: string; enabled?: boolean }> };
+  arts?: { entries?: Array<{ name: string; enabled?: boolean }> };
+  aliases?: Record<string, string>;
+};
 
-/* -------------------- Overrides -------------------- */
+type FavoriteOption = {
+  key: string; // unique key for list rendering
+  label: string; // display label shown in dropdown
+  kind: "team" | "artist";
+  attractionId?: string; // teams have it; artists resolved on pick
+  defaultGenre?: string; // if present, use it
+  rawName: string; // clean label without suffix
+};
 
-const OVERRIDE_CITIES: Array<Omit<City, "airportIata">> = [
-  { id: "US|CA|Anaheim", name: "Anaheim", region: "CA", country: "US", lat: 33.835293, lon: -117.914505 },
-];
+/* -------------------- lightweight combobox -------------------- */
 
-/* -------------------- City building -------------------- */
-
-function buildCitiesFromAirports(airports: Airport[]): City[] {
-  const byKey = new Map<string, { city: City; airports: Airport[] }>();
-
-  for (const a of airports) {
-    const cName = String(a.city || "").trim();
-    const cCountry = String(a.country || "").trim().toUpperCase();
-    const cRegion = regionShort(String(a.region || "").trim()).toUpperCase();
-
-    if (!cName || !cCountry || !cRegion) continue;
-    const lat = a.lat == null ? null : Number(a.lat);
-    const lon = a.lon == null ? null : Number(a.lon);
-    if (!Number.isFinite(lat as any) || !Number.isFinite(lon as any)) continue;
-
-    const k = keyCity(cCountry, cRegion, cName);
-
-    if (!byKey.has(k)) {
-      byKey.set(k, {
-        city: {
-          id: `${cCountry}|${cRegion}|${cName}`,
-          name: cName,
-          region: cRegion,
-          country: cCountry,
-          lat: Number(lat),
-          lon: Number(lon),
-          airportIata: null,
-        },
-        airports: [],
-      });
-    }
-    byKey.get(k)!.airports.push(a);
-  }
-
-  const out: City[] = [];
-  for (const { city, airports: aps } of byKey.values()) {
-    let sumLat = 0;
-    let sumLon = 0;
-    let n = 0;
-    for (const a of aps) {
-      if (a.lat == null || a.lon == null) continue;
-      const lat = Number(a.lat);
-      const lon = Number(a.lon);
-      if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
-      sumLat += lat;
-      sumLon += lon;
-      n += 1;
-    }
-    if (n > 0) {
-      city.lat = sumLat / n;
-      city.lon = sumLon / n;
-    }
-    out.push(city);
-  }
-
-  return out;
-}
-
-function mergeOverrides(base: City[], overrides: Array<Omit<City, "airportIata">>): City[] {
-  const map = new Map<string, City>();
-  for (const c of base) map.set(keyCity(c.country, c.region, c.name), c);
-
-  for (const o of overrides) {
-    const k = keyCity(o.country, o.region, o.name);
-    if (!map.has(k)) map.set(k, { ...o, airportIata: null });
-  }
-
-  return Array.from(map.values());
-}
-
-function computeNearestAirportIata(c: City, airports: Airport[]): string | null {
-  if (!Number.isFinite(c.lat) || !Number.isFinite(c.lon)) return null;
-
-  let best: { iata: string; d: number } | null = null;
-
-  for (const a of airports) {
-    const iata = String(a.iata || "").trim().toUpperCase();
-    const lat = a.lat == null ? null : Number(a.lat);
-    const lon = a.lon == null ? null : Number(a.lon);
-    if (iata.length !== 3) continue;
-    if (!Number.isFinite(lat as any) || !Number.isFinite(lon as any)) continue;
-
-    const d = haversineMiles(c.lat, c.lon, Number(lat), Number(lon));
-    if (!best || d < best.d) best = { iata, d };
-  }
-
-  if (!best) return null;
-  if (best.d > 250) return null;
-  return best.iata;
-}
-
-/* -------------------- CityPicker -------------------- */
-
-function cityLabel(c: City) {
-  return `${c.name}${c.region ? `, ${c.region}` : ""} (${c.country})`;
-}
-
-function CityPicker(props: {
-  cities: City[];
-  valueCityId: string;
-  onPick: (city: City | null) => void;
+function ComboBox<T extends { label: string }>(props: {
+  label: string;
+  value: string;
   placeholder?: string;
+  options: T[];
+  onChange: (next: string) => void;
+  onPick: (opt: T) => void;
+  disabled?: boolean;
+  rightHint?: string;
 }) {
-  const [q, setQ] = useState("");
-  const [activeIdx, setActiveIdx] = useState<number>(-1);
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  const { label, value, placeholder, options, onChange, onPick, disabled, rightHint } = props;
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
 
-  const selected = useMemo(() => {
-    const v = (props.valueCityId || "").trim();
-    return props.cities.find((c) => c.id === v) || null;
-  }, [props.valueCityId, props.cities]);
+  const filtered = useMemo(() => {
+  const q = norm(value);
+  const base = options || [];
+  if (!q) return base.slice(0, 12);
+  const hits = base.filter((o) => norm(o.label).includes(q));
+  return hits.slice(0, 12);
+}, [options, value]);
 
-  const results = useMemo(() => {
-    const query = q.trim().toLowerCase();
-    if (!query || selected) return [];
-
-    const matches = props.cities.filter((c) => {
-      const n = (c.name || "").toLowerCase();
-      const r = (c.region || "").toLowerCase();
-      const cc = (c.country || "").toLowerCase();
-      const iata = (c.airportIata || "").toLowerCase();
-      return (
-        n.startsWith(query) ||
-        n.includes(query) ||
-        r.startsWith(query) ||
-        r.includes(query) ||
-        cc === query ||
-        iata.startsWith(query)
-      );
-    });
-
-    matches.sort((a, b) => {
-      const qi = query;
-      const aN = (a.name || "").toLowerCase();
-      const bN = (b.name || "").toLowerCase();
-      const aR = (a.region || "").toLowerCase();
-      const bR = (b.region || "").toLowerCase();
-
-      const pref = (s: string) => (s.startsWith(qi) ? 0 : s.includes(qi) ? 3 : 10);
-      const sa = pref(aN) + pref(aR);
-      const sb = pref(bN) + pref(bR);
-      if (sa !== sb) return sa - sb;
-
-      return (a.name + a.region + a.country).localeCompare(b.name + b.region + b.country);
-    });
-
-    return matches.slice(0, 12);
-  }, [q, props.cities, selected]);
-
-  const isOpen = results.length > 0 && !selected;
-
-  function commitCity(c: City) {
-    props.onPick(c);
-    setQ("");
-    setActiveIdx(-1);
-  }
-
-  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (!isOpen) return;
-
-    if (e.key === "Escape") {
-      setActiveIdx(-1);
-      return;
+  useEffect(() => {
+    function onDoc(e: MouseEvent) {
+      if (!wrapRef.current) return;
+      if (!wrapRef.current.contains(e.target as any)) setOpen(false);
     }
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setActiveIdx((idx) => (idx < 0 ? 0 : Math.min(idx + 1, results.length - 1)));
-      return;
-    }
-    if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setActiveIdx((idx) => (idx <= 0 ? results.length - 1 : idx - 1));
-      return;
-    }
-    if (e.key === "Enter" || e.key === "Tab") {
-      e.preventDefault();
-      const pick = results[activeIdx];
-      if (pick) commitCity(pick);
-      return;
-    }
-  }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+
+  useEffect(() => setActive(0), [value]);
 
   return (
-    <div style={{ position: "relative" }}>
+    <div ref={wrapRef} className="relative">
+      <div className="flex items-end justify-between">
+        <div className="text-xs font-semibold text-slate-700">{label}</div>
+        {rightHint ? <div className="text-[11px] text-slate-500">{rightHint}</div> : null}
+      </div>
+
       <input
-        ref={inputRef}
-        value={selected ? cityLabel(selected) : q}
-        onFocus={() => {
-          if (selected) requestAnimationFrame(() => inputRef.current?.select());
-        }}
+        value={value}
+        disabled={disabled}
         onChange={(e) => {
-          props.onPick(null);
-          setQ(e.target.value);
-          setActiveIdx(-1);
+          onChange(e.target.value);
+          setOpen(true);
         }}
-        onKeyDown={onKeyDown}
-        placeholder={props.placeholder ?? "Type a city (e.g., Anaheim, Kelowna)"}
-        className="text-slate-900 placeholder:text-slate-400"
-        style={{
-          width: "100%",
-          padding: 10,
-          borderRadius: 12,
-          border: "1px solid #d7d7d7",
-          background: "#fff",
-          outline: "none",
+        onFocus={() => setOpen(true)}
+        onKeyDown={(e) => {
+          if (!open && (e.key === "ArrowDown" || e.key === "Enter")) setOpen(true);
+          if (!open) return;
+
+          if (e.key === "ArrowDown") {
+            e.preventDefault();
+            setActive((n) => Math.min(n + 1, Math.max(0, filtered.length - 1)));
+          } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            setActive((n) => Math.max(0, n - 1));
+          } else if (e.key === "Enter") {
+            e.preventDefault();
+            const opt = filtered[active];
+            if (opt) {
+              onPick(opt);
+              setOpen(false);
+            }
+          } else if (e.key === "Escape") {
+            setOpen(false);
+          }
         }}
-        autoComplete="off"
+        placeholder={placeholder}
+        className={cx(
+          "mt-1 h-11 w-full rounded-2xl border bg-white px-4 text-sm font-semibold text-slate-900 outline-none",
+          "border-slate-200 focus:border-slate-400",
+          disabled && "bg-slate-100 text-slate-500 cursor-not-allowed"
+        )}
       />
 
-      <div className="mt-2 text-xs text-center text-slate-600">
-        City sets the event radius. Nearest airport is auto-selected for one-click Expedia.
-      </div>
-
-      {isOpen ? (
-        <div
-          style={{
-            position: "absolute",
-            top: "calc(100% + 6px)",
-            left: 0,
-            right: 0,
-            zIndex: 50,
-            maxHeight: 320,
-            overflow: "auto",
-            border: "1px solid #e6e6e6",
-            background: "#fff",
-            borderRadius: 12,
-            boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
-            padding: 4,
-          }}
-        >
-          {results.map((c, idx) => {
-            const isActive = idx === activeIdx;
-            return (
-              <button
-                key={c.id}
-                type="button"
-                onMouseEnter={() => setActiveIdx(idx)}
-                onMouseDown={(ev) => {
-                  ev.preventDefault();
-                  commitCity(c);
-                }}
-                style={{
-                  width: "100%",
-                  textAlign: "left",
-                  padding: "10px 12px",
-                  border: "none",
-                  cursor: "pointer",
-                  borderRadius: 10,
-                  background: isActive ? "#0f172a" : "transparent",
-                  color: isActive ? "#fff" : "#0f172a",
-                }}
-              >
-                <div style={{ fontWeight: 900 }}>{cityLabel(c)}</div>
-                <div style={{ fontSize: 12, opacity: isActive ? 0.85 : 0.75 }}>
-                  {c.lat.toFixed(3)}, {c.lon.toFixed(3)}
-                </div>
-              </button>
-            );
-          })}
+      {open && filtered.length > 0 && !disabled && (
+        <div className="absolute z-20 mt-2 w-full rounded-2xl border border-slate-200 bg-white shadow-lg overflow-hidden">
+          {filtered.map((opt, idx) => (
+            <button
+              type="button"
+              key={(opt as any).key || opt.label}
+              onMouseEnter={() => setActive(idx)}
+              onClick={() => {
+                onPick(opt);
+                setOpen(false);
+              }}
+              className={cx(
+                "w-full text-left px-4 py-2 text-sm",
+                idx === active ? "bg-slate-900 text-white" : "bg-white text-slate-900 hover:bg-slate-50"
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
-      ) : null}
+      )}
     </div>
   );
 }
 
-/* -------------------- P1/P2 Picker -------------------- */
+/* -------------------- persisted state -------------------- */
 
-function buildMenu(options: CombinedOption[], query: string): MenuItem[] {
-  const q = query.trim().toLowerCase();
+type AreaState = {
+  cityLabel: string;
+  lat: string;
+  lon: string;
+  startDate: string;
+  endDate: string;
+  endTouched: boolean;
+  radiusMiles: number;
+  genres: string[]; // 1..4
+};
 
-  const filtered =
-    q.length < 2
-      ? []
-      : options.filter((o) => {
-          const lbl = (o.label || "").toLowerCase();
-          const grp = (o.group || "").toLowerCase();
-          const id = (o.id || "").toLowerCase();
-          return lbl.includes(q) || grp.includes(q) || id.includes(q);
-        });
+type FavState = {
+  f1Label: string;
+  f1AttractionId: string;
+  f1DefaultGenre: string;
 
-  const groups: string[] = [];
-  const byGroup = new Map<string, CombinedOption[]>();
-  for (const o of filtered) {
-    const g = o.group || "Other";
-    if (!byGroup.has(g)) {
-      byGroup.set(g, []);
-      groups.push(g);
-    }
-    byGroup.get(g)!.push(o);
-  }
+  useF2: boolean;
+  f2Label: string;
+  f2AttractionId: string;
+  f2DefaultGenre: string;
 
-  for (const g of groups) {
-    byGroup.get(g)!.sort((a, b) => (a.label || "").localeCompare(b.label || ""));
-  }
+  favStart: string; // stays blank by default
+  favEnd: string; // stays blank by default
+  genres: string[]; // 0..2
+};
 
-  const menu: MenuItem[] = [];
-  for (const g of groups) {
-    menu.push({ type: "group", group: g });
-    for (const o of byGroup.get(g)!) menu.push({ type: "item", group: g, option: o });
-  }
+const KEY_MODE = "eventstack_home_mode_v2";
+const KEY_AREA = "eventstack_home_area_v2";
+const KEY_FAV = "eventstack_home_fav_v2";
 
-  return menu.slice(0, 240);
+/* -------------------- helpers -------------------- */
+
+function leagueToDefaultGenre(league: string) {
+  const L = String(league || "").toUpperCase();
+  if (L === "NHL") return "Hockey";
+  if (L === "MLB") return "Baseball";
+  if (L === "NBA") return "Basketball";
+  if (L === "NFL" || L === "CFL") return "Football";
+  if (L === "MLS") return "Soccer";
+  return "Sports";
 }
 
-function OptionPicker(props: {
-  label: string;
-  options: CombinedOption[];
-  valueId: string;
-  valueLabel: string;
-  onPick: (opt: CombinedOption | null) => void;
-  placeholder?: string;
-}) {
-  const [q, setQ] = useState("");
-  const [activeIdx, setActiveIdx] = useState(-1);
-  const inputRef = useRef<HTMLInputElement | null>(null);
-
-  const isSelected = Boolean(props.valueId);
-
-  const menu = useMemo(() => {
-    if (isSelected) return [];
-    return buildMenu(props.options, q);
-  }, [props.options, q, isSelected]);
-
-  const isOpen = !isSelected && menu.length > 0;
-
-  function commit(opt: CombinedOption | null) {
-    props.onPick(opt);
-    setQ("");
-    setActiveIdx(-1);
-  }
-
-  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (!isOpen) return;
-
-    if (e.key === "Escape") {
-      setActiveIdx(-1);
-      return;
-    }
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setActiveIdx((idx) => (idx < 0 ? 0 : Math.min(idx + 1, menu.length - 1)));
-      return;
-    }
-    if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setActiveIdx((idx) => (idx <= 0 ? menu.length - 1 : idx - 1));
-      return;
-    }
-    if (e.key === "Enter") {
-      e.preventDefault();
-      const item = menu[activeIdx];
-      if (item?.type === "item") commit(item.option);
-      return;
-    }
-  }
-
-  return (
-    <div style={{ position: "relative" }}>
-      <div className="text-xs font-black text-slate-700">{props.label}</div>
-
-      <div className="mt-1 flex items-stretch gap-2">
-        <input
-          ref={inputRef}
-          value={isSelected ? props.valueLabel : q}
-          onFocus={() => {
-            if (isSelected) requestAnimationFrame(() => inputRef.current?.select());
-          }}
-          onChange={(e) => {
-            if (isSelected) commit(null);
-            setQ(e.target.value);
-            setActiveIdx(-1);
-          }}
-          onKeyDown={onKeyDown}
-          placeholder={props.placeholder ?? "Type 2+ letters to search…"}
-          className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 placeholder:text-slate-400"
-          autoComplete="off"
-        />
-
-        {isSelected ? (
-          <button
-            type="button"
-            onClick={() => commit(null)}
-            className="rounded-2xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 hover:bg-slate-50"
-            title="Clear"
-          >
-            Clear
-          </button>
-        ) : null}
-      </div>
-
-      {isOpen ? (
-        <div
-          style={{
-            position: "absolute",
-            top: "calc(100% + 8px)",
-            left: 0,
-            right: 0,
-            zIndex: 60,
-            maxHeight: 360,
-            overflow: "auto",
-            border: "1px solid #e6e6e6",
-            background: "#fff",
-            borderRadius: 14,
-            boxShadow: "0 10px 28px rgba(0,0,0,0.10)",
-            padding: 6,
-          }}
-        >
-          {menu.map((it, idx) => {
-            if (it.type === "group") {
-              return (
-                <div
-                  key={`g:${it.group}:${idx}`}
-                  className="px-3 py-2 text-[11px] font-black uppercase tracking-wide text-slate-500"
-                >
-                  {it.group}
-                </div>
-              );
-            }
-            const isActive = idx === activeIdx;
-            return (
-              <button
-                key={it.option.id}
-                type="button"
-                onMouseEnter={() => setActiveIdx(idx)}
-                onMouseDown={(ev) => {
-                  ev.preventDefault();
-                  commit(it.option);
-                }}
-                className="block w-full rounded-xl px-3 py-2 text-left"
-                style={{
-                  background: isActive ? "#0f172a" : "transparent",
-                  color: isActive ? "#fff" : "#0f172a",
-                }}
-              >
-                <div className="text-sm font-extrabold">{it.option.label}</div>
-                <div className="text-[11px]" style={{ opacity: isActive ? 0.85 : 0.65 }}>
-                  {it.option.kind === "team" ? "Team" : "Artist"} • {it.option.group}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-    </div>
-  );
+function normalizeGenreFromConfig(input: string, aliases?: Record<string, string>) {
+  const raw = String(input || "").trim();
+  if (!raw) return "";
+  const key = norm(raw);
+  const found = aliases ? aliases[key] : undefined;
+  return found || raw;
 }
 
-/* -------------------- Genres -------------------- */
-
-const MUSIC_GENRES = [
-  "Country",
-  "Rock",
-  "Pop",
-  "Hip-Hop",
-  "R&B",
-  "Electronic",
-  "Latin",
-  "Metal",
-  "Indie",
-  "Jazz",
-  "Classical",
-  "Reggae",
-  "Folk",
-  "Blues",
-];
-
-const SPORTS_GENRES = [
-  "Hockey",
-  "Baseball",
-  "Basketball",
-  "Football",
-  "Soccer",
-  "Golf",
-  "Tennis",
-  "MMA",
-  "Boxing",
-  "Racing",
-];
-
-function GenreChip(props: { label: string; active: boolean; badge?: string; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={props.onClick}
-      className="rounded-full border px-3 py-2 text-xs font-black"
-      style={{
-        borderColor: props.active ? "#0f172a" : "#e2e8f0",
-        background: props.active ? "#0f172a" : "#ffffff",
-        color: props.active ? "#ffffff" : "#0f172a",
-      }}
-      title={props.active ? "Click to remove" : "Click to select"}
-    >
-      <span className="inline-flex items-center gap-2">
-        {props.badge ? (
-          <span
-            className="inline-flex h-5 items-center rounded-full bg-white/20 px-2 text-[10px] font-black"
-            style={{ border: "1px solid rgba(255,255,255,0.28)" }}
-          >
-            {props.badge}
-          </span>
-        ) : null}
-        {props.label}
-      </span>
-    </button>
-  );
-}
-
-/* -------------------- Page -------------------- */
+/* -------------------- page -------------------- */
 
 export default function HomePage() {
   const router = useRouter();
 
-  // City-based destination (optional now)
-  const [destCityId, setDestCityId] = useState("");
-  const [destCityLabelState, setDestCityLabelState] = useState("");
-  const [destLat, setDestLat] = useState<number | null>(null);
-  const [destLon, setDestLon] = useState<number | null>(null);
-  const [destAirportIata, setDestAirportIata] = useState("");
+  const [mode, setMode] = useState<Mode>("area");
 
-  // Dates
-  const [start, setStart] = useState("");
-  const [end, setEnd] = useState("");
+  // load persisted forms
+  const [area, setArea] = useState<AreaState>(() =>
+    loadSession<AreaState>(KEY_AREA, {
+      cityLabel: "",
+      lat: "",
+      lon: "",
+      startDate: "",
+      endDate: "",
+      endTouched: false,
+      radiusMiles: 90,
+      genres: [""],
+    })
+  );
 
-  // Trip days
-  const [tripDaysText, setTripDaysText] = useState("4");
-  const tripDays = useMemo(() => {
-    const v = Number(tripDaysText);
-    if (!Number.isFinite(v)) return 4;
-    return clamp(Math.trunc(v), 2, 7);
-  }, [tripDaysText]);
+  const [fav, setFav] = useState<FavState>(() =>
+    loadSession<FavState>(KEY_FAV, {
+      f1Label: "",
+      f1AttractionId: "",
+      f1DefaultGenre: "",
 
-  // P1 / P2
-  const [primaryId, setPrimaryId] = useState("");
-  const [primaryLabel, setPrimaryLabel] = useState("");
-  const [secondaryId, setSecondaryId] = useState("");
-  const [secondaryLabel, setSecondaryLabel] = useState("");
+      useF2: false,
+      f2Label: "",
+      f2AttractionId: "",
+      f2DefaultGenre: "",
 
-  // Genres ranked (cap 3 total)
-  const [genreOrder, setGenreOrder] = useState<string[]>([]);
-  const genreOrderCsv = useMemo(() => genreOrder.join(","), [genreOrder]);
+      favStart: "",
+      favEnd: "",
+      genres: ["", ""],
+    })
+  );
 
-  const [showMoreMusic, setShowMoreMusic] = useState(false);
-  const [showMoreSports, setShowMoreSports] = useState(false);
+  // restore mode once
+  useEffect(() => {
+    const m = loadSession<Mode>(KEY_MODE, "area");
+    if (m === "area" || m === "favorites") setMode(m);
+  }, []);
 
-  // Radius
-  const [radiusText, setRadiusText] = useState("120");
-  const radiusMiles = useMemo(() => {
-    const v = Number(radiusText);
-    if (!Number.isFinite(v)) return 120;
-    return clamp(Math.trunc(v), 1, 120);
-  }, [radiusText]);
+  // persist mode + forms
+  useEffect(() => saveSession(KEY_MODE, mode), [mode]);
+  useEffect(() => saveSession(KEY_AREA, area), [area]);
+  useEffect(() => saveSession(KEY_FAV, fav), [fav]);
 
-  // Country code (hidden)
-  const [countryCode] = useState("US,CA");
+  // options
+  const [cities, setCities] = useState<CityOpt[]>([]);
+  const [favoriteOptions, setFavoriteOptions] = useState<FavoriteOption[]>([]);
+  const [genreOptions, setGenreOptions] = useState<Array<{ label: string }>>([]);
+  const [genreAliases, setGenreAliases] = useState<Record<string, string>>({});
 
-  // Data (cities)
-  const [airports, setAirports] = useState<Airport[]>([]);
-  const [cities, setCities] = useState<City[]>([]);
-  const [airportsErr, setAirportsErr] = useState("");
+  // load public JSONs
+  useEffect(() => {
+    let cancelled = false;
 
-  // Data (P1/P2 options)
-  const [options, setOptions] = useState<CombinedOption[]>([]);
-  const [optionsErr, setOptionsErr] = useState("");
+    async function loadAll() {
+      try {
+        const [citiesJ, teamsMasterJ, teamIdsJ, artistsJ, genresJ] = await Promise.all([
+          fetch("/cities.json", { cache: "force-cache" }).then((r) => (r.ok ? r.json() : [])),
+          fetch("/teams_master.json", { cache: "force-cache" }).then((r) => (r.ok ? r.json() : [])),
+          fetch("/team_attraction_ids.json", { cache: "force-cache" }).then((r) => (r.ok ? r.json() : {})),
+          fetch("/artist_options.json", { cache: "force-cache" }).then((r) => (r.ok ? r.json() : [])),
+          fetch("/genres_config.json", { cache: "force-cache" }).then((r) => (r.ok ? r.json() : {})),
+        ]);
 
-  // Guards
-  const hydratedRef = useRef(false);
-  const hydratingRef = useRef(false);
+        if (cancelled) return;
 
-  function hydrateFromStorage() {
-    try {
-      hydratingRef.current = true;
+        // Cities (flat: {label, lat, lon})
+const cityList: CityOpt[] = (Array.isArray(citiesJ) ? (citiesJ as any[]) : [])
+  .map((x: any) => {
+    const label = String(x?.label ?? "").trim();
+    const lat = Number(x?.lat);
+    const lon = Number(x?.lon);
+    if (!label || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
 
-      const saved = readSavedSearch();
-      if (saved) {
-        if (typeof saved.destCityId === "string") setDestCityId(saved.destCityId);
-        if (typeof saved.destCityLabel === "string") setDestCityLabelState(saved.destCityLabel);
+    return {
+      id: x?.id ? String(x.id) : undefined,
+      label,
+      lat,
+      lon,
+      country: x?.country ? String(x.country) : undefined,
+      airportIata: x?.airportIata ? String(x.airportIata) : undefined,
+    } as CityOpt;
+  })
+  .filter(Boolean) as CityOpt[];
 
-        if (saved.destLat != null && Number.isFinite(Number(saved.destLat))) setDestLat(Number(saved.destLat));
-        if (saved.destLon != null && Number.isFinite(Number(saved.destLon))) setDestLon(Number(saved.destLon));
+setCities(cityList);
 
-        if (typeof saved.destAirportIata === "string") setDestAirportIata(saved.destAirportIata);
+        // Genres config
+        const gc: GenresConfig = (genresJ && typeof genresJ === "object") ? (genresJ as any) : {};
+        const aliases: Record<string, string> = {};
+        for (const [k, v] of Object.entries(gc.aliases || {})) aliases[norm(k)] = String(v);
 
-        if (typeof saved.start === "string") setStart(saved.start);
-        if (typeof saved.end === "string") setEnd(saved.end);
+        const collect = (entries: any[] | undefined) =>
+          (Array.isArray(entries) ? entries : [])
+            .filter((e) => e && (e.enabled === undefined || e.enabled === true))
+            .map((e) => String(e.name || "").trim())
+            .filter(Boolean);
 
-        if (typeof saved.tripDays === "number" && Number.isFinite(saved.tripDays)) {
-          setTripDaysText(String(clamp(Math.trunc(saved.tripDays), 2, 7)));
-        }
+        const names = [
+          ...collect(gc.music?.entries),
+          ...collect(gc.sports?.entries),
+          ...collect(gc.arts?.entries),
+        ];
 
-        if (typeof saved.primaryId === "string") setPrimaryId(saved.primaryId);
-        if (typeof saved.primaryLabel === "string") setPrimaryLabel(saved.primaryLabel);
+        // De-dupe while preserving order
+        const seen = new Set<string>();
+        const unique = names.filter((n) => {
+          const k = norm(n);
+          if (seen.has(k)) return false;
+          seen.add(k);
+          return true;
+        });
 
-        if (typeof saved.secondaryId === "string") setSecondaryId(saved.secondaryId);
-        if (typeof saved.secondaryLabel === "string") setSecondaryLabel(saved.secondaryLabel);
+        setGenreAliases(aliases);
+        setGenreOptions(unique.map((n) => ({ label: n })));
 
-        if (typeof saved.genreOrderCsv === "string") {
-          setGenreOrder(uniqLowerKeepOrder(parseCsv(saved.genreOrderCsv)).slice(0, 3));
-        }
+        // Favorites (teams + artists)
+        const teamsMaster: TeamMasterRow[] = Array.isArray(teamsMasterJ) ? (teamsMasterJ as any) : [];
+        const teamIds: TeamAttractionIds = (teamIdsJ && typeof teamIdsJ === "object") ? (teamIdsJ as any) : {};
 
-        if (typeof saved.radiusText === "string") {
-          setRadiusText(saved.radiusText);
-        } else if ((saved as any)?.radiusMiles != null && Number.isFinite(Number((saved as any).radiusMiles))) {
-          setRadiusText(String(Number((saved as any).radiusMiles)));
+        const teamOpts: FavoriteOption[] = teamsMaster
+          .map((t: any) => {
+            const league = String(t?.league || "").trim();
+            const teamName = String(t?.teamName || "").trim();
+            if (!league || !teamName) return null;
+            const attractionId = String(teamIds?.[league]?.[teamName] || "").trim();
+            // for teams, defaultGenre is inferred (since option doesn't provide it)
+            const defaultGenre = leagueToDefaultGenre(league);
+            return {
+              key: `team:${league}:${teamName}`,
+              kind: "team",
+              rawName: teamName,
+              label: `${teamName} — ${league}`,
+              attractionId: attractionId || undefined,
+              defaultGenre,
+            };
+          })
+          .filter(Boolean) as FavoriteOption[];
+
+        const artists: ArtistOpt[] = Array.isArray(artistsJ) ? (artistsJ as any) : [];
+        const artistOpts: FavoriteOption[] = artists
+          .map((a) => {
+            const name = String(a?.label || "").trim();
+            if (!name) return null;
+            const g0 = Array.isArray(a?.genres) ? String(a.genres[0] || "").trim() : "";
+            // use option's genre when present (your requirement)
+            const defaultGenre = g0 ? normalizeGenreFromConfig(g0, aliases) : "";
+            return {
+              key: String(a?.id || `artist:${name}`),
+              kind: "artist",
+              rawName: name,
+              label: defaultGenre ? `${name} — ${defaultGenre}` : name,
+              // attractionId resolved via /api/suggest/attractions on pick
+              defaultGenre: defaultGenre || undefined,
+            };
+          })
+          .filter(Boolean) as FavoriteOption[];
+
+        // De-dupe by key
+        const map = new Map<string, FavoriteOption>();
+        for (const o of [...teamOpts, ...artistOpts]) map.set(o.key, o);
+        setFavoriteOptions(Array.from(map.values()));
+      } catch {
+        if (!cancelled) {
+          setCities([]);
+          setFavoriteOptions([]);
+          setGenreOptions([]);
+          setGenreAliases({});
         }
       }
-
-      hydratedRef.current = true;
-
-      setTimeout(() => {
-        hydratingRef.current = false;
-      }, 0);
-    } catch {
-      hydratedRef.current = true;
-      hydratingRef.current = false;
     }
-  }
 
-  useEffect(() => {
-    hydrateFromStorage();
-
-    const onPageShow = () => hydrateFromStorage();
-    const onPopState = () => hydrateFromStorage();
-    const onFocus = () => hydrateFromStorage();
-    const onVis = () => {
-      if (document.visibilityState === "visible") hydrateFromStorage();
-    };
-
-    window.addEventListener("pageshow", onPageShow);
-    window.addEventListener("popstate", onPopState);
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onVis);
-
+    loadAll();
     return () => {
-      window.removeEventListener("pageshow", onPageShow);
-      window.removeEventListener("popstate", onPopState);
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onVis);
+      cancelled = true;
     };
+  }, []);
+
+  // Area defaults for dates
+  useEffect(() => {
+    if (!area.startDate) {
+      const t = tomorrowYMD();
+      setArea((s) => ({
+        ...s,
+        startDate: t,
+        endDate: s.endTouched ? s.endDate : addDaysLocal(t, 13),
+      }));
+      return;
+    }
+    if (isYMD(area.startDate) && !area.endTouched) {
+      const autoEnd = addDaysLocal(area.startDate, 13);
+      if (autoEnd && autoEnd !== area.endDate) setArea((s) => ({ ...s, endDate: autoEnd }));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [area.startDate]);
 
-  // Default Start date to tomorrow (only if empty/invalid)
+  // clamp area radius
   useEffect(() => {
-    const t = tomorrowYMD();
-    setStart((prev) => (prev && isYMD(prev) ? prev : t));
-  }, []);
+    const clamped = clamp(Number(area.radiusMiles) || 90, 10, 120);
+    if (clamped !== area.radiusMiles) setArea((s) => ({ ...s, radiusMiles: clamped }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [area.radiusMiles]);
 
-  // persist on change (but not during hydration)
-  useEffect(() => {
-    if (!hydratedRef.current) return;
-    if (hydratingRef.current) return;
+  const areaGenreClean = useMemo(
+    () => area.genres.map((g) => String(g || "").trim()).filter(Boolean).slice(0, 4),
+    [area.genres]
+  );
 
-    writeSavedSearch({
-      destCityId,
-      destCityLabel: destCityLabelState,
-      destLat: destLat ?? undefined,
-      destLon: destLon ?? undefined,
-      destAirportIata,
+  const favGenreClean = useMemo(
+    () => fav.genres.map((g) => String(g || "").trim()).filter(Boolean).slice(0, 2),
+    [fav.genres]
+  );
 
-      start,
-      end,
+  function addAreaGenre() {
+    setArea((s) => ({ ...s, genres: s.genres.length >= 4 ? s.genres : [...s.genres, ""] }));
+  }
+  function removeAreaGenre(i: number) {
+    setArea((s) => ({ ...s, genres: s.genres.filter((_, idx) => idx !== i) }));
+  }
 
-      tripDays,
+  async function resolveArtistAttractionId(name: string): Promise<string> {
+    const q = String(name || "").trim();
+    if (!q) return "";
+    try {
+      const r = await fetch(`/api/suggest/attractions?q=${encodeURIComponent(q)}`, { cache: "no-store" });
+      const j = await r.json().catch(() => ({} as any));
+      const id = String(j?.items?.[0]?.id || "").trim();
+      return id;
+    } catch {
+      return "";
+    }
+  }
 
-      primaryId,
-      primaryLabel,
-      secondaryId,
-      secondaryLabel,
+  function onSearchArea() {
+    const latN = Number(area.lat);
+    const lonN = Number(area.lon);
 
-      genreOrderCsv,
+    if (!area.cityLabel.trim() || !Number.isFinite(latN) || !Number.isFinite(lonN)) {
+      alert("Area search requires City selection (label + lat + lon).");
+      return;
+    }
+    if (!isYMD(area.startDate) || !isYMD(area.endDate)) {
+      alert("Area search requires Start and End (YYYY-MM-DD).");
+      return;
+    }
 
-      radiusText,
-      countryCode,
-    });
-  }, [
-    destCityId,
-    destCityLabelState,
-    destLat,
-    destLon,
-    destAirportIata,
-    start,
-    end,
-    tripDays,
-    primaryId,
-    primaryLabel,
-    secondaryId,
-    secondaryLabel,
-    genreOrderCsv,
-    radiusText,
-    countryCode,
-  ]);
+    const maxEnd = addDaysLocal(area.startDate, 13);
+    if (maxEnd && isYMD(maxEnd) && area.endDate > maxEnd) {
+      alert("End date must be within 14 days of Start (Start + 13 max).");
+      return;
+    }
 
-  // Load airports -> build cities -> compute nearest airport
-  useEffect(() => {
-    let cancelled = false;
+    if (areaGenreClean.length < 1) {
+      alert("Area search requires at least 1 Genre.");
+      return;
+    }
 
-    (async () => {
-      setAirportsErr("");
-      try {
-        const res = await fetch("/airports.usca.min.json", { cache: "force-cache" });
-        if (!res.ok) throw new Error(`airports.usca.min.json failed (${res.status})`);
-        const json = await res.json();
-        if (cancelled) return;
+    // Find the picked city so we can pass airportIata through to results/area
+const pickedCity =
+  cities.find((c) => String(c.label || "").trim() === area.cityLabel.trim()) ||
+  cities.find((c) => String(c.lat) === String(latN) && String(c.lon) === String(lonN));
 
-        const arr = Array.isArray(json)
-          ? json
-          : Array.isArray((json as any)?.airports)
-          ? (json as any).airports
-          : [];
+const airportIata = String(pickedCity?.airportIata || "").trim().toUpperCase();
 
-        const cleaned: Airport[] = (arr || [])
-          .map((a: any) => ({
-            iata: String(a?.iata || "").trim().toUpperCase(),
-            name: String(a?.name || "").trim(),
-            city: String(a?.city || "").trim(),
-            region: String(a?.region || "").trim(),
-            country: String(a?.country || "").trim().toUpperCase(),
-            lat: a?.lat == null ? null : Number(a.lat),
-            lon: a?.lon == null ? null : Number(a.lon),
-          }))
-          .filter((a: Airport) => a.iata.length === 3);
+const url =
+  `/results/area?` +
+  new URLSearchParams({
+    cityLabel: area.cityLabel.trim(),
+    lat: String(latN),
+    lon: String(lonN),
+    airportIata, // ✅ ADD THIS
+    start: area.startDate,
+    end: area.endDate,
+    radiusMiles: String(clamp(area.radiusMiles, 10, 120)),
+    genres: listToCsv(areaGenreClean),
+    countryCode: "US,CA",
+  }).toString();
 
-        setAirports(cleaned);
+router.push(url);
 
-        const baseCities = buildCitiesFromAirports(cleaned);
-        const merged = mergeOverrides(baseCities, OVERRIDE_CITIES);
+  }
 
-        const withNearest: City[] = merged.map((c) => ({
-          ...c,
-          airportIata: computeNearestAirportIata(c, cleaned),
-        }));
+  function onSearchFavorites() {
+    if (!fav.f1Label.trim() || !fav.f1AttractionId.trim() || !fav.f1DefaultGenre.trim()) {
+      alert("Favorites search requires Favorite 1 (pick an option so attractionId + defaultGenre fill).");
+      return;
+    }
 
-        withNearest.sort((a, b) => (a.name + a.region + a.country).localeCompare(b.name + b.region + b.country));
-        setCities(withNearest);
-      } catch (e: any) {
-        if (cancelled) return;
-        setAirports([]);
-        setCities([]);
-        setAirportsErr(String(e?.message || e));
-      }
-    })();
+    if ((fav.favStart && !isYMD(fav.favStart)) || (fav.favEnd && !isYMD(fav.favEnd))) {
+      alert("If provided, Favorites Start/End must be YYYY-MM-DD.");
+      return;
+    }
+    if ((fav.favStart && !fav.favEnd) || (!fav.favStart && fav.favEnd)) {
+      alert("Provide both Start and End or leave both empty for Favorites search.");
+      return;
+    }
 
-    return () => {
-      cancelled = true;
+    const params: Record<string, string> = {
+      countryCode: "US,CA",
+      f1Label: fav.f1Label.trim(),
+      f1AttractionId: fav.f1AttractionId.trim(),
+      f1DefaultGenre: fav.f1DefaultGenre.trim(),
+      genres: listToCsv(favGenreClean),
     };
-  }, []);
 
-  // ✅ Backfill destAirportIata after cities are loaded + a city is selected (post-hydration safe)
-  useEffect(() => {
-    const currentId = (destCityId || "").trim();
-    if (!currentId) return;
+    if (fav.useF2 && fav.f2Label.trim() && fav.f2AttractionId.trim() && fav.f2DefaultGenre.trim()) {
+      params.f2Label = fav.f2Label.trim();
+      params.f2AttractionId = fav.f2AttractionId.trim();
+      params.f2DefaultGenre = fav.f2DefaultGenre.trim();
+    }
 
-    if ((destAirportIata || "").trim().length === 3) return;
-    if (!cities.length) return;
+    if (fav.favStart && fav.favEnd) {
+      params.start = fav.favStart;
+      params.end = fav.favEnd;
+    }
 
-    const found = cities.find((x) => x.id === currentId);
-    if (found?.airportIata) setDestAirportIata(String(found.airportIata).toUpperCase());
-  }, [cities, destCityId, destAirportIata]);
-
-  // Load P1/P2 options
-  useEffect(() => {
-    let cancelled = false;
-
-    (async () => {
-      setOptionsErr("");
-      try {
-        const res = await fetch("/api/options", { cache: "force-cache" });
-        const json = await res.json().catch(() => ({}));
-        if (cancelled) return;
-
-        const combined = Array.isArray(json?.combined) ? (json.combined as CombinedOption[]) : [];
-        const cleaned = combined
-          .map((o: any) => ({
-            id: String(o?.id || ""),
-            label: String(o?.label || ""),
-            group: String(o?.group || "Other"),
-            kind: (o?.kind === "team" ? "team" : "artist") as "team" | "artist",
-            league: o?.league ? String(o.league) : undefined,
-            attractionId: o?.attractionId ? String(o.attractionId) : undefined,
-            tmAttractionId: o?.tmAttractionId ? String(o.tmAttractionId) : undefined,
-          }))
-          .filter((o: CombinedOption) => o.id && o.label);
-
-        setOptions(cleaned);
-        if (!res.ok) setOptionsErr(String(json?.error || `Options failed (${res.status})`));
-      } catch (e: any) {
-        if (cancelled) return;
-        setOptions([]);
-        setOptionsErr(String(e?.message || e));
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // genre helpers
-  function isGenreSelected(g: string) {
-    return genreOrder.some((x) => x.toLowerCase() === g.toLowerCase());
+    router.push(`/results/favorites?${new URLSearchParams(params).toString()}`);
   }
-
-  function rankBadgeFor(g: string): string | undefined {
-    const idx = genreOrder.findIndex((x) => x.toLowerCase() === g.toLowerCase());
-    if (idx < 0) return undefined;
-    return idx === 0 ? "1st" : idx === 1 ? "2nd" : "3rd";
-  }
-
-  function toggleGenre(g: string) {
-    setGenreOrder((prev) => {
-      const idx = prev.findIndex((x) => x.toLowerCase() === g.toLowerCase());
-      if (idx >= 0) {
-        const copy = prev.slice();
-        copy.splice(idx, 1);
-        return copy;
-      }
-      if (prev.length >= 3) {
-        alert("You can only select up to 3 genres.");
-        return prev;
-      }
-      return [...prev, g];
-    });
-  }
-
-  async function onSearch() {
-    const tmr = tomorrowYMD();
-
-    if (genreOrder.length < 1) {
-      alert("Pick at least 1 genre.");
-      return;
-    }
-
-    if (!isYMD(start)) {
-      alert("Pick a valid Start date.");
-      return;
-    }
-    if (start < tmr) {
-      alert(`Start date must be ${tmr} or later.`);
-      return;
-    }
-
-    if (!isYMD(end)) {
-      alert("Pick a valid End date.");
-      return;
-    }
-    if (end < start) {
-      alert("End date must be the same as or after the Start date.");
-      return;
-    }
-
-    // “Where” is optional. If city is filled properly, A; otherwise B (api/search decides).
-    const hasCity = Boolean(destCityId) && Number.isFinite(destLat as any) && Number.isFinite(destLon as any);
-
-    // Split genres by known lists
-    const sportsSet = new Set(SPORTS_GENRES.map((x) => x.toLowerCase()));
-    const splitSports: string[] = [];
-    const splitMusic: string[] = [];
-    for (const g of genreOrder) {
-      if (sportsSet.has(String(g).toLowerCase())) splitSports.push(g);
-      else splitMusic.push(g);
-    }
-
-    writeSavedSearch({
-      destCityId,
-      destCityLabel: destCityLabelState,
-      destLat: destLat ?? undefined,
-      destLon: destLon ?? undefined,
-      destAirportIata,
-      start,
-      end,
-      tripDays,
-      primaryId,
-      primaryLabel,
-      secondaryId,
-      secondaryLabel,
-      genreOrderCsv,
-      radiusText,
-      countryCode,
-    });
-
-    const qs = new URLSearchParams();
-    qs.set("tripDays", String(tripDays));
-    qs.set("start", start);
-    qs.set("end", end);
-    qs.set("radiusMiles", String(radiusMiles));
-    qs.set("countryCode", countryCode);
-
-    if (primaryId) qs.set("primaryId", primaryId);
-    if (secondaryId) qs.set("secondaryId", secondaryId);
-
-    qs.set("genreOrder", genreOrder.join(","));
-
-    for (const g of splitSports) qs.append("sportsGenres", g);
-    for (const g of splitMusic) qs.append("musicGenres", g);
-
-    // ✅ only include destination params when we truly have a destination
-    if (hasCity) {
-      qs.set("destCityId", destCityId);
-      qs.set("destCityLabel", destCityLabelState || "");
-      qs.set("lat", String(destLat));
-      qs.set("lon", String(destLon));
-
-      // IMPORTANT: only send destIata when hasCity is true
-      if ((destAirportIata || "").trim().length === 3) {
-        qs.set("destIata", destAirportIata.trim().toUpperCase());
-      }
-    }
-
-    const res = await fetch(`/api/search?${qs.toString()}`, { cache: "no-store" });
-    const json = await res.json().catch(() => ({}));
-
-    if (!res.ok || !json?.ok || !json?.nextUrl) {
-      alert(json?.error || `Search failed (${res.status})`);
-      return;
-    }
-
-    router.push(String(json.nextUrl));
-  }
-
-  const minStart = tomorrowYMD();
-  const minEnd = isYMD(start) ? start : minStart;
-
-  const shownMusic = showMoreMusic ? MUSIC_GENRES : MUSIC_GENRES.slice(0, 4);
-  const shownSports = showMoreSports ? SPORTS_GENRES : SPORTS_GENRES.slice(0, 4);
-
-  const pref1 = genreOrder[0] || "";
-  const pref2 = genreOrder[1] || "";
-  const pref3 = genreOrder[2] || "";
 
   return (
     <main className="min-h-screen bg-slate-50">
       <div className="border-b border-slate-200 bg-white/85 backdrop-blur">
-        <div className="mx-auto w-full max-w-md px-4 py-5 lg:max-w-3xl">
-          <div className="flex items-center gap-3">
-            <BrandLogo />
-            <div className="min-w-0">
-              <div className="text-lg font-black tracking-tight text-slate-900 sm:text-xl">{APP_NAME}</div>
-              <div className="text-xs text-slate-600 sm:text-sm">{TAGLINE}</div>
+        <div className="mx-auto w-full max-w-md px-4 py-4 lg:max-w-4xl">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <BrandLogo />
+              <div className="min-w-0">
+  <div className="text-base font-black tracking-tight text-slate-900 truncate">EventStack</div>
+  <div className="text-xs text-slate-600 truncate">Simplifying Concert & Live Sports Trip Planning</div>
+</div>
             </div>
+          </div>
+
+          <div className="mt-4 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setMode("area")}
+              className={cx(
+                "h-11 rounded-2xl px-4 text-sm font-extrabold border transition",
+                mode === "area"
+                  ? "bg-slate-900 text-white border-slate-900"
+                  : "bg-white text-slate-900 border-slate-200 hover:bg-slate-50"
+              )}
+            >
+              Explore by City
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("favorites")}
+              className={cx(
+                "h-11 rounded-2xl px-4 text-sm font-extrabold border transition",
+                mode === "favorites"
+                  ? "bg-slate-900 text-white border-slate-900"
+                  : "bg-white text-slate-900 border-slate-200 hover:bg-slate-50"
+              )}
+            >
+              Plan around Favorites
+            </button>
           </div>
         </div>
       </div>
 
-      <div className="mx-auto w-full max-w-md px-4 py-6 lg:max-w-3xl lg:py-10">
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <div className="text-center">
-            <h1 className="text-2xl font-black tracking-tight text-slate-900 sm:text-4xl">Search</h1>
-            <div className="mt-2 text-sm font-semibold text-slate-700">
-              Genre #1 is required. Everything else is optional.
-            </div>
-            {airportsErr ? <div className="mt-3 text-xs text-rose-700">Airports file error: {airportsErr}</div> : null}
-            {optionsErr ? <div className="mt-2 text-xs text-rose-700">Options error: {optionsErr}</div> : null}
-          </div>
-
-          <div className="mt-6 grid gap-4">
-            {/* Genres */}
-            <div>
-              <div className="text-xs font-black text-slate-700">Preferred genres (max 3)</div>
-
-              <div className="mt-2 grid grid-cols-3 gap-2">
-                <GenreChip label={pref1 || "Genre 1"} active={Boolean(pref1)} badge="1st" onClick={() => pref1 && toggleGenre(pref1)} />
-                <GenreChip label={pref2 || "Genre 2"} active={Boolean(pref2)} badge="2nd" onClick={() => pref2 && toggleGenre(pref2)} />
-                <GenreChip label={pref3 || "Genre 3"} active={Boolean(pref3)} badge="3rd" onClick={() => pref3 && toggleGenre(pref3)} />
-              </div>
-
-              <div className="mt-3">
-                <div className="text-[11px] font-black uppercase tracking-wide text-slate-500">Music</div>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {shownMusic.map((g) => (
-                    <GenreChip key={g} label={g} active={isGenreSelected(g)} badge={rankBadgeFor(g)} onClick={() => toggleGenre(g)} />
-                  ))}
-                  {MUSIC_GENRES.length > 4 ? (
-                    <button
-                      type="button"
-                      onClick={() => setShowMoreMusic((v) => !v)}
-                      className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-50"
-                    >
-                      {showMoreMusic ? "Hide more" : "Show more"}
-                    </button>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="mt-4">
-                <div className="text-[11px] font-black uppercase tracking-wide text-slate-500">Sports</div>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {shownSports.map((g) => (
-                    <GenreChip key={g} label={g} active={isGenreSelected(g)} badge={rankBadgeFor(g)} onClick={() => toggleGenre(g)} />
-                  ))}
-                  {SPORTS_GENRES.length > 4 ? (
-                    <button
-                      type="button"
-                      onClick={() => setShowMoreSports((v) => !v)}
-                      className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-50"
-                    >
-                      {showMoreSports ? "Hide more" : "Show more"}
-                    </button>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="mt-2 text-[11px] text-slate-500">
-                Click chips to add/remove. Order is set by selection order (1st, 2nd, 3rd).
-              </div>
+      <div className="mx-auto w-full max-w-md px-4 py-6 lg:max-w-4xl lg:py-10">
+        {mode === "area" ? (
+          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+            <div className="text-lg font-black text-slate-900">Explore by City</div>
+            <div className="mt-1 text-xs text-slate-600">
+              City typeahead auto-fills lat/lon. Start defaults to tomorrow; End defaults to Start + 13 days. Radius max 120.
             </div>
 
-            {/* Destination (optional) */}
-            <div>
-              <div className="text-xs font-black text-slate-700">Destination city (optional)</div>
-              <CityPicker
-                cities={cities}
-                valueCityId={destCityId}
-                onPick={(c) => {
-                  if (!c) {
-                    setDestCityId("");
-                    setDestCityLabelState("");
-                    setDestLat(null);
-                    setDestLon(null);
-                    setDestAirportIata("");
-                    return;
-                  }
-                  setDestCityId(c.id);
-                  setDestCityLabelState(cityLabel(c));
-                  setDestLat(c.lat);
-                  setDestLon(c.lon);
-                  setDestAirportIata((c.airportIata || "").toUpperCase());
-                }}
-                placeholder="Type a city (optional)"
+            <div className="mt-5 grid gap-4 sm:grid-cols-3">
+              <ComboBox<CityOpt>
+                label="City"
+                value={area.cityLabel}
+                placeholder="Type a city…"
+                options={cities}
+                onChange={(v) => setArea((s) => ({ ...s, cityLabel: v }))}
+                onPick={(opt) =>
+  setArea((s) => ({
+    ...s,
+    cityLabel: opt.label,
+    lat: String(opt.lat),
+    lon: String(opt.lon),
+  }))
+}
+                rightHint="auto lat/lon"
               />
-              {destCityLabelState ? <div className="mt-1 text-xs font-semibold text-slate-600">{destCityLabelState}</div> : null}
-            </div>
 
-            {/* Dates */}
-            <div className="grid grid-cols-2 gap-3">
               <div>
-                <div className="text-xs font-black text-slate-700">Start date</div>
+                <div className="text-xs font-semibold text-slate-700">Lat</div>
                 <input
-                  type="date"
-                  value={start}
-                  min={minStart}
-                  onChange={(e) => setStart(e.target.value)}
-                  className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-extrabold text-slate-900"
+                  value={area.lat}
+                  onChange={(e) => setArea((s) => ({ ...s, lat: e.target.value }))}
+                  placeholder="auto"
+                  className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-slate-400"
                 />
               </div>
+
               <div>
-                <div className="text-xs font-black text-slate-700">End date</div>
+                <div className="text-xs font-semibold text-slate-700">Lon</div>
                 <input
-                  type="date"
-                  value={end}
-                  min={minEnd}
-                  onChange={(e) => setEnd(e.target.value)}
-                  className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-extrabold text-slate-900"
+                  value={area.lon}
+                  onChange={(e) => setArea((s) => ({ ...s, lon: e.target.value }))}
+                  placeholder="auto"
+                  className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-slate-400"
+                />
+              </div>
+
+              <div>
+                <div className="text-xs font-semibold text-slate-700">Start</div>
+                <input
+                  value={area.startDate}
+                  onChange={(e) => setArea((s) => ({ ...s, startDate: e.target.value }))}
+                  placeholder="YYYY-MM-DD"
+                  className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-slate-400"
+                />
+              </div>
+
+              <div>
+                <div className="text-xs font-semibold text-slate-700">End (Start + 13 max)</div>
+                <input
+                  value={area.endDate}
+                  onChange={(e) => setArea((s) => ({ ...s, endDate: e.target.value, endTouched: true }))}
+                  placeholder="YYYY-MM-DD"
+                  className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-slate-400"
+                />
+                {!area.endTouched && isYMD(area.startDate) ? (
+                  <div className="mt-1 text-[11px] text-slate-500">
+                    Auto end: {addDaysLocal(area.startDate, 13)}
+                  </div>
+                ) : null}
+              </div>
+
+              <div>
+                <div className="flex items-end justify-between">
+                  <div className="text-xs font-semibold text-slate-700">Radius (miles)</div>
+                  <div className="text-[11px] text-slate-500">max 120</div>
+                </div>
+                <input
+                  type="number"
+                  value={area.radiusMiles}
+                  onChange={(e) => setArea((s) => ({ ...s, radiusMiles: clamp(Number(e.target.value), 10, 120) }))}
+                  className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-slate-400"
                 />
               </div>
             </div>
 
-            {/* Trip days */}
-            <div>
-              <div className="text-xs font-black text-slate-700">Trip days (2–7)</div>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={tripDaysText}
-                onChange={(e) => {
-                  const raw = e.target.value;
-                  if (raw === "") {
-                    setTripDaysText("");
-                    return;
-                  }
-                  if (!/^\d+$/.test(raw)) return;
-                  setTripDaysText(raw);
-                }}
-                onBlur={() => {
-                  const v = Number(tripDaysText);
-                  if (!Number.isFinite(v)) {
-                    setTripDaysText("4");
-                    return;
-                  }
-                  setTripDaysText(String(clamp(Math.trunc(v), 2, 7)));
-                }}
-                className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-extrabold text-slate-900"
-              />
-              <div className="mt-1 text-[11px] text-slate-500">Current: {tripDays} days</div>
+            <div className="mt-6">
+              <div className="text-xs font-semibold text-slate-700">Genres (1–4)</div>
+              <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                {area.genres.map((g, i) => (
+                  <div key={i} className="flex gap-2">
+                    <ComboBox<{ label: string }>
+                      label={`Genre ${i + 1}`}
+                      value={g}
+                      placeholder="Type a genre…"
+                      options={genreOptions}
+                      onChange={(v) =>
+                        setArea((s) => ({
+                          ...s,
+                          genres: s.genres.map((val, idx) => (idx === i ? v : val)),
+                        }))
+                      }
+                      onPick={(opt) =>
+                        setArea((s) => ({
+                          ...s,
+                          genres: s.genres.map((val, idx) => (idx === i ? opt.label : val)),
+                        }))
+                      }
+                    />
+
+                    {area.genres.length > 1 ? (
+                      <button
+                        type="button"
+                        onClick={() => removeAreaGenre(i)}
+                        className="mt-[18px] h-11 rounded-2xl border border-slate-200 bg-white px-3 text-xs font-extrabold text-slate-800 hover:bg-slate-50"
+                      >
+                        Remove
+                      </button>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={addAreaGenre}
+                  className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-extrabold text-slate-900 hover:bg-slate-50"
+                >
+                  Add genre
+                </button>
+                <button
+                  type="button"
+                  onClick={onSearchArea}
+                  className="h-11 rounded-2xl bg-slate-900 px-5 text-sm font-extrabold text-white hover:bg-slate-800"
+                >
+                  Search
+                </button>
+              </div>
+            </div>
+          </section>
+        ) : (
+          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+            <div className="text-lg font-black text-slate-900">Plan around Favorites</div>
+            <div className="mt-1 text-xs text-slate-600">
+              Favorites typeahead auto-fills attractionId. Default genre comes from the option when present. Dates stay blank unless you fill them.
             </div>
 
-            {/* P1/P2 */}
-            <div className="grid gap-3">
-              <OptionPicker
-                label="P1 (optional)"
-                options={options}
-                valueId={primaryId}
-                valueLabel={primaryLabel}
-                onPick={(opt) => {
-                  if (!opt) {
-                    setPrimaryId("");
-                    setPrimaryLabel("");
-                    return;
+            <div className="mt-5 grid gap-4 sm:grid-cols-3">
+              <ComboBox<FavoriteOption>
+                label="Favorite 1"
+                value={fav.f1Label}
+                placeholder="Type a team or artist…"
+                options={favoriteOptions}
+                onChange={(v) => setFav((s) => ({ ...s, f1Label: v }))}
+                onPick={async (opt) => {
+                  const nextLabel = opt.rawName;
+                  const nextGenre = opt.defaultGenre ? normalizeGenreFromConfig(opt.defaultGenre, genreAliases) : "";
+                  let id = opt.attractionId || "";
+
+                  // artists: resolve id from TM on pick
+                  if (!id && opt.kind === "artist") {
+                    id = await resolveArtistAttractionId(opt.rawName);
                   }
-                  setPrimaryId(opt.id);
-                  setPrimaryLabel(opt.label);
+
+                  setFav((s) => ({
+                    ...s,
+                    f1Label: nextLabel,
+                    f1AttractionId: id,
+                    f1DefaultGenre: nextGenre || s.f1DefaultGenre || "",
+                  }));
                 }}
-                placeholder="Type 2+ letters (e.g., Oilers, Dodgers, Luke)…"
+                rightHint="auto ID"
               />
 
-              <OptionPicker
-                label="P2 (optional)"
-                options={options}
-                valueId={secondaryId}
-                valueLabel={secondaryLabel}
-                onPick={(opt) => {
-                  if (!opt) {
-                    setSecondaryId("");
-                    setSecondaryLabel("");
-                    return;
-                  }
-                  setSecondaryId(opt.id);
-                  setSecondaryLabel(opt.label);
-                }}
-                placeholder="Type 2+ letters…"
-              />
+              <div>
+                <div className="text-xs font-semibold text-slate-700">AttractionId</div>
+                <input
+                  value={fav.f1AttractionId}
+                  onChange={(e) => setFav((s) => ({ ...s, f1AttractionId: e.target.value }))}
+                  placeholder="auto"
+                  className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-slate-400"
+                />
+              </div>
+
+              <div>
+                <div className="text-xs font-semibold text-slate-700">Default genre</div>
+                <input
+                  value={fav.f1DefaultGenre}
+                  onChange={(e) => setFav((s) => ({ ...s, f1DefaultGenre: e.target.value }))}
+                  placeholder="auto"
+                  className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-slate-400"
+                />
+              </div>
             </div>
 
-            {/* Radius */}
-            <div>
-              <div className="text-xs font-black text-slate-700">Radius (miles)</div>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={radiusText}
-                onChange={(e) => {
-                  const raw = e.target.value;
-                  if (raw === "") {
-                    setRadiusText("");
-                    return;
-                  }
-                  if (!/^\d+$/.test(raw)) return;
-                  setRadiusText(raw);
-                }}
-                onBlur={() => {
-                  const v = Number(radiusText);
-                  if (!Number.isFinite(v)) {
-                    setRadiusText("120");
-                    return;
-                  }
-                  setRadiusText(String(clamp(Math.trunc(v), 1, 120)));
-                }}
-                className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-extrabold text-slate-900"
-              />
-              <div className="mt-1 text-[11px] text-slate-500">Max 120 miles (UI cap for now).</div>
+            <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <label className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={fav.useF2}
+                  onChange={(e) => setFav((s) => ({ ...s, useF2: e.target.checked }))}
+                />
+                <div className="text-sm font-extrabold text-slate-900">Include Favorite 2</div>
+              </label>
+
+              {fav.useF2 ? (
+                <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                  <ComboBox<FavoriteOption>
+                    label="Favorite 2"
+                    value={fav.f2Label}
+                    placeholder="Type a team or artist…"
+                    options={favoriteOptions}
+                    onChange={(v) => setFav((s) => ({ ...s, f2Label: v }))}
+                    onPick={async (opt) => {
+                      const nextLabel = opt.rawName;
+                      const nextGenre = opt.defaultGenre ? normalizeGenreFromConfig(opt.defaultGenre, genreAliases) : "";
+                      let id = opt.attractionId || "";
+
+                      if (!id && opt.kind === "artist") {
+                        id = await resolveArtistAttractionId(opt.rawName);
+                      }
+
+                      setFav((s) => ({
+                        ...s,
+                        f2Label: nextLabel,
+                        f2AttractionId: id,
+                        f2DefaultGenre: nextGenre || s.f2DefaultGenre || "",
+                      }));
+                    }}
+                    rightHint="auto ID"
+                  />
+
+                  <div>
+                    <div className="text-xs font-semibold text-slate-700">AttractionId</div>
+                    <input
+                      value={fav.f2AttractionId}
+                      onChange={(e) => setFav((s) => ({ ...s, f2AttractionId: e.target.value }))}
+                      placeholder="auto"
+                      className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-slate-400"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="text-xs font-semibold text-slate-700">Default genre</div>
+                    <input
+                      value={fav.f2DefaultGenre}
+                      onChange={(e) => setFav((s) => ({ ...s, f2DefaultGenre: e.target.value }))}
+                      placeholder="auto"
+                      className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-slate-400"
+                    />
+                  </div>
+                </div>
+              ) : null}
             </div>
 
-            <button
-              type="button"
-              onClick={onSearch}
-              className="mt-2 h-12 w-full rounded-2xl bg-slate-900 px-4 text-sm font-extrabold text-white hover:bg-slate-800"
-            >
-              Search
-            </button>
-          </div>
-        </section>
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <div>
+                <div className="text-xs font-semibold text-slate-700">Start (optional)</div>
+                <input
+                  value={fav.favStart}
+                  onChange={(e) => setFav((s) => ({ ...s, favStart: e.target.value }))}
+                  placeholder="YYYY-MM-DD"
+                  className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-slate-400"
+                />
+              </div>
+              <div>
+                <div className="text-xs font-semibold text-slate-700">End (optional)</div>
+                <input
+                  value={fav.favEnd}
+                  onChange={(e) => setFav((s) => ({ ...s, favEnd: e.target.value }))}
+                  placeholder="YYYY-MM-DD"
+                  className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-slate-400"
+                />
+              </div>
+            </div>
 
-        <div className="pb-6 pt-6 text-center text-xs text-slate-500">
-          {APP_NAME} • {TAGLINE}
+            <div className="mt-5">
+              <div className="text-xs font-semibold text-slate-700">Optional genres (0–2)</div>
+              <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                <ComboBox<{ label: string }>
+                  label="Genre 1"
+                  value={fav.genres[0] || ""}
+                  placeholder="Type a genre…"
+                  options={genreOptions}
+                  onChange={(v) => setFav((s) => ({ ...s, genres: [v, s.genres[1] || ""] }))}
+                  onPick={(opt) => setFav((s) => ({ ...s, genres: [opt.label, s.genres[1] || ""] }))}
+                />
+                <ComboBox<{ label: string }>
+                  label="Genre 2"
+                  value={fav.genres[1] || ""}
+                  placeholder="Type a genre…"
+                  options={genreOptions}
+                  onChange={(v) => setFav((s) => ({ ...s, genres: [s.genres[0] || "", v] }))}
+                  onPick={(opt) => setFav((s) => ({ ...s, genres: [s.genres[0] || "", opt.label] }))}
+                />
+              </div>
+
+              <div className="mt-5">
+                <button
+                  type="button"
+                  onClick={onSearchFavorites}
+                  className="h-11 rounded-2xl bg-slate-900 px-5 text-sm font-extrabold text-white hover:bg-slate-800"
+                >
+                  Search
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
+
+        <div className="mt-6 text-center text-xs text-slate-500">
+          Form values persist when navigating away and back (session-based).
         </div>
       </div>
     </main>

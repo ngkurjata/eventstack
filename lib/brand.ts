@@ -1,3 +1,5 @@
-export const LOGO_VERSION = "2026-02-18"; // bump this when you update logo.svg
-export const APP_NAME = "EventStack";
-export const TAGLINE = "Find live events. Book epic trips.";
+// FILE: lib/brand.ts
+
+export const APP_NAME = "EventTrip";
+export const TAGLINE = "Find the best trips around games & shows";
+export const LOGO_VERSION = "v1";

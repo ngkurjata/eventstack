@@ -1,9 +1,10 @@
-// FILE: app/events/page.tsx
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import BrandLogo from "../components/BrandLogo";
+import { useSaveTrip } from "@/lib/trips/useSaveTrip";
+import type { TripDraft, TripEvent } from "@/lib/trips/saveTrip";
 
 /* -------------------- Types -------------------- */
 
@@ -17,8 +18,8 @@ type ApiEvent = {
   venueName: string;
   url: string | null;
 
-  matchedGenres: string[];
-  pillGenre: string;
+  matchedFavorites: string[]; // ids
+  pillLabel: string; // readable label for UI
 };
 
 type ApiResp = {
@@ -66,20 +67,23 @@ export default function EventsPage() {
   const router = useRouter();
   const sp = useSearchParams();
 
-  // Use a stable string so effects/memos don't thrash.
   const spStr = sp.toString();
-
-  // Read params from the stable string
   const params = useMemo(() => new URLSearchParams(spStr), [spStr]);
 
   const tripStyle = String(params.get("tripStyle") || "A").trim().toUpperCase();
-
   const destCityLabel = String(params.get("destCityLabel") || "").trim();
 
   const qLat = parseNum(params.get("lat"));
   const qLon = parseNum(params.get("lon"));
-
   const destIata = String(params.get("destIata") || "").trim().toUpperCase();
+
+  // NOTE: home base can be named a few different ways depending on your earlier pages.
+  // Prefer explicit "homeBase", then fall back to "homeIata" or "originIata".
+  const homeBase = String(
+    params.get("homeBase") || params.get("homeIata") || params.get("originIata") || ""
+  )
+    .trim()
+    .toUpperCase();
 
   const start = String(params.get("start") || "").trim();
   const end = String(params.get("end") || "").trim();
@@ -87,19 +91,12 @@ export default function EventsPage() {
   const radiusMiles = String(params.get("radiusMiles") || "120").trim() || "120";
   const countryCode = String(params.get("countryCode") || "US,CA").trim() || "US,CA";
 
-  const genreOrderRaw = String(params.get("genreOrder") || "").trim();
-  const genreOrder = useMemo(
-    () => (genreOrderRaw ? genreOrderRaw.split(",").map((x) => x.trim()).filter(Boolean) : []),
-    [genreOrderRaw]
-  );
-
-  const musicGenres = useMemo(() => params.getAll("musicGenres").map((s) => String(s).trim()).filter(Boolean), [params]);
-  const sportsGenres = useMemo(
-    () => params.getAll("sportsGenres").map((s) => String(s).trim()).filter(Boolean),
+  const favorites = useMemo(
+    () => params.getAll("favorites").map((s) => String(s).trim()).filter(Boolean),
     [params]
   );
 
-  // Airports only needed for old-flow fallback
+  // Airports fallback
   const [airports, setAirports] = useState<Airport[]>([]);
   const [airportsError, setAirportsError] = useState<string>("");
 
@@ -112,6 +109,9 @@ export default function EventsPage() {
 
   const abortRef = useRef<AbortController | null>(null);
 
+  // Save pipeline
+  const { saving, error: saveError, run: runSave } = useSaveTrip();
+
   function toggle(id: string) {
     setSelected((prev) => ({ ...prev, [id]: !prev[id] }));
   }
@@ -119,7 +119,6 @@ export default function EventsPage() {
     setSelected({});
   }
 
-  // restore selections
   useEffect(() => {
     try {
       const raw = localStorage.getItem(LS_SELECTED);
@@ -129,14 +128,12 @@ export default function EventsPage() {
     } catch {}
   }, []);
 
-  // persist selections
   useEffect(() => {
     try {
       localStorage.setItem(LS_SELECTED, JSON.stringify(selected));
     } catch {}
   }, [selected]);
 
-  // load airports only if we have an IATA and might need fallback lat/lon/header
   useEffect(() => {
     let cancelled = false;
 
@@ -213,23 +210,23 @@ export default function EventsPage() {
     return null;
   }, [qLat, qLon, airport]);
 
-  // Build the /api/events URL from the page querystring (stable)
   const fetchUrl = useMemo(() => {
     if (effectiveLat == null || effectiveLon == null) return "";
 
     const qs = new URLSearchParams(spStr);
-
-    // ensure essentials
     qs.set("lat", String(effectiveLat));
     qs.set("lon", String(effectiveLon));
     qs.set("start", start);
     qs.set("end", end);
-
     if (!qs.get("radiusMiles")) qs.set("radiusMiles", String(radiusMiles || "120"));
     if (!qs.get("countryCode")) qs.set("countryCode", String(countryCode || "US,CA"));
 
+    // Ensure favorites are present (some callers may not include them in spStr rebuilds)
+    qs.delete("favorites");
+    for (const f of favorites) qs.append("favorites", f);
+
     return `/api/events?${qs.toString()}`;
-  }, [spStr, effectiveLat, effectiveLon, start, end, radiusMiles, countryCode]);
+  }, [spStr, effectiveLat, effectiveLon, start, end, radiusMiles, countryCode, favorites.join("|")]);
 
   useEffect(() => {
     let cancelled = false;
@@ -251,8 +248,14 @@ export default function EventsPage() {
         return;
       }
 
+      if ((favorites || []).length < 1) {
+        setErr("Pick at least 1 favorite.");
+        setLoading(false);
+        setEvents([]);
+        return;
+      }
+
       if (effectiveLat == null || effectiveLon == null) {
-        // may still be waiting for airports
         if (destIata && destIata.length === 3) {
           setLoading(true);
           return;
@@ -303,7 +306,53 @@ export default function EventsPage() {
       abortRef.current?.abort();
       abortRef.current = null;
     };
-  }, [tripStyle, start, end, effectiveLat, effectiveLon, fetchUrl, destIata]);
+  }, [tripStyle, start, end, effectiveLat, effectiveLon, fetchUrl, destIata, favorites.join("|")]);
+
+  const selectedEventsForSave = useMemo(() => {
+    if (!events?.length) return [] as ApiEvent[];
+    return events.filter((ev) => !!selected[ev.id]);
+  }, [events, selected]);
+
+  const canSaveTrip = useMemo(() => {
+    if (!homeBase || homeBase.length !== 3) return false;
+    if (!isYMD(start) || !isYMD(end)) return false;
+    if (selectedEventsForSave.length === 0) return false;
+    return true;
+  }, [homeBase, start, end, selectedEventsForSave.length]);
+
+  async function onSaveTrip() {
+    if (!canSaveTrip) return;
+
+    const tripEvents: TripEvent[] = selectedEventsForSave.map((ev) => ({
+      id: ev.id,
+      source: "ticketmaster",
+      tmEventId: ev.id, // if your API has a distinct TM id, swap it in here
+      name: ev.name,
+      url: ev.url,
+      localDate: ev.localDate,
+      localTime: ev.localTime,
+      city: ev.city,
+      region: ev.region,
+      country: null,
+      venueName: ev.venueName,
+      lat: null,
+      lon: null,
+      matchedGenres: Array.isArray(ev.matchedFavorites) ? ev.matchedFavorites : [],
+      pillGenre: ev.pillLabel || "",
+    }));
+
+    const draft: TripDraft = {
+      homeBase,
+      startDate: start,
+      endDate: end,
+      events: tripEvents,
+    };
+
+    const out = await runSave(draft);
+    if (out.ok) {
+      router.push(`/trips/${out.tripId}`);
+    }
+  }
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -314,9 +363,17 @@ export default function EventsPage() {
             <div className="min-w-0">
               <div className="text-lg font-black tracking-tight text-slate-900 sm:text-xl">{headerCity}</div>
               <div className="text-xs text-slate-600 sm:text-sm">
-                {fmtRange(start, end)} • Genres: {genreOrder.length ? genreOrder.join(", ") : "—"}
+                {fmtRange(start, end)} • Favorites: {favorites.length ? favorites.length : "—"}
+                {homeBase ? ` • Home: ${homeBase}` : ""}
               </div>
-              {airportsError ? <div className="mt-2 text-xs text-rose-700">Airports file error: {airportsError}</div> : null}
+              {airportsError ? (
+                <div className="mt-2 text-xs text-rose-700">Airports file error: {airportsError}</div>
+              ) : null}
+              {!homeBase ? (
+                <div className="mt-2 text-xs text-amber-700">
+                  Missing home airport in URL (expected homeBase/homeIata/originIata). Save Trip will be disabled.
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
@@ -356,8 +413,10 @@ export default function EventsPage() {
             <div className="mt-6 space-y-2">
               {events.map((ev) => {
                 const checked = !!selected[ev.id];
-                const dateLine = `${ev.localDate || "TBA"}${ev.city ? ` — ${ev.city}${ev.region ? `, ${ev.region}` : ""}` : ""}`;
-                const pill = (ev.pillGenre || "").trim();
+                const dateLine = `${ev.localDate || "TBA"}${
+                  ev.city ? ` — ${ev.city}${ev.region ? `, ${ev.region}` : ""}` : ""
+                }`;
+                const pill = (ev.pillLabel || "").trim();
 
                 return (
                   <label
@@ -368,7 +427,12 @@ export default function EventsPage() {
                     ].join(" ")}
                   >
                     <div className="flex min-w-0 items-start gap-3">
-                      <input type="checkbox" checked={checked} onChange={() => toggle(ev.id)} className="mt-1 h-5 w-5" />
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggle(ev.id)}
+                        className="mt-1 h-5 w-5"
+                      />
 
                       <div className="min-w-0">
                         <div className="text-xs text-slate-500">{dateLine}</div>
@@ -398,13 +462,40 @@ export default function EventsPage() {
             </div>
           )}
 
+          {(saveError || !canSaveTrip) && selectedCount > 0 ? (
+            <div className="mt-4">
+              {saveError ? (
+                <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{saveError}</div>
+              ) : !homeBase ? (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                  Can’t save yet: missing home airport (homeBase/homeIata/originIata) in the URL params.
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
           <div className="mt-6 flex gap-3">
             <button
               type="button"
-              onClick={() => router.push(`/?${spStr}`)}
+              onClick={() => router.push(`/?`)}
               className="flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 hover:bg-slate-50"
             >
               Back
+            </button>
+
+            <button
+              type="button"
+              disabled={!canSaveTrip || saving}
+              onClick={onSaveTrip}
+              className={[
+                "flex-1 rounded-2xl px-4 py-3 text-sm font-black",
+                !canSaveTrip || saving
+                  ? "cursor-not-allowed bg-slate-100 text-slate-400"
+                  : "bg-emerald-700 text-white hover:bg-emerald-600",
+              ].join(" ")}
+              title={!homeBase ? "Missing homeBase/homeIata/originIata in URL" : undefined}
+            >
+              {saving ? "Saving…" : `Save Trip (${selectedCount})`}
             </button>
 
             <button

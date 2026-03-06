@@ -1,0 +1,20 @@
+[
+  {
+    "id": "metro_la_oc",
+    "label": "Los Angeles / Orange County, CA",
+    "country": "US",
+    "region": "CA",
+    "center": { "lat": 34.0522, "lon": -118.2437 },
+    "members": [
+      { "country": "US", "region": "CA", "city": "Los Angeles" },
+      { "country": "US", "region": "CA", "city": "Anaheim" },
+      { "country": "US", "region": "CA", "city": "Santa Ana" },
+      { "country": "US", "region": "CA", "city": "Irvine" },
+      { "country": "US", "region": "CA", "city": "Long Beach" },
+      { "country": "US", "region": "CA", "city": "Pasadena" },
+      { "country": "US", "region": "CA", "city": "Burbank" },
+      { "country": "US", "region": "CA", "city": "Santa Monica" }
+    ],
+    "aliases": ["LA", "L.A.", "Los Angeles", "Orange County", "OC", "Anaheim", "Disneyland"]
+  }
+]

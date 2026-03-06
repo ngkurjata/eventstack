@@ -117,7 +117,7 @@ export async function GET(req) {
     }
   }
 
-  const nextUrl = tripStyle === "A" ? `/events?${qs.toString()}` : `/trips?${qs.toString()}`;
+  const nextUrl = tripStyle === "A" ? `/trips?${qs.toString()}` : `/trips?${qs.toString()}`;
 
   return json({
     ok: true,

@@ -1,0 +1,74 @@
+{
+  "MUSIC_GENRES": [
+    "Pop / Rock",
+    "Rock / Indie",
+    "Rock / Metal",
+    "Rock",
+    "Punk / Rock",
+    "Electronic",
+    "Rap / Hip-Hop",
+    "Soul / R&B",
+    "Jazz / Blues",
+    "Country",
+    "Folk",
+    "Classical",
+    "Latin",
+    "World"
+  ],
+  "TM_CLASSIFICATION_MAP": {
+    "Pop / Rock": [
+      "Pop",
+      "Rock"
+    ],
+    "Rock / Indie": [
+      "Rock",
+      "Alternative",
+      "Indie"
+    ],
+    "Rock / Metal": [
+      "Metal",
+      "Rock"
+    ],
+    "Rock": [
+      "Rock"
+    ],
+    "Punk / Rock": [
+      "Punk",
+      "Rock"
+    ],
+    "Electronic": [
+      "Electronic",
+      "Dance"
+    ],
+    "Rap / Hip-Hop": [
+      "Hip-Hop/Rap"
+    ],
+    "Soul / R&B": [
+      "R&B",
+      "Soul"
+    ],
+    "Jazz / Blues": [
+      "Jazz",
+      "Blues"
+    ],
+    "Country": [
+      "Country"
+    ],
+    "Folk": [
+      "Folk"
+    ],
+    "Classical": [
+      "Classical"
+    ],
+    "Latin": [
+      "Latin"
+    ],
+    "World": [
+      "World"
+    ]
+  },
+  "notes": {
+    "festivals_removed": true,
+    "mapping_rule": "genres normalized into MUSIC_GENRES; non-music rows removed if no genre matched; duplicate genres per artist removed"
+  }
+}
