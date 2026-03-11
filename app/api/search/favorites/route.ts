@@ -33,26 +33,34 @@ type MatchBag = {
   genres: string[];
 };
 
-type WindowCacheEntry = {
-  expiresAt: number;
-  data: NormEvent[];
-};
-
 type AttractionCacheEntry = {
   expiresAt: number;
   data: NormEvent[];
 };
 
-const WINDOW_TTL_MS = 5 * 60_000;
 const ATTRACTION_TTL_MS = 10 * 60_000;
-const MAX_ANCHORS_TO_EVALUATE = 8;
-const WINDOW_FETCH_CONCURRENCY = 2;
-
-const windowCache = new Map<string, WindowCacheEntry>();
-const inflightWindowFetches = new Map<string, Promise<NormEvent[]>>();
 
 const attractionCache = new Map<string, AttractionCacheEntry>();
 const inflightAttractionFetches = new Map<string, Promise<NormEvent[]>>();
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRateLimitError(err: any) {
+  const msg = String(err?.message || "").toLowerCase();
+  return msg.includes("rate limit") || msg.includes("quota") || msg.includes("429");
+}
+
+async function withRateLimitRetry<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    if (!isRateLimitError(err)) throw err;
+    await sleep(800);
+    return await fn();
+  }
+}
 
 function isJunkNorm(ne: any): boolean {
   const name = String(ne?.name ?? "").trim();
@@ -105,35 +113,18 @@ function uniqueStrings(values: Array<string | null | undefined>) {
   return out;
 }
 
-function includesNormalized(list: string[] | null | undefined, value: string | null | undefined) {
-  const needle = normalizeToken(value);
-  if (!needle) return false;
-  return (list || []).some((item) => normalizeToken(item) === needle);
-}
-
-function getTMGenreCandidates(tm: any, ne: any): string[] {
-  const c0 = tm?.classifications?.[0];
-  return uniqueStrings([
-    ne?.genre,
-    c0?.segment?.name,
-    c0?.genre?.name,
-    c0?.subGenre?.name,
-    c0?.type?.name,
-    c0?.subType?.name,
-  ]);
-}
-
-function getMatchedSelectedGenres(tm: any, ne: any, userGenres: string[]): string[] {
-  const selectedByToken = new Map(userGenres.map((g) => [normalizeToken(g), g]));
-  const matches: string[] = [];
-
-  for (const candidate of getTMGenreCandidates(tm, ne)) {
-    const token = normalizeToken(candidate);
-    const selected = selectedByToken.get(token);
-    if (selected) matches.push(selected);
-  }
-
-  return uniqueStrings(matches);
+function makeAttractionKey(args: {
+  attractionId: string;
+  countryCode: string;
+  startDateTime?: string;
+  endDateTime?: string;
+}) {
+  return [
+    args.attractionId,
+    args.countryCode,
+    args.startDateTime || "",
+    args.endDateTime || "",
+  ].join("|");
 }
 
 function parseYMDToUTC(ymd: string): number {
@@ -144,25 +135,6 @@ function parseYMDToUTC(ymd: string): number {
 function daysBetweenYMD(a: string, b: string): number {
   const ms = Math.abs(parseYMDToUTC(a) - parseYMDToUTC(b));
   return Math.round(ms / 86400000);
-}
-
-function addDaysYMD(ymd: string, days: number): string {
-  const [y, m, d] = ymd.split("-").map(Number);
-  const dt = new Date(Date.UTC(y, (m || 1) - 1, d || 1));
-  dt.setUTCDate(dt.getUTCDate() + days);
-
-  const yy = dt.getUTCFullYear();
-  const mm = String(dt.getUTCMonth() + 1).padStart(2, "0");
-  const dd = String(dt.getUTCDate()).padStart(2, "0");
-  return `${yy}-${mm}-${dd}`;
-}
-
-function maxYMD(a: string, b: string) {
-  return a >= b ? a : b;
-}
-
-function minYMD(a: string, b: string) {
-  return a <= b ? a : b;
 }
 
 function milesBetween(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -204,65 +176,6 @@ function isNearbyAnchorMatch(
   return milesBetween(anchor.lat, anchor.lon, candidate.lat, candidate.lon) <= radiusMiles;
 }
 
-function roundCoord(n: number, places = 1) {
-  const p = 10 ** places;
-  return Math.round(n * p) / p;
-}
-
-function makeWindowKey(args: {
-  lat: number;
-  lon: number;
-  radiusMiles: number;
-  startYMD: string;
-  endYMD: string;
-  countryCode: string;
-  genres: string[];
-}) {
-  return [
-    roundCoord(args.lat, 1),
-    roundCoord(args.lon, 1),
-    args.radiusMiles,
-    args.startYMD,
-    args.endYMD,
-    args.countryCode,
-    uniqueStrings(args.genres).map((g) => normalizeToken(g)).sort().join(","),
-  ].join("|");
-}
-
-function makeAttractionKey(args: {
-  attractionId: string;
-  countryCode: string;
-  startDateTime?: string;
-  endDateTime?: string;
-}) {
-  return [
-    args.attractionId,
-    args.countryCode,
-    args.startDateTime || "",
-    args.endDateTime || "",
-  ].join("|");
-}
-
-function getAnchorWindowYMD(
-  anchorYMD: string,
-  daysEachSide: number,
-  requestedStart?: string | null,
-  requestedEnd?: string | null
-) {
-  let startYMD = addDaysYMD(anchorYMD, -daysEachSide);
-  let endYMD = addDaysYMD(anchorYMD, daysEachSide);
-
-  if (requestedStart && isYMD(requestedStart)) startYMD = maxYMD(startYMD, requestedStart);
-  if (requestedEnd && isYMD(requestedEnd)) endYMD = minYMD(endYMD, requestedEnd);
-
-  if (startYMD > endYMD) {
-    startYMD = anchorYMD;
-    endYMD = anchorYMD;
-  }
-
-  return { startYMD, endYMD };
-}
-
 function ensureMatched(ne: NormEvent): MatchBag {
   const matched = (ne.matched || {}) as Partial<MatchBag>;
   const normalized: MatchBag = {
@@ -274,44 +187,27 @@ function ensureMatched(ne: NormEvent): MatchBag {
   return normalized;
 }
 
-async function mapWithConcurrency<T, R>(
-  items: T[],
-  limit: number,
-  worker: (item: T, index: number) => Promise<R>
-): Promise<R[]> {
-  const results: R[] = new Array(items.length);
-  let nextIndex = 0;
-
-  async function run() {
-    while (true) {
-      const current = nextIndex++;
-      if (current >= items.length) return;
-      results[current] = await worker(items[current], current);
-    }
-  }
-
-  const workers = Array.from({ length: Math.min(limit, items.length) }, () => run());
-  await Promise.all(workers);
-  return results;
-}
-
 async function tmSearchByAttractionUncached(args: {
   attractionId: string;
   countryCode: string;
   startDateTime?: string;
   endDateTime?: string;
 }) {
-  const tmEvents = await TM.tmSearchEventsAll(
-    {
-      attractionId: args.attractionId,
-      countryCode: args.countryCode,
-      ...(args.startDateTime && args.endDateTime
-        ? { startDateTime: args.startDateTime, endDateTime: args.endDateTime }
-        : {}),
-      sort: "date,asc",
-      size: 200,
-    },
-    300
+  await sleep(250);
+
+  const tmEvents = await withRateLimitRetry(() =>
+    TM.tmSearchEventsAll(
+      {
+        attractionId: args.attractionId,
+        countryCode: args.countryCode,
+        ...(args.startDateTime && args.endDateTime
+          ? { startDateTime: args.startDateTime, endDateTime: args.endDateTime }
+          : {}),
+        sort: "date,asc",
+        size: 200,
+      },
+      300
+    )
   );
 
   const normalized: NormEvent[] = [];
@@ -361,92 +257,6 @@ async function tmSearchByAttraction(args: {
     });
 
   inflightAttractionFetches.set(key, promise);
-  return promise;
-}
-
-async function tmSearchLocalWindowUncached(args: {
-  lat: number;
-  lon: number;
-  radiusMiles: number;
-  startYMD: string;
-  endYMD: string;
-  countryCode: string;
-  selectedGenres: string[];
-}) {
-  const { startDateTime, endDateTime } = ymdToTmRangeInclusive(args.startYMD, args.endYMD);
-
-  const tmEvents = await TM.tmSearchEventsAll(
-    {
-      latlong: `${args.lat},${args.lon}`,
-      radius: args.radiusMiles,
-      unit: "miles",
-      countryCode: args.countryCode,
-      startDateTime,
-      endDateTime,
-      sort: "date,asc",
-      size: 200,
-    },
-    150
-  );
-
-  const normalized: NormEvent[] = [];
-
-  for (const tm of tmEvents) {
-    if (isJunkTM(tm)) continue;
-
-    const ne = normalizeTMEvent(tm);
-    if (!ne) continue;
-    if (isJunkNorm(ne)) continue;
-
-    const matched = ensureMatched(ne);
-    matched.genres = getMatchedSelectedGenres(tm, ne, args.selectedGenres);
-
-    normalized.push(ne);
-  }
-
-  return dedupeEvents(normalized).filter((e) => !isJunkNorm(e));
-}
-
-async function tmSearchLocalWindowCached(args: {
-  lat: number;
-  lon: number;
-  radiusMiles: number;
-  startYMD: string;
-  endYMD: string;
-  countryCode: string;
-  selectedGenres: string[];
-}) {
-  const key = makeWindowKey({
-    lat: args.lat,
-    lon: args.lon,
-    radiusMiles: args.radiusMiles,
-    startYMD: args.startYMD,
-    endYMD: args.endYMD,
-    countryCode: args.countryCode,
-    genres: args.selectedGenres,
-  });
-
-  const now = Date.now();
-  const cached = windowCache.get(key);
-  if (cached && cached.expiresAt > now) {
-    return cached.data;
-  }
-
-  const inflight = inflightWindowFetches.get(key);
-  if (inflight) {
-    return inflight;
-  }
-
-  const promise = tmSearchLocalWindowUncached(args)
-    .then((data) => {
-      windowCache.set(key, { expiresAt: Date.now() + WINDOW_TTL_MS, data });
-      return data;
-    })
-    .finally(() => {
-      inflightWindowFetches.delete(key);
-    });
-
-  inflightWindowFetches.set(key, promise);
   return promise;
 }
 
@@ -511,28 +321,15 @@ export async function POST(req: Request) {
     }
 
     const candidateAnchors = f1Anchors.filter((anchor) => {
-      if (
-        !anchor.localDate ||
-        !isYMD(anchor.localDate) ||
-        typeof anchor.lat !== "number" ||
-        typeof anchor.lon !== "number"
-      ) {
-        return false;
-      }
-
-      if (f2?.attractionId) {
-        const hasF2Nearby = f2Events.some((f2e) =>
-          isNearbyAnchorMatch(anchor, f2e, radiusMiles, daysEachSide)
-        );
-        if (!hasF2Nearby) return false;
-      }
-
-      return true;
+      return (
+        Boolean(anchor.localDate) &&
+        isYMD(String(anchor.localDate)) &&
+        typeof anchor.lat === "number" &&
+        typeof anchor.lon === "number"
+      );
     });
 
-    const limitedCandidateAnchors = candidateAnchors.slice(0, MAX_ANCHORS_TO_EVALUATE);
-
-    const candidateMeta = limitedCandidateAnchors.map((anchor) => {
+    const candidateMeta = candidateAnchors.map((anchor) => {
       const nearbyF2Events = f2?.attractionId
         ? f2Events.filter((f2e) => isNearbyAnchorMatch(anchor, f2e, radiusMiles, daysEachSide))
         : [];
@@ -543,127 +340,28 @@ export async function POST(req: Request) {
       };
     });
 
-    const needLocalWindows = genres.length > 0;
+    const anchorCards = candidateMeta.map(({ anchor, nearbyF2Events }) => {
+      const presentFavorites = uniqueStrings([
+        f1.id,
+        ...(nearbyF2Events.length > 0 && f2 ? [f2.id] : []),
+      ]);
 
-    const windowByAnchorId = new Map<
-      string,
-      {
-        key: string;
-        startYMD: string;
-        endYMD: string;
-      }
-    >();
+      const presentDefaultGenres = uniqueStrings([
+        f1.defaultGenre,
+        ...(nearbyF2Events.length > 0 && f2 ? [f2.defaultGenre] : []),
+      ]);
 
-    const uniqueWindowFetches = new Map<string, Promise<NormEvent[]>>();
-
-    if (needLocalWindows) {
-      for (const { anchor } of candidateMeta) {
-        if (
-          !anchor.localDate ||
-          !isYMD(anchor.localDate) ||
-          typeof anchor.lat !== "number" ||
-          typeof anchor.lon !== "number"
-        ) {
-          continue;
-        }
-
-        const { startYMD, endYMD } = getAnchorWindowYMD(
-          anchor.localDate,
-          daysEachSide,
-          body.startDate,
-          body.endDate
-        );
-
-        const key = makeWindowKey({
-          lat: anchor.lat,
-          lon: anchor.lon,
-          radiusMiles,
-          startYMD,
-          endYMD,
-          countryCode,
-          genres,
-        });
-
-        windowByAnchorId.set(anchor.id, { key, startYMD, endYMD });
-
-        if (!uniqueWindowFetches.has(key)) {
-          uniqueWindowFetches.set(
-            key,
-            tmSearchLocalWindowCached({
-              lat: anchor.lat,
-              lon: anchor.lon,
-              radiusMiles,
-              startYMD,
-              endYMD,
-              countryCode,
-              selectedGenres: genres,
-            })
-          );
-        }
-      }
-    }
-
-    const resolvedWindows = new Map<string, NormEvent[]>();
-    const windowEntries = [...uniqueWindowFetches.entries()];
-
-    await mapWithConcurrency(windowEntries, WINDOW_FETCH_CONCURRENCY, async ([key, promise]) => {
-      resolvedWindows.set(key, await promise);
-      return null;
+      return {
+        ...anchor,
+        matched: {
+          ...(anchor.matched || {}),
+          favorites: presentFavorites,
+          defaultGenres: presentDefaultGenres,
+          genres: [],
+        } as any,
+        isCrossover: nearbyF2Events.length > 0,
+      };
     });
-
-    const anchorCards = limitedCandidateAnchors
-      .filter((anchor) => {
-        if (!needLocalWindows) return true;
-
-        const meta = windowByAnchorId.get(anchor.id);
-        if (!meta) return false;
-
-        const pooledEvents = resolvedWindows.get(meta.key) || [];
-        const nearbyWindowEvents = pooledEvents.filter((e) =>
-          isNearbyAnchorMatch(anchor, e, radiusMiles, daysEachSide)
-        );
-
-        const presentGenres = uniqueStrings(
-          nearbyWindowEvents.flatMap((e: any) => e?.matched?.genres || [])
-        );
-
-        return genres.every((g) => includesNormalized(presentGenres, g));
-      })
-      .map((anchor) => {
-        const meta = windowByAnchorId.get(anchor.id);
-        const pooledEvents = meta ? resolvedWindows.get(meta.key) || [] : [];
-        const nearbyWindowEvents = pooledEvents.filter((e) =>
-          isNearbyAnchorMatch(anchor, e, radiusMiles, daysEachSide)
-        );
-
-        const metaItem = candidateMeta.find((m) => m.anchor.id === anchor.id);
-        const nearbyF2Events = metaItem?.nearbyF2Events || [];
-
-        const presentGenres = uniqueStrings(
-          nearbyWindowEvents.flatMap((e: any) => e?.matched?.genres || [])
-        );
-
-        const presentFavorites = uniqueStrings([
-          f1.id,
-          ...(nearbyF2Events.length > 0 && f2 ? [f2.id] : []),
-        ]);
-
-        const presentDefaultGenres = uniqueStrings([
-          f1.defaultGenre,
-          ...(nearbyF2Events.length > 0 && f2 ? [f2.defaultGenre] : []),
-        ]);
-
-        return {
-          ...anchor,
-          matched: {
-            ...(anchor.matched || {}),
-            favorites: presentFavorites,
-            defaultGenres: presentDefaultGenres,
-            genres: presentGenres,
-          } as any,
-          isCrossover: nearbyF2Events.length > 0,
-        };
-      });
 
     return json({
       mode: "favorites",
