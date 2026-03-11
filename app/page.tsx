@@ -44,7 +44,16 @@ function tomorrowYMD() {
 }
 
 function norm(s: any) {
-  return String(s || "").trim().toLowerCase().replace(/\s+/g, " ");
+  return String(s || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+function ensureFourGenres(genres: string[]) {
+  const next = Array.isArray(genres) ? [...genres] : [];
+  while (next.length < 4) next.push("");
+  return next.slice(0, 4);
 }
 
 /* -------------------- data shapes -------------------- */
@@ -59,14 +68,14 @@ type CityOpt = {
 };
 
 type TeamMasterRow = { league: string; teamName: string };
-type TeamAttractionIds = Record<string, Record<string, string>>; // { NHL: { "Edmonton Oilers": "K8vZ..." }, ... }
+type TeamAttractionIds = Record<string, Record<string, string>>;
 
 type ArtistOpt = {
-  id: string; // "artist:Luke_Combs"
-  label: string; // "Luke Combs"
+  id: string;
+  label: string;
   group?: string;
   kind?: string;
-  genres?: string[]; // ["Country"] etc (not always TM classificationName)
+  genres?: string[];
 };
 
 type GenresConfig = {
@@ -77,12 +86,12 @@ type GenresConfig = {
 };
 
 type FavoriteOption = {
-  key: string; // unique key for list rendering
-  label: string; // display label shown in dropdown
+  key: string;
+  label: string;
   kind: "team" | "artist";
-  attractionId?: string; // teams have it; artists resolved on pick
-  defaultGenre?: string; // if present, use it
-  rawName: string; // clean label without suffix
+  attractionId?: string;
+  defaultGenre?: string;
+  rawName: string;
 };
 
 /* -------------------- lightweight combobox -------------------- */
@@ -103,23 +112,25 @@ function ComboBox<T extends { label: string }>(props: {
   const wrapRef = useRef<HTMLDivElement | null>(null);
 
   const filtered = useMemo(() => {
-  const q = norm(value);
-  const base = options || [];
-  if (!q) return base.slice(0, 12);
-  const hits = base.filter((o) => norm(o.label).includes(q));
-  return hits.slice(0, 12);
-}, [options, value]);
+    const q = norm(value);
+    const base = options || [];
+    if (!q) return base.slice(0, 12);
+    const hits = base.filter((o) => norm(o.label).includes(q));
+    return hits.slice(0, 12);
+  }, [options, value]);
 
   useEffect(() => {
     function onDoc(e: MouseEvent) {
       if (!wrapRef.current) return;
-      if (!wrapRef.current.contains(e.target as any)) setOpen(false);
+      if (!wrapRef.current.contains(e.target as Node)) setOpen(false);
     }
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
-  useEffect(() => setActive(0), [value]);
+  useEffect(() => {
+    setActive(0);
+  }, [value]);
 
   return (
     <div ref={wrapRef} className="relative">
@@ -161,12 +172,12 @@ function ComboBox<T extends { label: string }>(props: {
         className={cx(
           "mt-1 h-11 w-full rounded-2xl border bg-white px-4 text-sm font-semibold text-slate-900 outline-none",
           "border-slate-200 focus:border-slate-400",
-          disabled && "bg-slate-100 text-slate-500 cursor-not-allowed"
+          disabled && "cursor-not-allowed bg-slate-100 text-slate-500"
         )}
       />
 
       {open && filtered.length > 0 && !disabled && (
-        <div className="absolute z-20 mt-2 w-full rounded-2xl border border-slate-200 bg-white shadow-lg overflow-hidden">
+        <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
           {filtered.map((opt, idx) => (
             <button
               type="button"
@@ -177,7 +188,7 @@ function ComboBox<T extends { label: string }>(props: {
                 setOpen(false);
               }}
               className={cx(
-                "w-full text-left px-4 py-2 text-sm",
+                "w-full px-4 py-2 text-left text-sm",
                 idx === active ? "bg-slate-900 text-white" : "bg-white text-slate-900 hover:bg-slate-50"
               )}
             >
@@ -200,7 +211,7 @@ type AreaState = {
   endDate: string;
   endTouched: boolean;
   radiusMiles: number;
-  genres: string[]; // 1..4
+  genres: string[];
 };
 
 type FavState = {
@@ -208,19 +219,43 @@ type FavState = {
   f1AttractionId: string;
   f1DefaultGenre: string;
 
-  useF2: boolean;
   f2Label: string;
   f2AttractionId: string;
   f2DefaultGenre: string;
 
-  favStart: string; // stays blank by default
-  favEnd: string; // stays blank by default
-  genres: string[]; // 0..2
+  favStart: string;
+  favEnd: string;
+  genres: string[];
 };
 
 const KEY_MODE = "eventstack_home_mode_v2";
 const KEY_AREA = "eventstack_home_area_v2";
 const KEY_FAV = "eventstack_home_fav_v2";
+
+const DEFAULT_AREA: AreaState = {
+  cityLabel: "",
+  lat: "",
+  lon: "",
+  startDate: "",
+  endDate: "",
+  endTouched: false,
+  radiusMiles: 90,
+  genres: ["", "", "", ""],
+};
+
+const DEFAULT_FAV: FavState = {
+  f1Label: "",
+  f1AttractionId: "",
+  f1DefaultGenre: "",
+
+  f2Label: "",
+  f2AttractionId: "",
+  f2DefaultGenre: "",
+
+  favStart: "",
+  favEnd: "",
+  genres: ["", "", "", ""],
+};
 
 /* -------------------- helpers -------------------- */
 
@@ -248,56 +283,58 @@ export default function HomePage() {
   const router = useRouter();
 
   const [mode, setMode] = useState<Mode>("area");
+  const [openPanel, setOpenPanel] = useState<Mode | null>("area");
+  const [area, setArea] = useState<AreaState>(DEFAULT_AREA);
+  const [fav, setFav] = useState<FavState>(DEFAULT_FAV);
+  const [hasLoadedSession, setHasLoadedSession] = useState(false);
 
-  // load persisted forms
-  const [area, setArea] = useState<AreaState>(() =>
-    loadSession<AreaState>(KEY_AREA, {
-      cityLabel: "",
-      lat: "",
-      lon: "",
-      startDate: "",
-      endDate: "",
-      endTouched: false,
-      radiusMiles: 90,
-      genres: [""],
-    })
-  );
-
-  const [fav, setFav] = useState<FavState>(() =>
-    loadSession<FavState>(KEY_FAV, {
-      f1Label: "",
-      f1AttractionId: "",
-      f1DefaultGenre: "",
-
-      useF2: false,
-      f2Label: "",
-      f2AttractionId: "",
-      f2DefaultGenre: "",
-
-      favStart: "",
-      favEnd: "",
-      genres: ["", ""],
-    })
-  );
-
-  // restore mode once
-  useEffect(() => {
-    const m = loadSession<Mode>(KEY_MODE, "area");
-    if (m === "area" || m === "favorites") setMode(m);
-  }, []);
-
-  // persist mode + forms
-  useEffect(() => saveSession(KEY_MODE, mode), [mode]);
-  useEffect(() => saveSession(KEY_AREA, area), [area]);
-  useEffect(() => saveSession(KEY_FAV, fav), [fav]);
-
-  // options
   const [cities, setCities] = useState<CityOpt[]>([]);
   const [favoriteOptions, setFavoriteOptions] = useState<FavoriteOption[]>([]);
   const [genreOptions, setGenreOptions] = useState<Array<{ label: string }>>([]);
   const [genreAliases, setGenreAliases] = useState<Record<string, string>>({});
 
-  // load public JSONs
+  const artistAttractionCacheRef = useRef<Record<string, string>>({});
+
+  useEffect(() => {
+    const m = loadSession<Mode>(KEY_MODE, "area");
+    const nextArea = loadSession<AreaState>(KEY_AREA, DEFAULT_AREA);
+    const nextFav = loadSession<FavState>(KEY_FAV, DEFAULT_FAV);
+
+    if (m === "area" || m === "favorites") {
+      setMode(m);
+      setOpenPanel(m);
+    }
+
+    setArea({
+      ...DEFAULT_AREA,
+      ...nextArea,
+      genres: ensureFourGenres(nextArea?.genres || DEFAULT_AREA.genres),
+    });
+
+    setFav({
+      ...DEFAULT_FAV,
+      ...nextFav,
+      genres: ensureFourGenres(Array.isArray(nextFav?.genres) ? nextFav.genres : DEFAULT_FAV.genres),
+    });
+
+    setHasLoadedSession(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hasLoadedSession) return;
+    saveSession(KEY_MODE, mode);
+  }, [mode, hasLoadedSession]);
+
+  useEffect(() => {
+    if (!hasLoadedSession) return;
+    saveSession(KEY_AREA, { ...area, genres: ensureFourGenres(area.genres) });
+  }, [area, hasLoadedSession]);
+
+  useEffect(() => {
+    if (!hasLoadedSession) return;
+    saveSession(KEY_FAV, fav);
+  }, [fav, hasLoadedSession]);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -313,31 +350,31 @@ export default function HomePage() {
 
         if (cancelled) return;
 
-        // Cities (flat: {label, lat, lon})
-const cityList: CityOpt[] = (Array.isArray(citiesJ) ? (citiesJ as any[]) : [])
-  .map((x: any) => {
-    const label = String(x?.label ?? "").trim();
-    const lat = Number(x?.lat);
-    const lon = Number(x?.lon);
-    if (!label || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+        const cityList: CityOpt[] = (Array.isArray(citiesJ) ? (citiesJ as any[]) : [])
+          .map((x: any) => {
+            const label = String(x?.label ?? "").trim();
+            const lat = Number(x?.lat);
+            const lon = Number(x?.lon);
+            if (!label || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
 
-    return {
-      id: x?.id ? String(x.id) : undefined,
-      label,
-      lat,
-      lon,
-      country: x?.country ? String(x.country) : undefined,
-      airportIata: x?.airportIata ? String(x.airportIata) : undefined,
-    } as CityOpt;
-  })
-  .filter(Boolean) as CityOpt[];
+            return {
+              id: x?.id ? String(x.id) : undefined,
+              label,
+              lat,
+              lon,
+              country: x?.country ? String(x.country) : undefined,
+              airportIata: x?.airportIata ? String(x.airportIata) : undefined,
+            } as CityOpt;
+          })
+          .filter(Boolean) as CityOpt[];
 
-setCities(cityList);
+        setCities(cityList);
 
-        // Genres config
-        const gc: GenresConfig = (genresJ && typeof genresJ === "object") ? (genresJ as any) : {};
+        const gc: GenresConfig = genresJ && typeof genresJ === "object" ? (genresJ as any) : {};
         const aliases: Record<string, string> = {};
-        for (const [k, v] of Object.entries(gc.aliases || {})) aliases[norm(k)] = String(v);
+        for (const [k, v] of Object.entries(gc.aliases || {})) {
+          aliases[norm(k)] = String(v);
+        }
 
         const collect = (entries: any[] | undefined) =>
           (Array.isArray(entries) ? entries : [])
@@ -345,13 +382,8 @@ setCities(cityList);
             .map((e) => String(e.name || "").trim())
             .filter(Boolean);
 
-        const names = [
-          ...collect(gc.music?.entries),
-          ...collect(gc.sports?.entries),
-          ...collect(gc.arts?.entries),
-        ];
+        const names = [...collect(gc.music?.entries), ...collect(gc.sports?.entries), ...collect(gc.arts?.entries)];
 
-        // De-dupe while preserving order
         const seen = new Set<string>();
         const unique = names.filter((n) => {
           const k = norm(n);
@@ -363,18 +395,18 @@ setCities(cityList);
         setGenreAliases(aliases);
         setGenreOptions(unique.map((n) => ({ label: n })));
 
-        // Favorites (teams + artists)
         const teamsMaster: TeamMasterRow[] = Array.isArray(teamsMasterJ) ? (teamsMasterJ as any) : [];
-        const teamIds: TeamAttractionIds = (teamIdsJ && typeof teamIdsJ === "object") ? (teamIdsJ as any) : {};
+        const teamIds: TeamAttractionIds = teamIdsJ && typeof teamIdsJ === "object" ? (teamIdsJ as any) : {};
 
         const teamOpts: FavoriteOption[] = teamsMaster
           .map((t: any) => {
             const league = String(t?.league || "").trim();
             const teamName = String(t?.teamName || "").trim();
             if (!league || !teamName) return null;
+
             const attractionId = String(teamIds?.[league]?.[teamName] || "").trim();
-            // for teams, defaultGenre is inferred (since option doesn't provide it)
             const defaultGenre = leagueToDefaultGenre(league);
+
             return {
               key: `team:${league}:${teamName}`,
               kind: "team",
@@ -391,21 +423,20 @@ setCities(cityList);
           .map((a) => {
             const name = String(a?.label || "").trim();
             if (!name) return null;
+
             const g0 = Array.isArray(a?.genres) ? String(a.genres[0] || "").trim() : "";
-            // use option's genre when present (your requirement)
             const defaultGenre = g0 ? normalizeGenreFromConfig(g0, aliases) : "";
+
             return {
               key: String(a?.id || `artist:${name}`),
               kind: "artist",
               rawName: name,
               label: defaultGenre ? `${name} — ${defaultGenre}` : name,
-              // attractionId resolved via /api/suggest/attractions on pick
               defaultGenre: defaultGenre || undefined,
             };
           })
           .filter(Boolean) as FavoriteOption[];
 
-        // De-dupe by key
         const map = new Map<string, FavoriteOption>();
         for (const o of [...teamOpts, ...artistOpts]) map.set(o.key, o);
         setFavoriteOptions(Array.from(map.values()));
@@ -420,12 +451,12 @@ setCities(cityList);
     }
 
     loadAll();
+
     return () => {
       cancelled = true;
     };
   }, []);
 
-  // Area defaults for dates
   useEffect(() => {
     if (!area.startDate) {
       const t = tomorrowYMD();
@@ -433,47 +464,75 @@ setCities(cityList);
         ...s,
         startDate: t,
         endDate: s.endTouched ? s.endDate : addDaysLocal(t, 13),
+        genres: ensureFourGenres(s.genres),
       }));
       return;
     }
+
     if (isYMD(area.startDate) && !area.endTouched) {
       const autoEnd = addDaysLocal(area.startDate, 13);
-      if (autoEnd && autoEnd !== area.endDate) setArea((s) => ({ ...s, endDate: autoEnd }));
+      if (autoEnd && autoEnd !== area.endDate) {
+        setArea((s) => ({
+          ...s,
+          endDate: autoEnd,
+          genres: ensureFourGenres(s.genres),
+        }));
+      }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [area.startDate]);
+  }, [area.startDate, area.endDate, area.endTouched]);
 
-  // clamp area radius
   useEffect(() => {
     const clamped = clamp(Number(area.radiusMiles) || 90, 10, 120);
-    if (clamped !== area.radiusMiles) setArea((s) => ({ ...s, radiusMiles: clamped }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (clamped !== area.radiusMiles) {
+      setArea((s) => ({
+        ...s,
+        radiusMiles: clamped,
+        genres: ensureFourGenres(s.genres),
+      }));
+    }
   }, [area.radiusMiles]);
 
-  const areaGenreClean = useMemo(
-    () => area.genres.map((g) => String(g || "").trim()).filter(Boolean).slice(0, 4),
-    [area.genres]
-  );
+  useEffect(() => {
+    if ((area.genres || []).length !== 4) {
+      setArea((s) => ({ ...s, genres: ensureFourGenres(s.genres) }));
+    }
+  }, [area.genres]);
 
-  const favGenreClean = useMemo(
-    () => fav.genres.map((g) => String(g || "").trim()).filter(Boolean).slice(0, 2),
-    [fav.genres]
-  );
+  
 
-  function addAreaGenre() {
-    setArea((s) => ({ ...s, genres: s.genres.length >= 4 ? s.genres : [...s.genres, ""] }));
-  }
-  function removeAreaGenre(i: number) {
-    setArea((s) => ({ ...s, genres: s.genres.filter((_, idx) => idx !== i) }));
-  }
+  const areaGenreClean = useMemo(() => {
+    return ensureFourGenres(area.genres)
+      .map((g) => String(g || "").trim())
+      .filter(Boolean)
+      .slice(0, 4);
+  }, [area.genres]);
+
+  const favGenreClean = useMemo(() => {
+    return ensureFourGenres(fav.genres)
+      .map((g) => String(g || "").trim())
+      .filter(Boolean)
+      .slice(0, 4);
+  }, [fav.genres]);
 
   async function resolveArtistAttractionId(name: string): Promise<string> {
     const q = String(name || "").trim();
     if (!q) return "";
+
+    const cacheKey = q.toLowerCase();
+    const cached = artistAttractionCacheRef.current[cacheKey];
+    if (cached) return cached;
+
     try {
-      const r = await fetch(`/api/suggest/attractions?q=${encodeURIComponent(q)}`, { cache: "no-store" });
+      const r = await fetch(`/api/suggest/attractions?q=${encodeURIComponent(q)}`, {
+        cache: "no-store",
+      });
       const j = await r.json().catch(() => ({} as any));
       const id = String(j?.items?.[0]?.id || "").trim();
+
+      if (id) {
+        artistAttractionCacheRef.current[cacheKey] = id;
+      }
+
       return id;
     } catch {
       return "";
@@ -488,6 +547,7 @@ setCities(cityList);
       alert("Area search requires City selection (label + lat + lon).");
       return;
     }
+
     if (!isYMD(area.startDate) || !isYMD(area.endDate)) {
       alert("Area search requires Start and End (YYYY-MM-DD).");
       return;
@@ -504,29 +564,29 @@ setCities(cityList);
       return;
     }
 
-    // Find the picked city so we can pass airportIata through to results/area
-const pickedCity =
-  cities.find((c) => String(c.label || "").trim() === area.cityLabel.trim()) ||
-  cities.find((c) => String(c.lat) === String(latN) && String(c.lon) === String(lonN));
+    const pickedCity =
+      cities.find((c) => String(c.label || "").trim() === area.cityLabel.trim()) ||
+      cities.find((c) => String(c.lat) === String(latN) && String(c.lon) === String(lonN));
 
-const airportIata = String(pickedCity?.airportIata || "").trim().toUpperCase();
+    const airportIata = String(pickedCity?.airportIata || "")
+      .trim()
+      .toUpperCase();
 
-const url =
-  `/results/area?` +
-  new URLSearchParams({
-    cityLabel: area.cityLabel.trim(),
-    lat: String(latN),
-    lon: String(lonN),
-    airportIata, // ✅ ADD THIS
-    start: area.startDate,
-    end: area.endDate,
-    radiusMiles: String(clamp(area.radiusMiles, 10, 120)),
-    genres: listToCsv(areaGenreClean),
-    countryCode: "US,CA",
-  }).toString();
+    const url =
+      `/results/area?` +
+      new URLSearchParams({
+        cityLabel: area.cityLabel.trim(),
+        lat: String(latN),
+        lon: String(lonN),
+        airportIata,
+        start: area.startDate,
+        end: area.endDate,
+        radiusMiles: String(clamp(area.radiusMiles, 10, 120)),
+        genres: listToCsv(areaGenreClean),
+        countryCode: "US,CA",
+      }).toString();
 
-router.push(url);
-
+    router.push(url);
   }
 
   function onSearchFavorites() {
@@ -539,6 +599,7 @@ router.push(url);
       alert("If provided, Favorites Start/End must be YYYY-MM-DD.");
       return;
     }
+
     if ((fav.favStart && !fav.favEnd) || (!fav.favStart && fav.favEnd)) {
       alert("Provide both Start and End or leave both empty for Favorites search.");
       return;
@@ -552,7 +613,7 @@ router.push(url);
       genres: listToCsv(favGenreClean),
     };
 
-    if (fav.useF2 && fav.f2Label.trim() && fav.f2AttractionId.trim() && fav.f2DefaultGenre.trim()) {
+    if (fav.f2Label.trim() && fav.f2AttractionId.trim() && fav.f2DefaultGenre.trim()) {
       params.f2Label = fav.f2Label.trim();
       params.f2AttractionId = fav.f2AttractionId.trim();
       params.f2DefaultGenre = fav.f2DefaultGenre.trim();
@@ -566,361 +627,324 @@ router.push(url);
     router.push(`/results/favorites?${new URLSearchParams(params).toString()}`);
   }
 
+  function togglePanel(next: Mode) {
+    if (openPanel === next) {
+      setOpenPanel(null);
+      return;
+    }
+    setMode(next);
+    setOpenPanel(next);
+  }
+
+  const areaGenres = ensureFourGenres(area.genres);
+
   return (
     <main className="min-h-screen bg-slate-50">
       <div className="border-b border-slate-200 bg-white/85 backdrop-blur">
         <div className="mx-auto w-full max-w-md px-4 py-4 lg:max-w-4xl">
           <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
+            <div className="flex min-w-0 items-center gap-3">
               <BrandLogo />
               <div className="min-w-0">
-  <div className="text-base font-black tracking-tight text-slate-900 truncate">EventStack</div>
-  <div className="text-xs text-slate-600 truncate">Simplifying Concert & Live Sports Trip Planning</div>
-</div>
+                <div className="truncate text-base font-black tracking-tight text-slate-900">EventStack</div>
+                <div className="truncate text-xs text-slate-600">
+                  Simplifying Concert &amp; Live Sports Trip Planning
+                </div>
+              </div>
             </div>
-          </div>
-
-          <div className="mt-4 flex gap-2">
-            <button
-              type="button"
-              onClick={() => setMode("area")}
-              className={cx(
-                "h-11 rounded-2xl px-4 text-sm font-extrabold border transition",
-                mode === "area"
-                  ? "bg-slate-900 text-white border-slate-900"
-                  : "bg-white text-slate-900 border-slate-200 hover:bg-slate-50"
-              )}
-            >
-              Explore by City
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("favorites")}
-              className={cx(
-                "h-11 rounded-2xl px-4 text-sm font-extrabold border transition",
-                mode === "favorites"
-                  ? "bg-slate-900 text-white border-slate-900"
-                  : "bg-white text-slate-900 border-slate-200 hover:bg-slate-50"
-              )}
-            >
-              Plan around Favorites
-            </button>
           </div>
         </div>
       </div>
 
       <div className="mx-auto w-full max-w-md px-4 py-6 lg:max-w-4xl lg:py-10">
-        {mode === "area" ? (
-          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
-            <div className="text-lg font-black text-slate-900">Explore by City</div>
-            <div className="mt-1 text-xs text-slate-600">
-              City typeahead auto-fills lat/lon. Start defaults to tomorrow; End defaults to Start + 13 days. Radius max 120.
-            </div>
-
-            <div className="mt-5 grid gap-4 sm:grid-cols-3">
-              <ComboBox<CityOpt>
-                label="City"
-                value={area.cityLabel}
-                placeholder="Type a city…"
-                options={cities}
-                onChange={(v) => setArea((s) => ({ ...s, cityLabel: v }))}
-                onPick={(opt) =>
-  setArea((s) => ({
-    ...s,
-    cityLabel: opt.label,
-    lat: String(opt.lat),
-    lon: String(opt.lon),
-  }))
-}
-                rightHint="auto lat/lon"
-              />
-
-              <div>
-                <div className="text-xs font-semibold text-slate-700">Lat</div>
-                <input
-                  value={area.lat}
-                  onChange={(e) => setArea((s) => ({ ...s, lat: e.target.value }))}
-                  placeholder="auto"
-                  className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-slate-400"
-                />
-              </div>
-
-              <div>
-                <div className="text-xs font-semibold text-slate-700">Lon</div>
-                <input
-                  value={area.lon}
-                  onChange={(e) => setArea((s) => ({ ...s, lon: e.target.value }))}
-                  placeholder="auto"
-                  className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-slate-400"
-                />
-              </div>
-
-              <div>
-                <div className="text-xs font-semibold text-slate-700">Start</div>
-                <input
-                  value={area.startDate}
-                  onChange={(e) => setArea((s) => ({ ...s, startDate: e.target.value }))}
-                  placeholder="YYYY-MM-DD"
-                  className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-slate-400"
-                />
-              </div>
-
-              <div>
-                <div className="text-xs font-semibold text-slate-700">End (Start + 13 max)</div>
-                <input
-                  value={area.endDate}
-                  onChange={(e) => setArea((s) => ({ ...s, endDate: e.target.value, endTouched: true }))}
-                  placeholder="YYYY-MM-DD"
-                  className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-slate-400"
-                />
-                {!area.endTouched && isYMD(area.startDate) ? (
-                  <div className="mt-1 text-[11px] text-slate-500">
-                    Auto end: {addDaysLocal(area.startDate, 13)}
+        <div className="space-y-4">
+          <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <button
+              type="button"
+              onClick={() => togglePanel("area")}
+              className={cx(
+                "w-full px-5 py-4 text-left transition sm:px-7",
+                openPanel === "area" ? "bg-slate-900 text-white" : "bg-white text-slate-900 hover:bg-slate-50"
+              )}
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="text-lg font-black">Explore by City</div>
+                  <div className={cx("mt-1 text-xs", openPanel === "area" ? "text-slate-300" : "text-slate-600")}>
+                    Tell us where and when you're going, and what you're into, and we'll find you some events to check
+                    out while you're there.
                   </div>
-                ) : null}
-              </div>
-
-              <div>
-                <div className="flex items-end justify-between">
-                  <div className="text-xs font-semibold text-slate-700">Radius (miles)</div>
-                  <div className="text-[11px] text-slate-500">max 120</div>
                 </div>
-                <input
-                  type="number"
-                  value={area.radiusMiles}
-                  onChange={(e) => setArea((s) => ({ ...s, radiusMiles: clamp(Number(e.target.value), 10, 120) }))}
-                  className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-slate-400"
-                />
+                <div className="text-2xl font-light leading-none">{openPanel === "area" ? "−" : "+"}</div>
               </div>
-            </div>
+            </button>
 
-            <div className="mt-6">
-              <div className="text-xs font-semibold text-slate-700">Genres (1–4)</div>
-              <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                {area.genres.map((g, i) => (
-                  <div key={i} className="flex gap-2">
-                    <ComboBox<{ label: string }>
-                      label={`Genre ${i + 1}`}
-                      value={g}
-                      placeholder="Type a genre…"
-                      options={genreOptions}
-                      onChange={(v) =>
-                        setArea((s) => ({
-                          ...s,
-                          genres: s.genres.map((val, idx) => (idx === i ? v : val)),
-                        }))
-                      }
+            <div
+              className={cx(
+                "grid transition-all duration-500 ease-in-out",
+                openPanel === "area" ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+              )}
+            >
+              <div className="overflow-hidden">
+                <div className="border-t border-slate-200 p-5 sm:p-7">
+                  <div className="mt-5 grid gap-4 sm:grid-cols-3">
+                    <ComboBox<CityOpt>
+                      label="City"
+                      value={area.cityLabel}
+                      placeholder="Type a city…"
+                      options={cities}
+                      onChange={(v) => setArea((s) => ({ ...s, cityLabel: v }))}
                       onPick={(opt) =>
                         setArea((s) => ({
                           ...s,
-                          genres: s.genres.map((val, idx) => (idx === i ? opt.label : val)),
+                          cityLabel: opt.label,
+                          lat: String(opt.lat),
+                          lon: String(opt.lon),
                         }))
                       }
                     />
 
-                    {area.genres.length > 1 ? (
+                    <div>
+                      <div className="text-xs font-semibold text-slate-700">Start Date</div>
+                      <input
+                        value={area.startDate}
+                        onChange={(e) => setArea((s) => ({ ...s, startDate: e.target.value }))}
+                        placeholder="YYYY-MM-DD"
+                        className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-slate-400"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="text-xs font-semibold text-slate-700">End Date</div>
+                      <input
+                        value={area.endDate}
+                        onChange={(e) => setArea((s) => ({ ...s, endDate: e.target.value, endTouched: true }))}
+                        placeholder="YYYY-MM-DD"
+                        className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-slate-400"
+                      />
+                      {!area.endTouched && isYMD(area.startDate) ? (
+                        <div className="mt-1 text-[11px] text-slate-500">
+                          Auto end: {addDaysLocal(area.startDate, 13)}
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <input type="hidden" value={area.radiusMiles} readOnly />
+                  </div>
+
+                  <div className="mt-6">
+                    <div className="text-xs font-semibold text-slate-700">
+                      Favorite Sports and/or Music Genres (enter up to 4)
+                    </div>
+
+                    <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                      {areaGenres.map((g, i) => (
+                        <ComboBox<{ label: string }>
+                          key={i}
+                          label={`Genre ${i + 1}`}
+                          value={g}
+                          placeholder="Type a genre…"
+                          options={genreOptions}
+                          onChange={(v) =>
+                            setArea((s) => ({
+                              ...s,
+                              genres: ensureFourGenres(s.genres).map((val, idx) => (idx === i ? v : val)),
+                            }))
+                          }
+                          onPick={(opt) =>
+                            setArea((s) => ({
+                              ...s,
+                              genres: ensureFourGenres(s.genres).map((val, idx) => (idx === i ? opt.label : val)),
+                            }))
+                          }
+                        />
+                      ))}
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
                       <button
                         type="button"
-                        onClick={() => removeAreaGenre(i)}
-                        className="mt-[18px] h-11 rounded-2xl border border-slate-200 bg-white px-3 text-xs font-extrabold text-slate-800 hover:bg-slate-50"
+                        onClick={onSearchArea}
+                        className="h-11 rounded-2xl bg-slate-900 px-5 text-sm font-extrabold text-white hover:bg-slate-800"
                       >
-                        Remove
+                        Search
                       </button>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={addAreaGenre}
-                  className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-extrabold text-slate-900 hover:bg-slate-50"
-                >
-                  Add genre
-                </button>
-                <button
-                  type="button"
-                  onClick={onSearchArea}
-                  className="h-11 rounded-2xl bg-slate-900 px-5 text-sm font-extrabold text-white hover:bg-slate-800"
-                >
-                  Search
-                </button>
-              </div>
-            </div>
-          </section>
-        ) : (
-          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
-            <div className="text-lg font-black text-slate-900">Plan around Favorites</div>
-            <div className="mt-1 text-xs text-slate-600">
-              Favorites typeahead auto-fills attractionId. Default genre comes from the option when present. Dates stay blank unless you fill them.
-            </div>
-
-            <div className="mt-5 grid gap-4 sm:grid-cols-3">
-              <ComboBox<FavoriteOption>
-                label="Favorite 1"
-                value={fav.f1Label}
-                placeholder="Type a team or artist…"
-                options={favoriteOptions}
-                onChange={(v) => setFav((s) => ({ ...s, f1Label: v }))}
-                onPick={async (opt) => {
-                  const nextLabel = opt.rawName;
-                  const nextGenre = opt.defaultGenre ? normalizeGenreFromConfig(opt.defaultGenre, genreAliases) : "";
-                  let id = opt.attractionId || "";
-
-                  // artists: resolve id from TM on pick
-                  if (!id && opt.kind === "artist") {
-                    id = await resolveArtistAttractionId(opt.rawName);
-                  }
-
-                  setFav((s) => ({
-                    ...s,
-                    f1Label: nextLabel,
-                    f1AttractionId: id,
-                    f1DefaultGenre: nextGenre || s.f1DefaultGenre || "",
-                  }));
-                }}
-                rightHint="auto ID"
-              />
-
-              <div>
-                <div className="text-xs font-semibold text-slate-700">AttractionId</div>
-                <input
-                  value={fav.f1AttractionId}
-                  onChange={(e) => setFav((s) => ({ ...s, f1AttractionId: e.target.value }))}
-                  placeholder="auto"
-                  className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-slate-400"
-                />
-              </div>
-
-              <div>
-                <div className="text-xs font-semibold text-slate-700">Default genre</div>
-                <input
-                  value={fav.f1DefaultGenre}
-                  onChange={(e) => setFav((s) => ({ ...s, f1DefaultGenre: e.target.value }))}
-                  placeholder="auto"
-                  className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-slate-400"
-                />
-              </div>
-            </div>
-
-            <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <label className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={fav.useF2}
-                  onChange={(e) => setFav((s) => ({ ...s, useF2: e.target.checked }))}
-                />
-                <div className="text-sm font-extrabold text-slate-900">Include Favorite 2</div>
-              </label>
-
-              {fav.useF2 ? (
-                <div className="mt-4 grid gap-4 sm:grid-cols-3">
-                  <ComboBox<FavoriteOption>
-                    label="Favorite 2"
-                    value={fav.f2Label}
-                    placeholder="Type a team or artist…"
-                    options={favoriteOptions}
-                    onChange={(v) => setFav((s) => ({ ...s, f2Label: v }))}
-                    onPick={async (opt) => {
-                      const nextLabel = opt.rawName;
-                      const nextGenre = opt.defaultGenre ? normalizeGenreFromConfig(opt.defaultGenre, genreAliases) : "";
-                      let id = opt.attractionId || "";
-
-                      if (!id && opt.kind === "artist") {
-                        id = await resolveArtistAttractionId(opt.rawName);
-                      }
-
-                      setFav((s) => ({
-                        ...s,
-                        f2Label: nextLabel,
-                        f2AttractionId: id,
-                        f2DefaultGenre: nextGenre || s.f2DefaultGenre || "",
-                      }));
-                    }}
-                    rightHint="auto ID"
-                  />
-
-                  <div>
-                    <div className="text-xs font-semibold text-slate-700">AttractionId</div>
-                    <input
-                      value={fav.f2AttractionId}
-                      onChange={(e) => setFav((s) => ({ ...s, f2AttractionId: e.target.value }))}
-                      placeholder="auto"
-                      className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-slate-400"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="text-xs font-semibold text-slate-700">Default genre</div>
-                    <input
-                      value={fav.f2DefaultGenre}
-                      onChange={(e) => setFav((s) => ({ ...s, f2DefaultGenre: e.target.value }))}
-                      placeholder="auto"
-                      className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-slate-400"
-                    />
+                    </div>
                   </div>
                 </div>
-              ) : null}
-            </div>
-
-            <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              <div>
-                <div className="text-xs font-semibold text-slate-700">Start (optional)</div>
-                <input
-                  value={fav.favStart}
-                  onChange={(e) => setFav((s) => ({ ...s, favStart: e.target.value }))}
-                  placeholder="YYYY-MM-DD"
-                  className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-slate-400"
-                />
-              </div>
-              <div>
-                <div className="text-xs font-semibold text-slate-700">End (optional)</div>
-                <input
-                  value={fav.favEnd}
-                  onChange={(e) => setFav((s) => ({ ...s, favEnd: e.target.value }))}
-                  placeholder="YYYY-MM-DD"
-                  className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-slate-400"
-                />
-              </div>
-            </div>
-
-            <div className="mt-5">
-              <div className="text-xs font-semibold text-slate-700">Optional genres (0–2)</div>
-              <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                <ComboBox<{ label: string }>
-                  label="Genre 1"
-                  value={fav.genres[0] || ""}
-                  placeholder="Type a genre…"
-                  options={genreOptions}
-                  onChange={(v) => setFav((s) => ({ ...s, genres: [v, s.genres[1] || ""] }))}
-                  onPick={(opt) => setFav((s) => ({ ...s, genres: [opt.label, s.genres[1] || ""] }))}
-                />
-                <ComboBox<{ label: string }>
-                  label="Genre 2"
-                  value={fav.genres[1] || ""}
-                  placeholder="Type a genre…"
-                  options={genreOptions}
-                  onChange={(v) => setFav((s) => ({ ...s, genres: [s.genres[0] || "", v] }))}
-                  onPick={(opt) => setFav((s) => ({ ...s, genres: [s.genres[0] || "", opt.label] }))}
-                />
-              </div>
-
-              <div className="mt-5">
-                <button
-                  type="button"
-                  onClick={onSearchFavorites}
-                  className="h-11 rounded-2xl bg-slate-900 px-5 text-sm font-extrabold text-white hover:bg-slate-800"
-                >
-                  Search
-                </button>
               </div>
             </div>
           </section>
-        )}
 
-        <div className="mt-6 text-center text-xs text-slate-500">
-          Form values persist when navigating away and back (session-based).
+          <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <button
+              type="button"
+              onClick={() => togglePanel("favorites")}
+              className={cx(
+                "w-full px-5 py-4 text-left transition sm:px-7",
+                openPanel === "favorites" ? "bg-slate-900 text-white" : "bg-white text-slate-900 hover:bg-slate-50"
+              )}
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="text-lg font-black">Plan around Favorites</div>
+                  <div
+                    className={cx("mt-1 text-xs", openPanel === "favorites" ? "text-slate-300" : "text-slate-600")}
+                  >
+                    Tell us what you're into, and we'll help you find some good trips.
+                  </div>
+                </div>
+                <div className="text-2xl font-light leading-none">{openPanel === "favorites" ? "−" : "+"}</div>
+              </div>
+            </button>
+
+            <div
+              className={cx(
+                "grid transition-all duration-500 ease-in-out",
+                openPanel === "favorites" ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+              )}
+            >
+              <div className="overflow-hidden">
+                <div className="border-t border-slate-200 p-5 sm:p-7">
+                  <div className="grid gap-5">
+                    <ComboBox<FavoriteOption>
+                      label="Favorite Team, Artist or Band 1 (Required)"
+                      value={fav.f1Label}
+                      placeholder="Type a team or artist…"
+                      options={favoriteOptions}
+                      onChange={(v) =>
+                        setFav((s) => ({
+                          ...s,
+                          f1Label: v,
+                          ...(v.trim()
+                            ? {}
+                            : {
+                                f1AttractionId: "",
+                                f1DefaultGenre: "",
+                              }),
+                        }))
+                      }
+                      onPick={async (opt) => {
+                        const nextLabel = opt.rawName;
+                        const nextGenre = opt.defaultGenre ? normalizeGenreFromConfig(opt.defaultGenre, genreAliases) : "";
+                        let id = opt.attractionId || "";
+
+                        if (!id && opt.kind === "artist") {
+                          id = await resolveArtistAttractionId(opt.rawName);
+                        }
+
+                        setFav((s) => ({
+                          ...s,
+                          f1Label: nextLabel,
+                          f1AttractionId: id,
+                          f1DefaultGenre: nextGenre || s.f1DefaultGenre || "",
+                        }));
+                      }}
+                    />
+
+                    <ComboBox<FavoriteOption>
+                      label="Favorite Team, Artist or Band 2"
+                      value={fav.f2Label}
+                      placeholder="Type a team or artist…"
+                      options={favoriteOptions}
+                      onChange={(v) =>
+                        setFav((s) => ({
+                          ...s,
+                          f2Label: v,
+                          ...(v.trim()
+                            ? {}
+                            : {
+                                f2AttractionId: "",
+                                f2DefaultGenre: "",
+                              }),
+                        }))
+                      }
+                      onPick={async (opt) => {
+                        const nextLabel = opt.rawName;
+                        const nextGenre = opt.defaultGenre ? normalizeGenreFromConfig(opt.defaultGenre, genreAliases) : "";
+                        let id = opt.attractionId || "";
+
+                        if (!id && opt.kind === "artist") {
+                          id = await resolveArtistAttractionId(opt.rawName);
+                        }
+
+                        setFav((s) => ({
+                          ...s,
+                          f2Label: nextLabel,
+                          f2AttractionId: id,
+                          f2DefaultGenre: nextGenre || s.f2DefaultGenre || "",
+                        }));
+                      }}
+                    />
+
+                    <div>
+                      <div className="text-xs font-semibold text-slate-700">
+                        Favorite Sports and/or Music Genres (enter up to 4)
+                      </div>
+
+                      <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                        {ensureFourGenres(fav.genres).map((g, i) => (
+                          <ComboBox<{ label: string }>
+                            key={i}
+                            label={`Genre ${i + 1}`}
+                            value={g}
+                            placeholder="Type a genre…"
+                            options={genreOptions}
+                            onChange={(v) =>
+                              setFav((s) => {
+                                const next = ensureFourGenres(s.genres);
+                                next[i] = v;
+                                return { ...s, genres: next };
+                              })
+                            }
+                            onPick={(opt) =>
+                              setFav((s) => {
+                                const next = ensureFourGenres(s.genres);
+                                next[i] = opt.label;
+                                return { ...s, genres: next };
+                              })
+                            }
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <div className="text-xs font-semibold text-slate-700">Start (optional)</div>
+                        <input
+                          value={fav.favStart}
+                          onChange={(e) => setFav((s) => ({ ...s, favStart: e.target.value }))}
+                          placeholder="YYYY-MM-DD"
+                          className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-slate-400"
+                        />
+                      </div>
+
+                      <div>
+                        <div className="text-xs font-semibold text-slate-700">End (optional)</div>
+                        <input
+                          value={fav.favEnd}
+                          onChange={(e) => setFav((s) => ({ ...s, favEnd: e.target.value }))}
+                          placeholder="YYYY-MM-DD"
+                          className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-slate-400"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <button
+                        type="button"
+                        onClick={onSearchFavorites}
+                        className="h-11 rounded-2xl bg-slate-900 px-5 text-sm font-extrabold text-white hover:bg-slate-800"
+                      >
+                        Search
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
         </div>
       </div>
     </main>
