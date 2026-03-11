@@ -329,17 +329,25 @@ function hasLoadedContext(ctx?: ContextState) {
   return false;
 }
 
-function getGenreMatchState(genre: string | null | undefined, ctx?: ContextState) {
+function getGenreMatchState(
+  genre: string | null | undefined,
+  ctx?: ContextState
+): "loading" | "yes" | "no" {
   const raw = String(genre || "").trim();
-  if (!raw) return "hidden" as const;
-  if (!ctx || ctx.loading || !hasLoadedContext(ctx)) return "loading" as const;
-  if (includesNormalized(ctx.presentGenres, raw)) return "yes" as const;
-  return "no" as const;
+  if (!raw) return "no";
+  if (!ctx || ctx.loading || !hasLoadedContext(ctx)) return "loading";
+  if (includesNormalized(ctx.presentGenres, raw)) return "yes";
+  return "no";
 }
 
-function getFavoriteMatchState(favorite: Favorite | null, card: AnchorCard, ctx?: ContextState) {
-  if (!favorite) return "hidden" as const;
-  return tripIncludesFavorite(card, favorite, ctx) ? "yes" as const : "no" as const;
+function getFavoriteMatchState(
+  favorite: Favorite | null,
+  card: AnchorCard,
+  ctx?: ContextState
+): "loading" | "yes" | "no" {
+  if (!favorite) return "no";
+  if (!ctx || ctx.loading || !hasLoadedContext(ctx)) return "loading";
+  return tripIncludesFavorite(card, favorite, ctx) ? "yes" : "no";
 }
 
 function statusRowClass(isBlack: boolean, tone: "neutral" | "yes" | "no") {
@@ -523,13 +531,18 @@ export default function FavoritesResultsPage() {
     return `${favs} • ${datePart}${genresPart}`;
   }, [f1.label, f2?.label, start, end, userGenres]);
 
-  async function fetchContext(card: AnchorCard) {
-    const existing = ctxByAnchorRef.current[card.id];
-    if (existing?.loading) return;
-    if (existing && (existing.events.length > 0 || existing.error)) return;
-    if (contextInflightRef.current[card.id]) return contextInflightRef.current[card.id];
+  async function fetchContext(card: AnchorCard): Promise<void> {
+  const existing = ctxByAnchorRef.current[card.id];
+  if (existing?.loading) return;
+  if (existing && (existing.events.length > 0 || existing.error)) return;
 
-    const promise = (async () => {
+  const inflight = contextInflightRef.current[card.id];
+  if (inflight) {
+    await inflight;
+    return;
+  }
+
+  const promise: Promise<void> = (async () => {
       if (
         !card.localDate ||
         !isYMD(card.localDate) ||
