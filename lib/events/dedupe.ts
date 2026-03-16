@@ -2,18 +2,53 @@
 
 import type { NormEvent } from "@/lib/events/normalize";
 
-function lower(s: string) {
-  return s.toLowerCase();
+function norm(s: string | null | undefined): string {
+  return String(s || "").trim().toLowerCase();
 }
 
-export function isHardNoise(e: NormEvent) {
-  // hard exclude: parking/upsells/etc
+function hasUrl(e: NormEvent): number {
+  return e.url ? 1 : 0;
+}
+
+function hasLocalTime(e: NormEvent): number {
+  return e.localTime ? 1 : 0;
+}
+
+function compareEventQuality(a: NormEvent, b: NormEvent): number {
+  if (b.qualityScore !== a.qualityScore) {
+    return b.qualityScore - a.qualityScore;
+  }
+
+  const bUrl = hasUrl(b);
+  const aUrl = hasUrl(a);
+  if (bUrl !== aUrl) {
+    return bUrl - aUrl;
+  }
+
+  const bTime = hasLocalTime(b);
+  const aTime = hasLocalTime(a);
+  if (bTime !== aTime) {
+    return bTime - aTime;
+  }
+
+  if ((b.matched.favorites?.length || 0) !== (a.matched.favorites?.length || 0)) {
+    return (b.matched.favorites?.length || 0) - (a.matched.favorites?.length || 0);
+  }
+
+  if ((b.matched.genres?.length || 0) !== (a.matched.genres?.length || 0)) {
+    return (b.matched.genres?.length || 0) - (a.matched.genres?.length || 0);
+  }
+
+  return a.name.localeCompare(b.name);
+}
+
+export function isHardNoise(e: NormEvent): boolean {
   if (e.flags.isParkingLike) return true;
+  if (e.flags.isUpsellLike) return true;
 
-  const n = lower(e.name);
+  const name = norm(e.name);
 
-  // keep this list strict (only obvious junk)
-  const hard = [
+  const hardNoisePatterns = [
     /\bparking\b/,
     /\bparkwhiz\b/,
     /\bgarage\b/,
@@ -32,37 +67,38 @@ export function isHardNoise(e: NormEvent) {
     /\badd[-\s]?on\b/,
   ];
 
-  return hard.some((re) => re.test(n));
+  return hardNoisePatterns.some((re) => re.test(name));
 }
 
 export function dedupeEvents(events: NormEvent[]): NormEvent[] {
-  // 1) remove hard noise
-  const cleaned = events.filter((e) => !isHardNoise(e));
+  if (!Array.isArray(events) || events.length === 0) return [];
 
-  // 2) group by canonicalKey, keep best by (qualityScore, url presence, time presence)
-  const byKey = new Map<string, NormEvent[]>();
-  for (const e of cleaned) {
-    const arr = byKey.get(e.canonicalKey) || [];
-    arr.push(e);
-    byKey.set(e.canonicalKey, arr);
+  // 1) Remove obvious junk
+  const cleaned = events.filter((e) => e && !isHardNoise(e));
+
+  // 2) Group by canonical key
+  const byCanonicalKey = new Map<string, NormEvent[]>();
+
+  for (const event of cleaned) {
+    const key = norm(event.canonicalKey) || `${event.localDate}|${norm(event.name)}|${norm(event.venueName || event.city)}`;
+    const group = byCanonicalKey.get(key) || [];
+    group.push(event);
+    byCanonicalKey.set(key, group);
   }
 
+  // 3) Pick best event from each group
   const picked: NormEvent[] = [];
-  for (const [, group] of byKey) {
-    group.sort((a, b) => {
-      if (b.qualityScore !== a.qualityScore) return b.qualityScore - a.qualityScore;
-      const bu = b.url ? 1 : 0;
-      const au = a.url ? 1 : 0;
-      if (bu !== au) return bu - au;
-      const bt = b.localTime ? 1 : 0;
-      const at = a.localTime ? 1 : 0;
-      if (bt !== at) return bt - at;
-      return a.name.localeCompare(b.name);
-    });
+
+  for (const group of byCanonicalKey.values()) {
+    group.sort(compareEventQuality);
     picked.push(group[0]);
   }
 
-  // stable sort by ts then name
-  picked.sort((a, b) => (a.ts - b.ts) || a.name.localeCompare(b.name));
+  // 4) Final stable sort
+  picked.sort((a, b) => {
+    if (a.ts !== b.ts) return a.ts - b.ts;
+    return a.name.localeCompare(b.name);
+  });
+
   return picked;
 }

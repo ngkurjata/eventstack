@@ -3,15 +3,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import BrandLogo from "@/app/components/BrandLogo";
-import { csvToList } from "@/lib/url";
+import { allGenreLabels } from "@/lib/events/genres";
+import { csvToList, listToCsv } from "@/lib/url";
 import {
-  BuildTripPayload,
   RowEvent,
   coerceTripContextResponse,
-  encodeBuildTripDataParam,
-  eventKey,
   fmtYMDPretty,
-  groupByDate,
   isYMD,
 } from "@/lib/trips/sharePayload";
 
@@ -56,18 +53,71 @@ type ContextState = {
   error: string;
   anchor?: RowEvent | null;
   events: RowEvent[];
-  selected: Record<string, boolean>;
   presentFavorites: string[];
   presentGenres: string[];
   requirementsMet: boolean;
 };
 
-const BUILD_TRIP_ROUTE = "/build-trip";
+type FavoriteOption = {
+  key: string;
+  label: string;
+  kind: "team" | "artist";
+  attractionId?: string;
+  defaultGenre?: string;
+  rawName: string;
+  league?: string;
+};
+
+type ResolveFavoriteResponse = {
+  ok: boolean;
+  q: string;
+  items: FavoriteOption[];
+  error?: string;
+};
+
+type GenreOption = {
+  label: string;
+};
+
 const MAX_PRELOAD_CONCURRENCY = 4;
-const PRELOAD_ROOT_MARGIN = "300px 0px";
+const PRELOAD_ROOT_MARGIN = "120px 0px";
+const MAX_GENRES = 2;
+const AREA_RADIUS_MILES = 90;
 
 function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
+}
+
+function norm(s: any) {
+  return String(s || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+function normalizeToken(value: string | null | undefined) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function includesNormalized(list: string[] | null | undefined, value: string | null | undefined) {
+  const needle = normalizeToken(value);
+  if (!needle) return false;
+  return (list || []).some((item) => normalizeToken(item) === needle);
+}
+
+function uniqueStrings(values: Array<string | null | undefined>) {
+  const seen = new Set<string>();
+  const out: string[] = [];
+
+  for (const value of values) {
+    const raw = String(value || "").trim();
+    const key = raw.toLowerCase();
+    if (!raw || seen.has(key)) continue;
+    seen.add(key);
+    out.push(raw);
+  }
+
+  return out;
 }
 
 function makeFavorite(
@@ -96,10 +146,16 @@ function ensureAnchorIncluded(anchor: RowEvent | null | undefined, events: RowEv
   const out = Array.isArray(events) ? [...events] : [];
   if (!anchor) return out;
 
-  const ak = eventKey(anchor);
-  const exists = out.some((e) => eventKey(e) === ak);
-  if (!exists) out.unshift(anchor);
+  const exists = out.some((e) => {
+    return (
+      String(e?.name || "").trim().toLowerCase() === String(anchor?.name || "").trim().toLowerCase() &&
+      String(e?.date || "").trim() === String(anchor?.date || "").trim() &&
+      String(e?.location || "").trim().toLowerCase() ===
+        String(anchor?.location || "").trim().toLowerCase()
+    );
+  });
 
+  if (!exists) out.unshift(anchor);
   return out;
 }
 
@@ -115,31 +171,6 @@ function isRenderableRowEvent(e: RowEvent) {
   return true;
 }
 
-function normalizeToken(value: string | null | undefined) {
-  return String(value || "").trim().toLowerCase();
-}
-
-function includesNormalized(list: string[] | null | undefined, value: string | null | undefined) {
-  const needle = normalizeToken(value);
-  if (!needle) return false;
-  return (list || []).some((item) => normalizeToken(item) === needle);
-}
-
-function uniqueStrings(values: Array<string | null | undefined>) {
-  const seen = new Set<string>();
-  const out: string[] = [];
-
-  for (const value of values) {
-    const raw = String(value || "").trim();
-    const key = raw.toLowerCase();
-    if (!raw || seen.has(key)) continue;
-    seen.add(key);
-    out.push(raw);
-  }
-
-  return out;
-}
-
 function splitLocation(location: string | null | undefined) {
   const raw = String(location || "").trim();
   if (!raw) return { city: "", region: "" };
@@ -153,21 +184,6 @@ function splitLocation(location: string | null | undefined) {
     city: parts[0] || "",
     region: parts[1] || "",
   };
-}
-
-function tripIncludesFavorite(card: AnchorCard, favorite: Favorite | null, ctx?: ContextState) {
-  if (!favorite) return false;
-
-  const presentFavorites = uniqueStrings([
-    ...(card.matched?.favorites || []),
-    ...(ctx?.presentFavorites || []),
-  ]);
-
-  return (
-    includesNormalized(presentFavorites, favorite.id) ||
-    includesNormalized(presentFavorites, favorite.label) ||
-    includesNormalized(presentFavorites, favorite.attractionId)
-  );
 }
 
 function getTripEvents(card: AnchorCard, ctx?: ContextState) {
@@ -224,114 +240,212 @@ function getTripDateRange(card: AnchorCard, ctx?: ContextState) {
   return `${fmtYMDPretty(first)} → ${fmtYMDPretty(last)}`;
 }
 
-function isGreenCard(card: AnchorCard, f1: Favorite, f2: Favorite | null, ctx?: ContextState) {
-  if (!f2) return false;
-  return tripIncludesFavorite(card, f1, ctx) && tripIncludesFavorite(card, f2, ctx);
+function getTripWindow(card: AnchorCard, ctx?: ContextState) {
+  const events = getTripEvents(card, ctx);
+  const validDates = uniqueStrings(
+    events
+      .map((e) => (isYMD(String(e.date || "")) ? String(e.date) : ""))
+      .filter(Boolean)
+  ).sort();
+
+  if (!validDates.length) {
+    const fallback = card.localDate && isYMD(card.localDate) ? card.localDate : "";
+    return {
+      start: fallback,
+      end: fallback,
+    };
+  }
+
+  return {
+    start: validDates[0],
+    end: validDates[validDates.length - 1],
+  };
 }
 
-function cardSurfaceClass(isGreen: boolean) {
-  return isGreen ? "border-emerald-300 bg-emerald-50/90" : "border-slate-200 bg-white";
+function getTripIncludesText({
+  ctx,
+  selectedGenres,
+}: {
+  card: AnchorCard;
+  ctx?: ContextState;
+  f2: Favorite | null;
+  selectedGenres: string[];
+}) {
+  const parts: string[] = [];
+
+  for (const genre of selectedGenres) {
+    if (includesNormalized(ctx?.presentGenres, genre)) {
+      parts.push(genre.toUpperCase());
+    }
+  }
+
+  if (!parts.length) return "";
+  return `Trip includes ${parts.join(" - ")}`;
 }
 
-function expandedSurfaceClass(isGreen: boolean) {
-  return isGreen ? "border-emerald-200 bg-white/80" : "border-slate-200 bg-slate-50/70";
-}
-
-function titleTextClass(isGreen: boolean) {
-  return isGreen ? "text-emerald-950" : "text-slate-900";
-}
-
-function bodyTextClass(isGreen: boolean) {
-  return isGreen ? "text-emerald-900" : "text-slate-700";
-}
-
-function mutedTextClass(isGreen: boolean) {
-  return isGreen ? "text-emerald-800/80" : "text-slate-500";
-}
-
-function dividerTextClass(isGreen: boolean) {
-  return isGreen ? "text-emerald-300" : "text-slate-300";
-}
-
-function linkClass(isGreen: boolean) {
-  return isGreen
-    ? "text-[11px] font-extrabold text-emerald-900 underline decoration-emerald-300 hover:decoration-emerald-700"
-    : "text-[11px] font-extrabold text-slate-900 underline decoration-slate-300 hover:decoration-slate-800";
+function makeContextKey(cardId: string, favorite2AttractionId: string | null | undefined) {
+  return `${cardId}__${normalizeToken(favorite2AttractionId)}`;
 }
 
 function hasLoadedContext(ctx?: ContextState) {
   if (!ctx) return false;
   if (ctx.loading) return false;
-  if (ctx.error) return true;
-  if (ctx.events.length > 0) return true;
-  if (ctx.presentFavorites.length > 0) return true;
-  if (ctx.presentGenres.length > 0) return true;
-  return false;
+  return true;
 }
 
-function getGenreMatchState(
-  genre: string | null | undefined,
-  ctx?: ContextState
-): "loading" | "yes" | "no" {
-  const raw = String(genre || "").trim();
-  if (!raw) return "no";
-  if (!ctx || ctx.loading || !hasLoadedContext(ctx)) return "loading";
-  if (includesNormalized(ctx.presentGenres, raw)) return "yes";
-  return "no";
+function allCardsChecked(
+  cards: AnchorCard[],
+  getCurrentCtx: (cardId: string) => ContextState | undefined,
+  needsContext: boolean
+) {
+  if (!needsContext) return true;
+  if (!cards.length) return true;
+
+  return cards.every((card) => {
+    const ctx = getCurrentCtx(card.id);
+    return Boolean(ctx && !ctx.loading);
+  });
 }
 
-function statusButtonClass(state: "loading" | "yes" | "no", isGreen: boolean) {
-  if (state === "yes") {
-    return isGreen
-      ? "border-emerald-300 bg-emerald-100 text-emerald-900"
-      : "border-emerald-200 bg-emerald-50 text-emerald-800";
-  }
-
-  if (state === "no") {
-    return isGreen
-      ? "border-slate-300 bg-white text-slate-700"
-      : "border-slate-200 bg-slate-50 text-slate-700";
-  }
-
-  return isGreen
-    ? "border-emerald-200 bg-white text-emerald-900"
-    : "border-slate-200 bg-white text-slate-700";
-}
-
-function GenreStatusButton({
-  label,
-  state,
-  isGreen,
-}: {
+function ComboBox<T extends { label: string }>(props: {
   label: string;
-  state: "loading" | "yes" | "no";
-  isGreen: boolean;
+  value: string;
+  placeholder?: string;
+  options: T[];
+  onChange: (next: string) => void;
+  onPick: (opt: T) => void;
+  disabled?: boolean;
+  rightHint?: string;
+}) {
+  const { label, value, placeholder, options, onChange, onPick, disabled, rightHint } = props;
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+
+  const filtered = useMemo(() => {
+    const q = norm(value);
+    const base = options || [];
+    if (!q) return base.slice(0, 12);
+    const hits = base.filter((o) => norm(o.label).includes(q));
+    return hits.slice(0, 12);
+  }, [options, value]);
+
+  useEffect(() => {
+    function onDoc(e: MouseEvent) {
+      if (!wrapRef.current) return;
+      if (!wrapRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+
+  useEffect(() => {
+    setActive(0);
+  }, [value]);
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <div className="flex items-end justify-between">
+        <div className="text-xs font-semibold text-slate-700">{label}</div>
+        {rightHint ? <div className="text-[11px] text-slate-500">{rightHint}</div> : null}
+      </div>
+
+      <input
+        value={value}
+        disabled={disabled}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={(e) => {
+          if (!open && (e.key === "ArrowDown" || e.key === "Enter")) setOpen(true);
+          if (!open) return;
+
+          if (e.key === "ArrowDown") {
+            e.preventDefault();
+            setActive((n) => Math.min(n + 1, Math.max(0, filtered.length - 1)));
+          } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            setActive((n) => Math.max(0, n - 1));
+          } else if (e.key === "Enter") {
+            e.preventDefault();
+            const opt = filtered[active];
+            if (opt) {
+              onPick(opt);
+              setOpen(false);
+            }
+          } else if (e.key === "Escape") {
+            setOpen(false);
+          }
+        }}
+        placeholder={placeholder}
+        className={cx(
+          "mt-1 h-11 w-full rounded-2xl border bg-white px-4 text-sm font-semibold text-slate-900 outline-none",
+          "border-slate-200 focus:border-slate-400",
+          disabled && "cursor-not-allowed bg-slate-100 text-slate-500"
+        )}
+      />
+
+      {open && filtered.length > 0 && !disabled && (
+        <div className="absolute z-30 mt-2 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
+          {filtered.map((opt, idx) => (
+            <button
+              type="button"
+              key={(opt as any).key || opt.label}
+              onMouseEnter={() => setActive(idx)}
+              onClick={() => {
+                onPick(opt);
+                setOpen(false);
+              }}
+              className={cx(
+                "w-full px-4 py-2 text-left text-sm",
+                idx === active ? "bg-slate-900 text-white" : "bg-white text-slate-900 hover:bg-slate-50"
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SelectionChip({
+  text,
+  onRemove,
+  disabled,
+  title,
+}: {
+  text: string;
+  onRemove: () => void;
+  disabled?: boolean;
+  title?: string;
 }) {
   return (
     <div
       className={cx(
-        "inline-flex min-w-0 items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-extrabold",
-        statusButtonClass(state, isGreen)
+        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-extrabold sm:text-xs",
+        disabled
+          ? "border-slate-200 bg-slate-100 text-slate-400"
+          : "border-slate-300 bg-slate-100 text-slate-800"
       )}
+      title={title}
     >
-      <span className="truncate">{label}</span>
-
-      {state === "loading" ? (
-        <span
-          className={cx(
-            "h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2",
-            isGreen ? "border-emerald-300 border-t-emerald-700" : "border-slate-300 border-t-slate-700"
-          )}
-        />
-      ) : state === "yes" ? (
-        <span className="shrink-0" aria-hidden="true">
-          ✓
-        </span>
-      ) : (
-        <span className="shrink-0" aria-hidden="true">
-          ✕
-        </span>
-      )}
+      <span>{text}</span>
+      <button
+        type="button"
+        onClick={onRemove}
+        disabled={disabled}
+        className={cx(
+          "rounded-full px-1 leading-none",
+          disabled ? "cursor-not-allowed text-slate-400" : "text-slate-700 hover:bg-slate-200"
+        )}
+        aria-label={`Remove ${text}`}
+      >
+        ×
+      </button>
     </div>
   );
 }
@@ -356,10 +470,7 @@ function CardVisibilityTrigger({
     const io = new IntersectionObserver(
       (entries) => {
         const first = entries[0];
-        if (!first) return;
-        if (!first.isIntersecting) return;
-        if (fired) return;
-
+        if (!first || !first.isIntersecting || fired) return;
         fired = true;
         onVisible(cardId);
         io.disconnect();
@@ -385,57 +496,192 @@ export default function FavoritesResultsPage() {
   const countryCode = sp.get("countryCode") || "US,CA";
   const start = sp.get("start");
   const end = sp.get("end");
-  const genresParam = sp.get("genres") || "";
 
   const f1Label = sp.get("f1Label") || "";
   const f1AttractionId = sp.get("f1AttractionId") || "";
   const f1DefaultGenre = sp.get("f1DefaultGenre") || "Hockey";
 
-  const f2Label = sp.get("f2Label") || "";
-  const f2AttractionId = sp.get("f2AttractionId") || "";
-  const f2DefaultGenre = sp.get("f2DefaultGenre") || "Country";
+  const initialF2 = useMemo(() => {
+    const label = sp.get("f2Label") || "";
+    const attractionId = sp.get("f2AttractionId") || "";
+    const defaultGenre = sp.get("f2DefaultGenre") || "";
+    if (!label || !attractionId) return null;
+    return makeFavorite("F2", label, attractionId, defaultGenre || "Other");
+  }, [sp]);
 
-  const userGenres = useMemo(() => csvToList(genresParam), [genresParam]);
-
-  const g1 = userGenres[0] || "";
-  const g2 = userGenres[1] || "";
+  const initialGenres = useMemo(() => {
+    return csvToList(sp.get("genres") || "")
+      .map((g) => String(g).trim())
+      .filter(Boolean)
+      .slice(0, MAX_GENRES);
+  }, [sp]);
 
   const f1 = useMemo(() => {
     return makeFavorite("F1", f1Label, f1AttractionId, f1DefaultGenre);
   }, [f1Label, f1AttractionId, f1DefaultGenre]);
 
-  const f2 = useMemo(() => {
-    if (!f2AttractionId) return null;
-    return makeFavorite("F2", f2Label, f2AttractionId, f2DefaultGenre);
-  }, [f2Label, f2AttractionId, f2DefaultGenre]);
+  const [selectedF2, setSelectedF2] = useState<Favorite | null>(initialF2);
+  const [selectedGenres, setSelectedGenres] = useState<string[]>(initialGenres);
+
+  const [f2Input, setF2Input] = useState("");
+  const [genreInput, setGenreInput] = useState("");
+
+  const [favoriteOptions, setFavoriteOptions] = useState<FavoriteOption[]>([]);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
+  const [favoriteError, setFavoriteError] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [resp, setResp] = useState<ApiResp | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [openId, setOpenId] = useState<string | null>(null);
-  const [ctxByAnchor, setCtxByAnchor] = useState<Record<string, ContextState>>({});
+  const [ctxCache, setCtxCache] = useState<Record<string, ContextState>>({});
+  const [resolvedCards, setResolvedCards] = useState<AnchorCard[]>([]);
 
   const searchAbortRef = useRef<AbortController | null>(null);
-  const ctxByAnchorRef = useRef<Record<string, ContextState>>({});
-  const contextInflightRef = useRef<Record<string, Promise<void>>>({});
-  const queueRef = useRef<AnchorCard[]>([]);
+  const ctxCacheRef = useRef<Record<string, ContextState>>({});
+  const contextInflightRef = useRef<Partial<Record<string, Promise<void>>>>({});
+  const queueRef = useRef<Array<{ card: AnchorCard; contextKey: string }>>([]);
   const activeCountRef = useRef(0);
   const cardsRef = useRef<AnchorCard[]>([]);
+  const lastUrlRef = useRef("");
+  const genreLabels = useMemo(() => allGenreLabels(), []);
 
   useEffect(() => {
-    ctxByAnchorRef.current = ctxByAnchor;
-  }, [ctxByAnchor]);
+    ctxCacheRef.current = ctxCache;
+  }, [ctxCache]);
 
-  const requestBody = useMemo(() => {
+  useEffect(() => {
+    const incomingF2 = initialF2;
+    const sameF2 =
+      normalizeToken(incomingF2?.label) === normalizeToken(selectedF2?.label) &&
+      normalizeToken(incomingF2?.attractionId) === normalizeToken(selectedF2?.attractionId) &&
+      normalizeToken(incomingF2?.defaultGenre) === normalizeToken(selectedF2?.defaultGenre);
+
+    if (!sameF2) {
+      setSelectedF2(incomingF2);
+    }
+
+    const nextGenres = initialGenres;
+    const sameGenres =
+      nextGenres.length === selectedGenres.length &&
+      nextGenres.every((g, i) => normalizeToken(g) === normalizeToken(selectedGenres[i]));
+
+    if (!sameGenres) {
+      setSelectedGenres(nextGenres);
+    }
+  }, [initialF2, initialGenres]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const q = f2Input.trim();
+
+    if (!q) {
+      setFavoriteOptions([]);
+      setFavoriteLoading(false);
+      setFavoriteError("");
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const t = window.setTimeout(async () => {
+      try {
+        setFavoriteLoading(true);
+        setFavoriteError("");
+
+        const res = await fetch(`/api/resolve/favorite?q=${encodeURIComponent(q)}`, {
+          method: "GET",
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        const data: ResolveFavoriteResponse = await res.json();
+
+        if (!res.ok || !data?.ok) {
+          setFavoriteOptions([]);
+          setFavoriteError(data?.error || "Could not load favorites.");
+          return;
+        }
+
+        const nextItems = Array.isArray(data.items) ? data.items : [];
+        setFavoriteOptions(
+          nextItems.filter((opt) => normalizeToken(opt.rawName) !== normalizeToken(f1.label))
+        );
+      } catch (e: any) {
+        if (e?.name === "AbortError") return;
+        setFavoriteOptions([]);
+        setFavoriteError("Could not load favorites.");
+      } finally {
+        setFavoriteLoading(false);
+      }
+    }, 200);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(t);
+    };
+  }, [f2Input, f1.label]);
+
+  const availableGenreOptions = useMemo<GenreOption[]>(() => {
+    return genreLabels
+      .filter((g) => !selectedGenres.some((picked) => normalizeToken(picked) === normalizeToken(g)))
+      .map((label) => ({ label }));
+  }, [genreLabels, selectedGenres]);
+
+  const favoritesPayload = useMemo(() => {
+    return [f1, ...(selectedF2 ? [selectedF2] : [])];
+  }, [f1, selectedF2]);
+
+  const searchRequestBody = useMemo(() => {
     return {
       favorite1: f1,
-      favorite2: f2,
+      favorite2: selectedF2,
       startDate: start || null,
       endDate: end || null,
       countryCode,
-      genres: userGenres,
     };
-  }, [f1, f2, start, end, countryCode, userGenres]);
+  }, [f1, selectedF2, start, end, countryCode]);
+
+  const filterSignature = useMemo(() => {
+    return [
+      normalizeToken(selectedF2?.attractionId),
+      ...selectedGenres.map(normalizeToken).sort(),
+    ].join("|");
+  }, [selectedF2, selectedGenres]);
+
+  const needsContextCheck = Boolean(selectedGenres.length > 0);
+
+  const updateUrl = useCallback(
+    (nextF2: Favorite | null, nextGenres: string[]) => {
+      const params = new URLSearchParams();
+
+      params.set("countryCode", countryCode);
+      params.set("f1Label", f1.label);
+      params.set("f1AttractionId", f1.attractionId);
+      params.set("f1DefaultGenre", f1.defaultGenre);
+
+      if (start) params.set("start", start);
+      if (end) params.set("end", end);
+
+      if (nextF2?.label && nextF2?.attractionId) {
+        params.set("f2Label", nextF2.label);
+        params.set("f2AttractionId", nextF2.attractionId);
+        if (nextF2.defaultGenre) params.set("f2DefaultGenre", nextF2.defaultGenre);
+      }
+
+      const genreCsv = listToCsv(nextGenres);
+      if (genreCsv) params.set("genres", genreCsv);
+
+      const nextUrl = `/results/favorites?${params.toString()}`;
+      if (lastUrlRef.current === nextUrl) return;
+
+      lastUrlRef.current = nextUrl;
+      router.replace(nextUrl, { scroll: false });
+    },
+    [countryCode, end, f1, router, start]
+  );
+
+  useEffect(() => {
+    updateUrl(selectedF2, selectedGenres);
+  }, [selectedF2, selectedGenres, updateUrl]);
 
   useEffect(() => {
     if (!f1AttractionId) {
@@ -455,8 +701,8 @@ export default function FavoritesResultsPage() {
     async function run() {
       setLoading(true);
       setErr(null);
-      setOpenId(null);
-      setCtxByAnchor({});
+      setCtxCache({});
+      setResolvedCards([]);
       contextInflightRef.current = {};
       queueRef.current = [];
       activeCountRef.current = 0;
@@ -467,7 +713,7 @@ export default function FavoritesResultsPage() {
           headers: { "Content-Type": "application/json" },
           cache: "no-store",
           signal: controller.signal,
-          body: JSON.stringify(requestBody),
+          body: JSON.stringify(searchRequestBody),
         });
 
         const j = (await r.json().catch(() => ({}))) as ApiResp & { error?: string };
@@ -496,7 +742,7 @@ export default function FavoritesResultsPage() {
       cancelled = true;
       controller.abort();
     };
-  }, [f1AttractionId, requestBody]);
+  }, [f1AttractionId, searchRequestBody]);
 
   const cards = resp?.anchorCards || [];
 
@@ -504,24 +750,26 @@ export default function FavoritesResultsPage() {
     cardsRef.current = cards;
   }, [cards]);
 
-  const favoritesPayload = useMemo(() => [f1, ...(f2 ? [f2] : [])], [f1, f2]);
+  useEffect(() => {
+    if (!needsContextCheck) {
+      setResolvedCards(cards);
+    }
+  }, [cards, needsContextCheck]);
 
-  const header = useMemo(() => {
-    const favs = [f1.label, f2?.label].filter(Boolean).join(" + ");
-    const datePart = start && end ? `${start} → ${end}` : "All upcoming";
-    const genresPart = userGenres.length ? ` • +${userGenres.join(", ")}` : "";
-    return `${favs} • ${datePart}${genresPart}`;
-  }, [f1.label, f2?.label, start, end, userGenres]);
+  const getCurrentCtx = useCallback(
+    (cardId: string) => {
+      return ctxCache[makeContextKey(cardId, selectedF2?.attractionId)];
+    },
+    [ctxCache, selectedF2]
+  );
 
   const fetchContext = useCallback(
-    async (card: AnchorCard): Promise<void> => {
-      const existing = ctxByAnchorRef.current[card.id];
+    async (card: AnchorCard, contextKey: string): Promise<void> => {
+      const existing = ctxCacheRef.current[contextKey];
       if (existing?.loading) return;
-      if (existing && (existing.events.length > 0 || existing.error || hasLoadedContext(existing))) {
-        return;
-      }
+      if (existing && hasLoadedContext(existing)) return;
 
-      const inflight = contextInflightRef.current[card.id];
+      const inflight = contextInflightRef.current[contextKey];
       if (inflight) {
         await inflight;
         return;
@@ -534,33 +782,31 @@ export default function FavoritesResultsPage() {
           typeof card.lat !== "number" ||
           typeof card.lon !== "number"
         ) {
-          setCtxByAnchor((prev) => ({
+          setCtxCache((prev) => ({
             ...prev,
-            [card.id]: {
+            [contextKey]: {
               loading: false,
               error: "This anchor is missing valid localDate/lat/lon; cannot load nearby events.",
-              events: prev[card.id]?.events || [],
-              anchor: prev[card.id]?.anchor || anchorToRowEvent(card),
-              selected: prev[card.id]?.selected || {},
-              presentFavorites: prev[card.id]?.presentFavorites || [],
-              presentGenres: prev[card.id]?.presentGenres || [],
+              events: prev[contextKey]?.events || [],
+              anchor: prev[contextKey]?.anchor || anchorToRowEvent(card),
+              presentFavorites: prev[contextKey]?.presentFavorites || [],
+              presentGenres: prev[contextKey]?.presentGenres || [],
               requirementsMet: false,
             },
           }));
           return;
         }
 
-        setCtxByAnchor((prev) => ({
+        setCtxCache((prev) => ({
           ...prev,
-          [card.id]: {
+          [contextKey]: {
             loading: true,
             error: "",
-            anchor: prev[card.id]?.anchor ?? null,
-            events: prev[card.id]?.events ?? [],
-            selected: prev[card.id]?.selected ?? {},
-            presentFavorites: prev[card.id]?.presentFavorites ?? [],
-            presentGenres: prev[card.id]?.presentGenres ?? [],
-            requirementsMet: prev[card.id]?.requirementsMet ?? false,
+            anchor: prev[contextKey]?.anchor ?? null,
+            events: prev[contextKey]?.events ?? [],
+            presentFavorites: prev[contextKey]?.presentFavorites ?? [],
+            presentGenres: prev[contextKey]?.presentGenres ?? [],
+            requirementsMet: prev[contextKey]?.requirementsMet ?? false,
           },
         }));
 
@@ -573,7 +819,7 @@ export default function FavoritesResultsPage() {
             lat: card.lat,
             lon: card.lon,
             favorites: favoritesPayload,
-            genres: userGenres,
+            genres: [],
             countryCode,
           };
 
@@ -591,14 +837,13 @@ export default function FavoritesResultsPage() {
           const resolvedAnchor = anchor || anchorToRowEvent(card);
           const withAnchor = ensureAnchorIncluded(resolvedAnchor, events);
 
-          setCtxByAnchor((prev) => ({
+          setCtxCache((prev) => ({
             ...prev,
-            [card.id]: {
+            [contextKey]: {
               loading: false,
               error: "",
               anchor: resolvedAnchor,
               events: withAnchor,
-              selected: prev[card.id]?.selected ?? {},
               presentFavorites: Array.isArray((json as any)?.present?.favorites)
                 ? (json as any).present.favorites
                 : [],
@@ -609,31 +854,30 @@ export default function FavoritesResultsPage() {
             },
           }));
         } catch (e: any) {
-          setCtxByAnchor((prev) => ({
+          setCtxCache((prev) => ({
             ...prev,
-            [card.id]: {
+            [contextKey]: {
               loading: false,
               error: e?.message || "Failed to load nearby events",
-              anchor: prev[card.id]?.anchor ?? anchorToRowEvent(card),
-              events: prev[card.id]?.events ?? [],
-              selected: prev[card.id]?.selected ?? {},
-              presentFavorites: prev[card.id]?.presentFavorites ?? [],
-              presentGenres: prev[card.id]?.presentGenres ?? [],
+              anchor: prev[contextKey]?.anchor ?? anchorToRowEvent(card),
+              events: prev[contextKey]?.events ?? [],
+              presentFavorites: prev[contextKey]?.presentFavorites ?? [],
+              presentGenres: prev[contextKey]?.presentGenres ?? [],
               requirementsMet: false,
             },
           }));
         }
       })();
 
-      contextInflightRef.current[card.id] = promise;
+      contextInflightRef.current[contextKey] = promise;
 
       try {
         await promise;
       } finally {
-        delete contextInflightRef.current[card.id];
+        delete contextInflightRef.current[contextKey];
       }
     },
-    [countryCode, favoritesPayload, userGenres]
+    [countryCode, favoritesPayload]
   );
 
   const pumpQueue = useCallback(() => {
@@ -641,13 +885,15 @@ export default function FavoritesResultsPage() {
       const next = queueRef.current.shift();
       if (!next) return;
 
-      const existing = ctxByAnchorRef.current[next.id];
-      if (existing?.loading || hasLoadedContext(existing) || existing?.error) continue;
-      if (contextInflightRef.current[next.id]) continue;
+      const existing = ctxCacheRef.current[next.contextKey];
+      if (existing?.loading || hasLoadedContext(existing)) continue;
+
+      const inflight = contextInflightRef.current[next.contextKey];
+      if (inflight) continue;
 
       activeCountRef.current += 1;
 
-      fetchContext(next).finally(() => {
+      fetchContext(next.card, next.contextKey).finally(() => {
         activeCountRef.current -= 1;
         pumpQueue();
       });
@@ -659,99 +905,140 @@ export default function FavoritesResultsPage() {
       const card = cardsRef.current.find((c) => c.id === cardId);
       if (!card) return;
 
-      const existing = ctxByAnchorRef.current[card.id];
-      if (existing?.loading || hasLoadedContext(existing) || existing?.error) return;
-      if (contextInflightRef.current[card.id]) return;
-      if (queueRef.current.some((c) => c.id === card.id)) return;
+      const contextKey = makeContextKey(card.id, selectedF2?.attractionId);
+      const existing = ctxCacheRef.current[contextKey];
+      if (existing?.loading || hasLoadedContext(existing)) return;
 
-      queueRef.current.push(card);
+      const inflight = contextInflightRef.current[contextKey];
+      if (inflight) return;
+
+      queueRef.current = queueRef.current.filter((item) => item.contextKey !== contextKey);
+      queueRef.current.push({ card, contextKey });
       pumpQueue();
     },
-    [pumpQueue]
+    [pumpQueue, selectedF2]
   );
 
-  function toggleOpen(card: AnchorCard) {
-    setOpenId((prev) => (prev === card.id ? null : card.id));
+  useEffect(() => {
+    if (!cards.length) return;
+    if (!selectedGenres.length) return;
+
+    cards.forEach((card) => {
+      enqueueCardContext(card.id);
+    });
+  }, [cards, enqueueCardContext, filterSignature, selectedGenres.length]);
+
+  function openAreaResultsForCard(card: AnchorCard) {
+    const ctx = getCurrentCtx(card.id);
+
+    const cityLabel = [card.city, card.region].filter(Boolean).join(", ");
+    const lat = typeof card.lat === "number" ? card.lat : null;
+    const lon = typeof card.lon === "number" ? card.lon : null;
+    const { start, end } = getTripWindow(card, ctx);
+
+    if (!cityLabel || typeof lat !== "number" || typeof lon !== "number" || !start || !end) {
+      return;
+    }
+
+    const params = new URLSearchParams({
+      cityLabel,
+      lat: String(lat),
+      lon: String(lon),
+      start,
+      end,
+      radiusMiles: String(AREA_RADIUS_MILES),
+      countryCode,
+    });
+
+    router.push(`/results/area?${params.toString()}`);
   }
+
+  function handlePickF2(opt: FavoriteOption) {
+    const nextLabel = opt.rawName;
+    const nextGenre = opt.defaultGenre || "Other";
+    const id = String(opt.attractionId || "").trim();
+
+    if (!id) return;
+
+    setSelectedF2(makeFavorite("F2", nextLabel, id, nextGenre));
+    setF2Input("");
+    setFavoriteOptions([]);
+    setFavoriteError("");
+  }
+
+  function addGenre(genre: string) {
+    const raw = String(genre || "").trim();
+    if (!raw) return;
+    if (selectedGenres.length >= MAX_GENRES) return;
+    if (selectedGenres.some((g) => normalizeToken(g) === normalizeToken(raw))) return;
+
+    setSelectedGenres((prev) => [...prev, raw].slice(0, MAX_GENRES));
+    setGenreInput("");
+  }
+
+  function removeGenreAtIndex(index: number) {
+    if (index < 0 || index >= selectedGenres.length) return;
+    if (index === 0 && selectedGenres.length > 1) return;
+    setSelectedGenres((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  const cardsStillChecking = useMemo(() => {
+    return !allCardsChecked(cards, getCurrentCtx, needsContextCheck);
+  }, [cards, getCurrentCtx, needsContextCheck]);
+
+  const computedFilteredCards = useMemo(() => {
+    if (!selectedGenres.length) return cards;
+
+    return cards.filter((card) => {
+      const ctx = getCurrentCtx(card.id);
+
+      if (!ctx || ctx.loading) return true;
+      if (ctx.error) return false;
+
+      return selectedGenres.every((genre) => includesNormalized(ctx.presentGenres, genre));
+    });
+  }, [cards, getCurrentCtx, selectedGenres]);
 
   useEffect(() => {
-    if (!openId) return;
-    const card = cards.find((c) => c.id === openId);
-    if (!card) return;
-    enqueueCardContext(card.id);
-  }, [openId, cards, enqueueCardContext]);
-
-  function setChecked(anchorId: string, e: RowEvent, checked: boolean) {
-    const k = eventKey(e);
-
-    setCtxByAnchor((prev) => {
-      const cur = prev[anchorId] || {
-        loading: false,
-        error: "",
-        events: [],
-        selected: {},
-        presentFavorites: [],
-        presentGenres: [],
-        requirementsMet: false,
-      };
-
-      return {
-        ...prev,
-        [anchorId]: {
-          ...cur,
-          selected: {
-            ...cur.selected,
-            [k]: checked,
-          },
-        },
-      };
-    });
-  }
-
-  function buildTripForCard(card: AnchorCard) {
-    const ctx = ctxByAnchor[card.id];
-    const fallbackAnchor = anchorToRowEvent(card);
-    const anchor = ctx?.anchor || fallbackAnchor;
-
-    const allEvents = ensureAnchorIncluded(anchor, ctx?.events || []);
-    const selectedMap = ctx?.selected || {};
-    const selectedEvents = allEvents.filter((e) => selectedMap[eventKey(e)]);
-    const finalEvents = ensureAnchorIncluded(anchor, selectedEvents);
-
-    const validDates = finalEvents
-      .map((e) => (isYMD(String(e.date || "")) ? String(e.date) : ""))
-      .filter(Boolean)
-      .sort();
-
-    const payload: BuildTripPayload = {
-      tripStyle: "B",
-      countryCode,
-      anchor,
-      events: finalEvents,
-      startYMD: validDates[0] || anchor?.date || null,
-      endYMD: validDates[validDates.length - 1] || anchor?.date || null,
-    };
-
-    const data = encodeBuildTripDataParam(payload);
-    router.push(`${BUILD_TRIP_ROUTE}?data=${data}`);
-  }
-
-  const hasAnyF2Crossovers = useMemo(() => {
-    if (!f2) return false;
-    return cards.some((card) => tripIncludesFavorite(card, f2, ctxByAnchor[card.id]));
-  }, [cards, f2, ctxByAnchor]);
-
-  const stickyMessage = useMemo(() => {
-    if (f2 && !hasAnyF2Crossovers) {
-      return `All trips include F1 (${f1.label}). Unfortunately F1 and F2 don't cross paths in their current schedules.`;
+    if (!needsContextCheck) {
+      setResolvedCards(cards);
+      return;
     }
 
-    if (f2) {
-      return `All trips include F1 (${f1.label}). Green shaded cards also include an F2 event (${f2.label}).`;
+    const done = allCardsChecked(cards, getCurrentCtx, true);
+    if (!done) return;
+
+    setResolvedCards(computedFilteredCards);
+  }, [cards, computedFilteredCards, getCurrentCtx, needsContextCheck]);
+
+  const displayedCards = useMemo(() => {
+    if (!needsContextCheck) return cards;
+    return cardsStillChecking ? resolvedCards : computedFilteredCards;
+  }, [cards, cardsStillChecking, computedFilteredCards, needsContextCheck, resolvedCards]);
+
+  const headerText = useMemo(() => {
+    if (selectedF2 && selectedGenres.length) {
+      return `Showing ${f1.label} / ${selectedF2.label} trips. Genre filters apply after verification completes.`;
     }
 
-    return `All trips include F1 (${f1.label}).`;
-  }, [f1.label, f2, hasAnyF2Crossovers]);
+    if (selectedF2) {
+      return `Showing only ${f1.label} / ${selectedF2.label} crossover trips.`;
+    }
+
+    if (selectedGenres.length) {
+      return `Showing ${f1.label} trips. Genre filters apply after verification completes.`;
+    }
+
+    return `All trips include ${f1.label}.`;
+  }, [f1.label, selectedF2, selectedGenres]);
+
+  const favoriteHint = favoriteLoading
+    ? "Searching..."
+    : favoriteError
+    ? favoriteError
+    : f2Input.trim()
+    ? `${favoriteOptions.length} match${favoriteOptions.length === 1 ? "" : "es"}`
+    : "optional";
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -764,7 +1051,9 @@ export default function FavoritesResultsPage() {
                 <div className="text-base font-black tracking-tight text-slate-900 sm:text-lg">
                   Favorites Results
                 </div>
-                <div className="mt-0.5 truncate text-[11px] text-slate-600 sm:text-xs">{header}</div>
+                <div className="mt-0.5 truncate text-[11px] text-slate-600 sm:text-xs">
+                  {f1.label || "Favorites"}
+                </div>
               </div>
             </div>
 
@@ -774,21 +1063,81 @@ export default function FavoritesResultsPage() {
               className="shrink-0 rounded-2xl bg-slate-900 px-3.5 py-2 text-[11px] font-extrabold text-white hover:bg-slate-800 sm:px-4 sm:py-2.5 sm:text-xs"
               title="Search again"
             >
-              Search
+              Search Again
             </button>
           </div>
         </div>
       </div>
 
-      {!loading && !err && (
-        <div className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
-          <div className="mx-auto w-full max-w-md px-4 py-3 lg:max-w-4xl lg:px-6">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-3 text-[11px] font-semibold text-slate-700 sm:text-xs">
-              {stickyMessage}
+      <div className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
+        <div className="mx-auto w-full max-w-md px-4 py-3 lg:max-w-4xl lg:px-6">
+          <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="text-[11px] font-semibold text-slate-700 sm:text-xs">{headerText}</div>
+
+            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+              <ComboBox<FavoriteOption>
+                label="Add Favorite 2"
+                value={f2Input}
+                placeholder={selectedF2 ? "Replace Favorite 2…" : "Type a team or artist…"}
+                options={favoriteOptions}
+                onChange={(v) => {
+                  setF2Input(v);
+                  if (!v.trim()) {
+                    setSelectedF2(null);
+                    setFavoriteOptions([]);
+                    setFavoriteError("");
+                  }
+                }}
+                onPick={handlePickF2}
+                disabled={false}
+                rightHint={favoriteHint}
+              />
+
+              <ComboBox<GenreOption>
+                label="Add Genre"
+                value={genreInput}
+                placeholder={selectedGenres.length >= MAX_GENRES ? "Maximum reached" : "Type a genre…"}
+                options={availableGenreOptions}
+                onChange={setGenreInput}
+                onPick={(opt) => addGenre(opt.label)}
+                disabled={selectedGenres.length >= MAX_GENRES}
+                rightHint={`up to ${MAX_GENRES}`}
+              />
             </div>
+
+            {(selectedF2 || selectedGenres.length > 0) && (
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                {selectedF2 ? (
+                  <SelectionChip text={`F2: ${selectedF2.label}`} onRemove={() => setSelectedF2(null)} />
+                ) : null}
+
+                {selectedGenres.map((genre, index) => (
+                  <SelectionChip
+                    key={`${genre}-${index}`}
+                    text={`G${index + 1}: ${genre}`}
+                    onRemove={() => removeGenreAtIndex(index)}
+                    disabled={index === 0 && selectedGenres.length > 1}
+                    title={index === 0 && selectedGenres.length > 1 ? "Remove Genre 2 first" : undefined}
+                  />
+                ))}
+
+                {selectedGenres.length > 1 ? (
+                  <div className="text-[11px] font-semibold text-slate-500">
+                    Remove Genre 2 before removing Genre 1.
+                  </div>
+                ) : null}
+              </div>
+            )}
+
+            {cardsStillChecking && (
+              <div className="mt-4 inline-flex items-center gap-2 text-[11px] font-semibold text-slate-500 sm:text-xs">
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700" />
+                Updating trip matches…
+              </div>
+            )}
           </div>
         </div>
-      )}
+      </div>
 
       <div className="mx-auto w-full max-w-md px-4 py-4 lg:max-w-4xl lg:px-6 lg:py-8">
         {loading && (
@@ -809,201 +1158,62 @@ export default function FavoritesResultsPage() {
 
         {!loading && !err && (
           <>
-            <div className="mb-3 text-[11px] text-slate-600 sm:text-xs">
-              Trip cards: <span className="font-extrabold text-slate-900">{cards.length}</span>
-            </div>
-
             <div className="space-y-3">
-              {cards.map((c) => {
-                const ctx = ctxByAnchor[c.id];
-                const isOpen = openId === c.id;
-                const isPreloading = Boolean(ctx?.loading);
-                const green = isGreenCard(c, f1, f2, ctx);
-
-                const nearbyEvents = ctx?.events || [];
-                const grouped = groupByDate(nearbyEvents);
-                const selectedCount = Object.values(ctx?.selected || {}).filter(Boolean).length;
-
+              {displayedCards.map((c) => {
+                const ctx = getCurrentCtx(c.id);
                 const tripLocation = getTripLocationLabel(c, ctx);
                 const tripDateRange = getTripDateRange(c, ctx);
-
-                const g1State = g1 ? getGenreMatchState(g1, ctx) : "no";
-                const g2State = g2 ? getGenreMatchState(g2, ctx) : "no";
+                const includesText = getTripIncludesText({
+                  card: c,
+                  ctx,
+                  f2: selectedF2,
+                  selectedGenres,
+                });
 
                 return (
                   <CardVisibilityTrigger key={c.id} cardId={c.id} onVisible={enqueueCardContext}>
                     <section
-                      className={cx(
-                        "overflow-hidden rounded-3xl border shadow-sm transition cursor-pointer",
-                        cardSurfaceClass(green)
-                      )}
-                      onClick={() => toggleOpen(c)}
+                      className="cursor-pointer overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+                      onClick={() => openAreaResultsForCard(c)}
                     >
-                      <div className="p-4 sm:p-5">
-                        <div className="min-w-0">
-                          <div className={cx("text-base font-black tracking-tight sm:text-lg", titleTextClass(green))}>
-                            {tripLocation || "Trip"}
+                      <div className="min-w-0">
+                        <div className="inline-block border-b border-r border-slate-300 bg-slate-100 px-2 py-1 text-[11px] font-black uppercase tracking-wide text-slate-600 sm:text-xs">
+                          {c.localDate && isYMD(c.localDate) ? fmtYMDPretty(c.localDate) : "Date TBD"}
+                        </div>
+
+                        <div className="px-2 py-1.5 sm:px-3 sm:py-2">
+                          <div className="truncate text-base font-black leading-tight text-slate-900 sm:text-lg">
+                            {c.name || "Event"}
                           </div>
 
-                          <div className={cx("mt-1 text-sm font-semibold", bodyTextClass(green))}>
+                          <div className="mt-1 text-sm font-semibold leading-tight text-slate-600">
+                            {[c.city, c.region].filter(Boolean).join(", ") || tripLocation || "Location TBD"}
+                          </div>
+
+                          <div className="mt-1 text-[11px] font-semibold text-slate-700 sm:text-xs">
                             {tripDateRange}
                           </div>
 
-                          {(g1 || g2) && (
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              {g1 ? <GenreStatusButton label={g1} state={g1State} isGreen={green} /> : null}
-                              {g2 ? <GenreStatusButton label={g2} state={g2State} isGreen={green} /> : null}
+                          {includesText ? (
+                            <div className="mt-1 text-[11px] font-extrabold uppercase tracking-wide text-slate-800 sm:text-xs">
+                              {includesText}
                             </div>
-                          )}
-
-                          <div className={cx("mt-3 text-[11px] sm:text-xs", mutedTextClass(green))}>
-                            {isOpen
-                              ? "Tap card to hide nearby events"
-                              : isPreloading
-                              ? "Checking trip details…"
-                              : "Tap card to show nearby events"}
-                          </div>
+                          ) : null}
                         </div>
                       </div>
-
-                      {isOpen && (
-                        <div
-                          className={cx("border-t", expandedSurfaceClass(green))}
-                          onClick={(ev) => ev.stopPropagation()}
-                        >
-                          <div className="p-3 sm:p-4">
-                            {ctx?.loading && nearbyEvents.length === 0 ? (
-                              <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-4">
-                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700" />
-                                <div className={cx("text-sm font-semibold", bodyTextClass(green))}>
-                                  Loading nearby events…
-                                </div>
-                              </div>
-                            ) : ctx?.error ? (
-                              <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
-                                <div className="font-black">Couldn’t load nearby events.</div>
-                                <div className="mt-1 font-semibold">{ctx.error}</div>
-                              </div>
-                            ) : nearbyEvents.length === 0 ? (
-                              <div
-                                className={cx(
-                                  "rounded-2xl border px-4 py-4 text-sm",
-                                  green
-                                    ? "border-emerald-200 bg-white text-emerald-900"
-                                    : "border-slate-200 bg-white text-slate-700"
-                                )}
-                              >
-                                No included events returned for this anchor window.
-                              </div>
-                            ) : (
-                              <div className="space-y-4">
-                                {grouped
-                                  .map((g) => ({ ...g, events: g.events.filter(isRenderableRowEvent) }))
-                                  .filter((g) => g.events.length > 0)
-                                  .map((g) => (
-                                    <div key={g.date} className="space-y-2">
-                                      <div
-                                        className={cx(
-                                          "px-1 text-[11px] font-black uppercase tracking-wide sm:text-xs",
-                                          mutedTextClass(green)
-                                        )}
-                                      >
-                                        {g.date === "TBD" ? "Date TBD" : fmtYMDPretty(g.date)}
-                                      </div>
-
-                                      <div className="space-y-2">
-                                        {g.events.map((e) => {
-                                          const k = eventKey(e);
-                                          const checked = Boolean(ctx?.selected?.[k]);
-                                          const where = String(e.location || "").trim();
-
-                                          return (
-                                            <label
-                                              key={k}
-                                              className={cx(
-                                                "flex items-start gap-3 rounded-2xl border px-3 py-3",
-                                                green
-                                                  ? "border-emerald-200 bg-white hover:bg-emerald-50/40"
-                                                  : "border-slate-200 bg-white hover:bg-slate-50"
-                                              )}
-                                            >
-                                              <input
-                                                type="checkbox"
-                                                className="mt-0.5 h-4 w-4 shrink-0"
-                                                checked={checked}
-                                                onChange={(ev) => setChecked(c.id, e, ev.target.checked)}
-                                              />
-
-                                              <div className="min-w-0 flex-1">
-                                                <div className={cx("text-sm font-black leading-5", titleTextClass(green))}>
-                                                  {e.name}
-                                                </div>
-
-                                                {(where || e.genre) && (
-                                                  <div
-                                                    className={cx(
-                                                      "mt-1 text-[11px] font-semibold leading-4 sm:text-xs",
-                                                      mutedTextClass(green)
-                                                    )}
-                                                  >
-                                                    {where}
-                                                    {where && e.genre ? (
-                                                      <span className={cx("mx-2", dividerTextClass(green))}>•</span>
-                                                    ) : null}
-                                                    {e.genre ? <span>{e.genre}</span> : null}
-                                                  </div>
-                                                )}
-
-                                                {e.url ? (
-                                                  <div className="mt-2">
-                                                    <a
-                                                      href={e.url}
-                                                      target="_blank"
-                                                      rel="noreferrer"
-                                                      className={linkClass(green)}
-                                                      onClick={(ev) => ev.stopPropagation()}
-                                                    >
-                                                      Tickets
-                                                    </a>
-                                                  </div>
-                                                ) : null}
-                                              </div>
-                                            </label>
-                                          );
-                                        })}
-                                      </div>
-                                    </div>
-                                  ))}
-
-                                <div className="pt-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => buildTripForCard(c)}
-                                    className={cx(
-                                      "h-11 w-full rounded-2xl px-4 text-sm font-extrabold",
-                                      green
-                                        ? "bg-emerald-900 text-white hover:bg-emerald-800"
-                                        : "bg-slate-900 text-white hover:bg-slate-800"
-                                    )}
-                                    title="Open Trip Hub with your selected events"
-                                  >
-                                    Build trip{selectedCount ? ` (${selectedCount})` : ""}
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
                     </section>
                   </CardVisibilityTrigger>
                 );
               })}
             </div>
 
-            {cards.length === 0 && (
+            {!cardsStillChecking && displayedCards.length === 0 && (
               <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-700 shadow-sm">
-                No trips found.
+                {cards.length === 0
+                  ? selectedF2
+                    ? "No F1 / F2 crossover trips found."
+                    : "No trips found."
+                  : "No trips match the selected favorite / genre filters."}
               </div>
             )}
           </>

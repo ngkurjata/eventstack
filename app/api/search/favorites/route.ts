@@ -11,20 +11,21 @@ function json(payload: any, status = 200) {
   return NextResponse.json(payload, { status });
 }
 
-type Favorite = {
-  id: string; // "F1" / "F2"
+type FavoriteInput = {
+  id?: string;
   label: string;
+  kind?: "team" | "artist";
   attractionId: string;
-  defaultGenre: string;
+  defaultGenre?: string;
 };
 
 type Body = {
-  favorite1: Favorite | null;
-  favorite2?: Favorite | null;
+  favorite1: FavoriteInput | null;
+  favorite2?: FavoriteInput | null;
   startDate?: string | null;
   endDate?: string | null;
-  countryCode?: string; // "US,CA"
-  genres?: string[]; // G1..G4
+  countryCode?: string;
+  genres?: string[];
 };
 
 type MatchBag = {
@@ -38,10 +39,31 @@ type AttractionCacheEntry = {
   data: NormEvent[];
 };
 
+type SearchCacheEntry = {
+  expiresAt: number;
+  payload: any;
+};
+
+type ResolvedFavorite = {
+  id: string;
+  label: string;
+  kind?: "team" | "artist";
+  attractionId: string;
+  defaultGenre: string;
+};
+
 const ATTRACTION_TTL_MS = 10 * 60_000;
+const SEARCH_TTL_MS = 5 * 60_000;
+const DEFAULT_COUNTRY_CODE = "US,CA";
+const DEFAULT_RADIUS_MILES = 90;
+const DEFAULT_DAYS_EACH_SIDE = 3;
+const MAX_GENRES = 4;
 
 const attractionCache = new Map<string, AttractionCacheEntry>();
 const inflightAttractionFetches = new Map<string, Promise<NormEvent[]>>();
+
+const searchCache = new Map<string, SearchCacheEntry>();
+const inflightSearches = new Map<string, Promise<any>>();
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -113,6 +135,29 @@ function uniqueStrings(values: Array<string | null | undefined>) {
   return out;
 }
 
+function normalizeGenresInput(values: string[] | null | undefined) {
+  return uniqueStrings((values || []).map((g) => String(g || "").trim())).slice(0, MAX_GENRES);
+}
+
+function resolveFavorite(input: FavoriteInput | null | undefined, fallbackId: string): ResolvedFavorite | null {
+  if (!input) return null;
+
+  const label = String(input.label || "").trim();
+  const attractionId = String(input.attractionId || "").trim();
+  const defaultGenre = String(input.defaultGenre || "").trim();
+  const id = String(input.id || fallbackId).trim() || fallbackId;
+
+  if (!label || !attractionId) return null;
+
+  return {
+    id,
+    label,
+    kind: input.kind,
+    attractionId,
+    defaultGenre,
+  };
+}
+
 function makeAttractionKey(args: {
   attractionId: string;
   countryCode: string;
@@ -125,6 +170,38 @@ function makeAttractionKey(args: {
     args.startDateTime || "",
     args.endDateTime || "",
   ].join("|");
+}
+
+function makeSearchKey(args: {
+  favorite1: ResolvedFavorite;
+  favorite2: ResolvedFavorite | null;
+  startDate: string | null;
+  endDate: string | null;
+  countryCode: string;
+  genres: string[];
+}) {
+  return JSON.stringify({
+    f1: {
+      id: args.favorite1.id,
+      label: args.favorite1.label,
+      kind: args.favorite1.kind || "",
+      attractionId: args.favorite1.attractionId,
+      defaultGenre: args.favorite1.defaultGenre,
+    },
+    f2: args.favorite2
+      ? {
+          id: args.favorite2.id,
+          label: args.favorite2.label,
+          kind: args.favorite2.kind || "",
+          attractionId: args.favorite2.attractionId,
+          defaultGenre: args.favorite2.defaultGenre,
+        }
+      : null,
+    startDate: args.startDate,
+    endDate: args.endDate,
+    countryCode: args.countryCode,
+    genres: [...args.genres].sort((a, b) => a.localeCompare(b)),
+  });
 }
 
 function parseYMDToUTC(ymd: string): number {
@@ -154,7 +231,7 @@ function isNearbyAnchorMatch(
   anchor: NormEvent,
   candidate: NormEvent,
   radiusMiles: number,
-  daysEachSide = 3
+  daysEachSide = DEFAULT_DAYS_EACH_SIDE
 ) {
   if (
     !anchor.localDate ||
@@ -260,126 +337,201 @@ async function tmSearchByAttraction(args: {
   return promise;
 }
 
+async function runSearch(body: Body) {
+  const favorite1 = resolveFavorite(body.favorite1, "F1");
+  const favorite2 = resolveFavorite(body.favorite2 || null, "F2");
+
+  if (!favorite1?.attractionId) {
+    return { error: "Favorite 1 is required", status: 400 };
+  }
+
+  const genres = normalizeGenresInput(body.genres);
+  const countryCode = String(body.countryCode || DEFAULT_COUNTRY_CODE).trim() || DEFAULT_COUNTRY_CODE;
+  const radiusMiles = DEFAULT_RADIUS_MILES;
+  const daysEachSide = DEFAULT_DAYS_EACH_SIDE;
+
+  let startDateTime: string | undefined;
+  let endDateTime: string | undefined;
+
+  if (body.startDate || body.endDate) {
+    if (!isYMD(body.startDate) || !isYMD(body.endDate)) {
+      return {
+        error: "If provided, startDate and endDate must be YYYY-MM-DD",
+        status: 400,
+      };
+    }
+
+    const r = ymdToTmRangeInclusive(body.startDate, body.endDate);
+    startDateTime = r.startDateTime;
+    endDateTime = r.endDateTime;
+  }
+
+  const [f1Anchors, f2Events] = await Promise.all([
+    tmSearchByAttraction({
+      attractionId: favorite1.attractionId,
+      countryCode,
+      startDateTime,
+      endDateTime,
+    }),
+    favorite2?.attractionId
+      ? tmSearchByAttraction({
+          attractionId: favorite2.attractionId,
+          countryCode,
+          startDateTime,
+          endDateTime,
+        })
+      : Promise.resolve([] as NormEvent[]),
+  ]);
+
+  for (const anchor of f1Anchors) {
+    const matched = ensureMatched(anchor);
+    matched.favorites = uniqueStrings([favorite1.id, favorite1.label, favorite1.attractionId]);
+    matched.defaultGenres = uniqueStrings([favorite1.defaultGenre]);
+    matched.genres = [];
+  }
+
+  for (const event of f2Events) {
+    const matched = ensureMatched(event);
+    matched.favorites = uniqueStrings([
+      favorite2?.id || "F2",
+      favorite2?.label || "",
+      favorite2?.attractionId || "",
+    ]);
+    matched.defaultGenres = uniqueStrings([favorite2?.defaultGenre || ""]);
+    matched.genres = [];
+  }
+
+  const candidateAnchors = f1Anchors.filter((anchor) => {
+    return (
+      Boolean(anchor.localDate) &&
+      isYMD(String(anchor.localDate)) &&
+      typeof anchor.lat === "number" &&
+      typeof anchor.lon === "number"
+    );
+  });
+
+  const candidateMeta = candidateAnchors.map((anchor) => {
+    const nearbyF2Events = favorite2?.attractionId
+      ? f2Events.filter((f2e) => isNearbyAnchorMatch(anchor, f2e, radiusMiles, daysEachSide))
+      : [];
+
+    return {
+      anchor,
+      nearbyF2Events,
+    };
+  });
+
+  const filteredMeta = favorite2?.attractionId
+    ? candidateMeta.filter((item) => item.nearbyF2Events.length > 0)
+    : candidateMeta;
+
+  const anchorCards = filteredMeta.map(({ anchor, nearbyF2Events }) => {
+    const presentFavorites = uniqueStrings([
+      favorite1.id,
+      favorite1.label,
+      favorite1.attractionId,
+      ...(nearbyF2Events.length > 0 && favorite2
+        ? [favorite2.id, favorite2.label, favorite2.attractionId]
+        : []),
+    ]);
+
+    const presentDefaultGenres = uniqueStrings([
+      favorite1.defaultGenre,
+      ...(nearbyF2Events.length > 0 && favorite2 ? [favorite2.defaultGenre] : []),
+    ]);
+
+    return {
+      ...anchor,
+      matched: {
+        ...(anchor.matched || {}),
+        favorites: presentFavorites,
+        defaultGenres: presentDefaultGenres,
+        genres: [],
+      } as any,
+      isCrossover: nearbyF2Events.length > 0,
+    };
+  });
+
+  return {
+    mode: "favorites",
+    favorites: [favorite1, ...(favorite2?.attractionId ? [favorite2] : [])].map((fav) => ({
+      id: fav.id,
+      label: fav.label,
+      defaultGenre: fav.defaultGenre,
+    })),
+    genres,
+    requiredInputs: {
+      favorites: [favorite1, ...(favorite2?.attractionId ? [favorite2] : [])].map((fav) => fav.id),
+      genres,
+    },
+    startDate: body.startDate || null,
+    endDate: body.endDate || null,
+    count: anchorCards.length,
+    anchorCards,
+  };
+}
+
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as Body;
 
-    const f1 = body.favorite1;
-    const f2 = body.favorite2 || null;
+    const favorite1 = resolveFavorite(body.favorite1, "F1");
+    const favorite2 = resolveFavorite(body.favorite2 || null, "F2");
 
-    if (!f1?.attractionId) {
+    if (!favorite1?.attractionId) {
       return json({ error: "Favorite 1 is required" }, 400);
     }
 
-    const genres = uniqueStrings((body.genres || []).map((g) => String(g).trim())).slice(0, 4);
-    const countryCode = String(body.countryCode || "US,CA").trim() || "US,CA";
-    const radiusMiles = 90;
-    const daysEachSide = 3;
+    const genres = normalizeGenresInput(body.genres);
+    const countryCode = String(body.countryCode || DEFAULT_COUNTRY_CODE).trim() || DEFAULT_COUNTRY_CODE;
 
-    let startDateTime: string | undefined;
-    let endDateTime: string | undefined;
-
-    if (body.startDate || body.endDate) {
-      if (!isYMD(body.startDate) || !isYMD(body.endDate)) {
-        return json({ error: "If provided, startDate and endDate must be YYYY-MM-DD" }, 400);
-      }
-
-      const r = ymdToTmRangeInclusive(body.startDate, body.endDate);
-      startDateTime = r.startDateTime;
-      endDateTime = r.endDateTime;
-    }
-
-    const [f1Anchors, f2Events] = await Promise.all([
-      tmSearchByAttraction({
-        attractionId: f1.attractionId,
-        countryCode,
-        startDateTime,
-        endDateTime,
-      }),
-      f2?.attractionId
-        ? tmSearchByAttraction({
-            attractionId: f2.attractionId,
-            countryCode,
-            startDateTime,
-            endDateTime,
-          })
-        : Promise.resolve([] as NormEvent[]),
-    ]);
-
-    for (const anchor of f1Anchors) {
-      const matched = ensureMatched(anchor);
-      matched.favorites = [f1.id];
-      matched.defaultGenres = [f1.defaultGenre].filter(Boolean);
-      matched.genres = [];
-    }
-
-    for (const event of f2Events) {
-      const matched = ensureMatched(event);
-      matched.favorites = [f2?.id || "F2"];
-      matched.defaultGenres = [f2?.defaultGenre || ""].filter(Boolean);
-      matched.genres = [];
-    }
-
-    const candidateAnchors = f1Anchors.filter((anchor) => {
-      return (
-        Boolean(anchor.localDate) &&
-        isYMD(String(anchor.localDate)) &&
-        typeof anchor.lat === "number" &&
-        typeof anchor.lon === "number"
-      );
-    });
-
-    const candidateMeta = candidateAnchors.map((anchor) => {
-      const nearbyF2Events = f2?.attractionId
-        ? f2Events.filter((f2e) => isNearbyAnchorMatch(anchor, f2e, radiusMiles, daysEachSide))
-        : [];
-
-      return {
-        anchor,
-        nearbyF2Events,
-      };
-    });
-
-    const anchorCards = candidateMeta.map(({ anchor, nearbyF2Events }) => {
-      const presentFavorites = uniqueStrings([
-        f1.id,
-        ...(nearbyF2Events.length > 0 && f2 ? [f2.id] : []),
-      ]);
-
-      const presentDefaultGenres = uniqueStrings([
-        f1.defaultGenre,
-        ...(nearbyF2Events.length > 0 && f2 ? [f2.defaultGenre] : []),
-      ]);
-
-      return {
-        ...anchor,
-        matched: {
-          ...(anchor.matched || {}),
-          favorites: presentFavorites,
-          defaultGenres: presentDefaultGenres,
-          genres: [],
-        } as any,
-        isCrossover: nearbyF2Events.length > 0,
-      };
-    });
-
-    return json({
-      mode: "favorites",
-      favorites: [f1, ...(f2?.attractionId ? [f2] : [])].map((fav) => ({
-        id: fav.id,
-        label: fav.label,
-        defaultGenre: fav.defaultGenre,
-      })),
-      genres,
-      requiredInputs: {
-        favorites: [f1, ...(f2?.attractionId ? [f2] : [])].map((fav) => fav.id),
-        genres,
-      },
+    const searchKey = makeSearchKey({
+      favorite1,
+      favorite2,
       startDate: body.startDate || null,
       endDate: body.endDate || null,
-      count: anchorCards.length,
-      anchorCards,
+      countryCode,
+      genres,
     });
+
+    const now = Date.now();
+    const cached = searchCache.get(searchKey);
+    if (cached && cached.expiresAt > now) {
+      return json(cached.payload);
+    }
+
+    const inflight = inflightSearches.get(searchKey);
+    if (inflight) {
+      const payload = await inflight;
+      if (payload?.error && payload?.status) {
+        return json({ error: payload.error }, payload.status);
+      }
+      return json(payload);
+    }
+
+    const promise = runSearch(body)
+      .then((payload) => {
+        if (!payload?.error) {
+          searchCache.set(searchKey, {
+            expiresAt: Date.now() + SEARCH_TTL_MS,
+            payload,
+          });
+        }
+        return payload;
+      })
+      .finally(() => {
+        inflightSearches.delete(searchKey);
+      });
+
+    inflightSearches.set(searchKey, promise);
+
+    const payload = await promise;
+
+    if (payload?.error && payload?.status) {
+      return json({ error: payload.error }, payload.status);
+    }
+
+    return json(payload);
   } catch (e: any) {
     const msg = String(e?.message || "Failed");
 

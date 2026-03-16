@@ -3,7 +3,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import BrandLogo from "./components/BrandLogo";
-import { listToCsv } from "@/lib/url";
 import { loadSession, saveSession } from "@/lib/home/persist";
 
 type Mode = "area" | "favorites";
@@ -50,12 +49,6 @@ function norm(s: any) {
     .replace(/\s+/g, " ");
 }
 
-function ensureFourGenres(genres: string[]) {
-  const next = Array.isArray(genres) ? [...genres] : [];
-  while (next.length < 4) next.push("");
-  return next.slice(0, 4);
-}
-
 /* -------------------- data shapes -------------------- */
 
 type CityOpt = {
@@ -67,31 +60,21 @@ type CityOpt = {
   airportIata?: string;
 };
 
-type TeamMasterRow = { league: string; teamName: string };
-type TeamAttractionIds = Record<string, Record<string, string>>;
-
-type ArtistOpt = {
-  id: string;
-  label: string;
-  group?: string;
-  kind?: string;
-  genres?: string[];
-};
-
-type GenresConfig = {
-  music?: { entries?: Array<{ name: string; enabled?: boolean }> };
-  sports?: { entries?: Array<{ name: string; enabled?: boolean }> };
-  arts?: { entries?: Array<{ name: string; enabled?: boolean }> };
-  aliases?: Record<string, string>;
-};
-
 type FavoriteOption = {
   key: string;
   label: string;
   kind: "team" | "artist";
+  rawName: string;
   attractionId?: string;
   defaultGenre?: string;
-  rawName: string;
+  league?: string;
+};
+
+type ResolveFavoriteResponse = {
+  ok: boolean;
+  q: string;
+  items: FavoriteOption[];
+  error?: string;
 };
 
 /* -------------------- lightweight combobox -------------------- */
@@ -211,21 +194,15 @@ type AreaState = {
   endDate: string;
   endTouched: boolean;
   radiusMiles: number;
-  genres: string[];
 };
 
 type FavState = {
   f1Label: string;
+  f1Kind: "" | "team" | "artist";
   f1AttractionId: string;
   f1DefaultGenre: string;
-
-  f2Label: string;
-  f2AttractionId: string;
-  f2DefaultGenre: string;
-
   favStart: string;
   favEnd: string;
-  genres: string[];
 };
 
 const KEY_MODE = "eventstack_home_mode_v2";
@@ -240,42 +217,16 @@ const DEFAULT_AREA: AreaState = {
   endDate: "",
   endTouched: false,
   radiusMiles: 90,
-  genres: ["", "", "", ""],
 };
 
 const DEFAULT_FAV: FavState = {
   f1Label: "",
+  f1Kind: "",
   f1AttractionId: "",
   f1DefaultGenre: "",
-
-  f2Label: "",
-  f2AttractionId: "",
-  f2DefaultGenre: "",
-
   favStart: "",
   favEnd: "",
-  genres: ["", "", "", ""],
 };
-
-/* -------------------- helpers -------------------- */
-
-function leagueToDefaultGenre(league: string) {
-  const L = String(league || "").toUpperCase();
-  if (L === "NHL") return "Hockey";
-  if (L === "MLB") return "Baseball";
-  if (L === "NBA") return "Basketball";
-  if (L === "NFL" || L === "CFL") return "Football";
-  if (L === "MLS") return "Soccer";
-  return "Sports";
-}
-
-function normalizeGenreFromConfig(input: string, aliases?: Record<string, string>) {
-  const raw = String(input || "").trim();
-  if (!raw) return "";
-  const key = norm(raw);
-  const found = aliases ? aliases[key] : undefined;
-  return found || raw;
-}
 
 /* -------------------- page -------------------- */
 
@@ -289,11 +240,10 @@ export default function HomePage() {
   const [hasLoadedSession, setHasLoadedSession] = useState(false);
 
   const [cities, setCities] = useState<CityOpt[]>([]);
-  const [favoriteOptions, setFavoriteOptions] = useState<FavoriteOption[]>([]);
-  const [genreOptions, setGenreOptions] = useState<Array<{ label: string }>>([]);
-  const [genreAliases, setGenreAliases] = useState<Record<string, string>>({});
 
-  const artistAttractionCacheRef = useRef<Record<string, string>>({});
+  const [favoriteOptions, setFavoriteOptions] = useState<FavoriteOption[]>([]);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
+  const [favoriteError, setFavoriteError] = useState<string>("");
 
   useEffect(() => {
     const m = loadSession<Mode>(KEY_MODE, "area");
@@ -308,13 +258,11 @@ export default function HomePage() {
     setArea({
       ...DEFAULT_AREA,
       ...nextArea,
-      genres: ensureFourGenres(nextArea?.genres || DEFAULT_AREA.genres),
     });
 
     setFav({
       ...DEFAULT_FAV,
       ...nextFav,
-      genres: ensureFourGenres(Array.isArray(nextFav?.genres) ? nextFav.genres : DEFAULT_FAV.genres),
     });
 
     setHasLoadedSession(true);
@@ -327,7 +275,7 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!hasLoadedSession) return;
-    saveSession(KEY_AREA, { ...area, genres: ensureFourGenres(area.genres) });
+    saveSession(KEY_AREA, area);
   }, [area, hasLoadedSession]);
 
   useEffect(() => {
@@ -338,15 +286,11 @@ export default function HomePage() {
   useEffect(() => {
     let cancelled = false;
 
-    async function loadAll() {
+    async function loadCities() {
       try {
-        const [citiesJ, teamsMasterJ, teamIdsJ, artistsJ, genresJ] = await Promise.all([
-          fetch("/cities.json", { cache: "force-cache" }).then((r) => (r.ok ? r.json() : [])),
-          fetch("/teams_master.json", { cache: "force-cache" }).then((r) => (r.ok ? r.json() : [])),
-          fetch("/team_attraction_ids.json", { cache: "force-cache" }).then((r) => (r.ok ? r.json() : {})),
-          fetch("/artist_options.json", { cache: "force-cache" }).then((r) => (r.ok ? r.json() : [])),
-          fetch("/genres_config.json", { cache: "force-cache" }).then((r) => (r.ok ? r.json() : {})),
-        ]);
+        const citiesJ = await fetch("/cities.json", { cache: "force-cache" }).then((r) =>
+          r.ok ? r.json() : []
+        );
 
         if (cancelled) return;
 
@@ -369,88 +313,12 @@ export default function HomePage() {
           .filter(Boolean) as CityOpt[];
 
         setCities(cityList);
-
-        const gc: GenresConfig = genresJ && typeof genresJ === "object" ? (genresJ as any) : {};
-        const aliases: Record<string, string> = {};
-        for (const [k, v] of Object.entries(gc.aliases || {})) {
-          aliases[norm(k)] = String(v);
-        }
-
-        const collect = (entries: any[] | undefined) =>
-          (Array.isArray(entries) ? entries : [])
-            .filter((e) => e && (e.enabled === undefined || e.enabled === true))
-            .map((e) => String(e.name || "").trim())
-            .filter(Boolean);
-
-        const names = [...collect(gc.music?.entries), ...collect(gc.sports?.entries), ...collect(gc.arts?.entries)];
-
-        const seen = new Set<string>();
-        const unique = names.filter((n) => {
-          const k = norm(n);
-          if (seen.has(k)) return false;
-          seen.add(k);
-          return true;
-        });
-
-        setGenreAliases(aliases);
-        setGenreOptions(unique.map((n) => ({ label: n })));
-
-        const teamsMaster: TeamMasterRow[] = Array.isArray(teamsMasterJ) ? (teamsMasterJ as any) : [];
-        const teamIds: TeamAttractionIds = teamIdsJ && typeof teamIdsJ === "object" ? (teamIdsJ as any) : {};
-
-        const teamOpts: FavoriteOption[] = teamsMaster
-          .map((t: any) => {
-            const league = String(t?.league || "").trim();
-            const teamName = String(t?.teamName || "").trim();
-            if (!league || !teamName) return null;
-
-            const attractionId = String(teamIds?.[league]?.[teamName] || "").trim();
-            const defaultGenre = leagueToDefaultGenre(league);
-
-            return {
-              key: `team:${league}:${teamName}`,
-              kind: "team",
-              rawName: teamName,
-              label: `${teamName} — ${league}`,
-              attractionId: attractionId || undefined,
-              defaultGenre,
-            };
-          })
-          .filter(Boolean) as FavoriteOption[];
-
-        const artists: ArtistOpt[] = Array.isArray(artistsJ) ? (artistsJ as any) : [];
-        const artistOpts: FavoriteOption[] = artists
-          .map((a) => {
-            const name = String(a?.label || "").trim();
-            if (!name) return null;
-
-            const g0 = Array.isArray(a?.genres) ? String(a.genres[0] || "").trim() : "";
-            const defaultGenre = g0 ? normalizeGenreFromConfig(g0, aliases) : "";
-
-            return {
-              key: String(a?.id || `artist:${name}`),
-              kind: "artist",
-              rawName: name,
-              label: defaultGenre ? `${name} — ${defaultGenre}` : name,
-              defaultGenre: defaultGenre || undefined,
-            };
-          })
-          .filter(Boolean) as FavoriteOption[];
-
-        const map = new Map<string, FavoriteOption>();
-        for (const o of [...teamOpts, ...artistOpts]) map.set(o.key, o);
-        setFavoriteOptions(Array.from(map.values()));
       } catch {
-        if (!cancelled) {
-          setCities([]);
-          setFavoriteOptions([]);
-          setGenreOptions([]);
-          setGenreAliases({});
-        }
+        if (!cancelled) setCities([]);
       }
     }
 
-    loadAll();
+    loadCities();
 
     return () => {
       cancelled = true;
@@ -464,7 +332,6 @@ export default function HomePage() {
         ...s,
         startDate: t,
         endDate: s.endTouched ? s.endDate : addDaysLocal(t, 13),
-        genres: ensureFourGenres(s.genres),
       }));
       return;
     }
@@ -475,7 +342,6 @@ export default function HomePage() {
         setArea((s) => ({
           ...s,
           endDate: autoEnd,
-          genres: ensureFourGenres(s.genres),
         }));
       }
     }
@@ -487,57 +353,58 @@ export default function HomePage() {
       setArea((s) => ({
         ...s,
         radiusMiles: clamped,
-        genres: ensureFourGenres(s.genres),
       }));
     }
   }, [area.radiusMiles]);
 
   useEffect(() => {
-    if ((area.genres || []).length !== 4) {
-      setArea((s) => ({ ...s, genres: ensureFourGenres(s.genres) }));
+    if (mode !== "favorites") return;
+
+    const q = fav.f1Label.trim();
+
+    if (!q) {
+      setFavoriteOptions([]);
+      setFavoriteLoading(false);
+      setFavoriteError("");
+      return;
     }
-  }, [area.genres]);
 
-  
+    const controller = new AbortController();
 
-  const areaGenreClean = useMemo(() => {
-    return ensureFourGenres(area.genres)
-      .map((g) => String(g || "").trim())
-      .filter(Boolean)
-      .slice(0, 4);
-  }, [area.genres]);
+    const t = window.setTimeout(async () => {
+      try {
+        setFavoriteLoading(true);
+        setFavoriteError("");
 
-  const favGenreClean = useMemo(() => {
-    return ensureFourGenres(fav.genres)
-      .map((g) => String(g || "").trim())
-      .filter(Boolean)
-      .slice(0, 4);
-  }, [fav.genres]);
+        const res = await fetch(`/api/resolve/favorite?q=${encodeURIComponent(q)}`, {
+          method: "GET",
+          cache: "no-store",
+          signal: controller.signal,
+        });
 
-  async function resolveArtistAttractionId(name: string): Promise<string> {
-    const q = String(name || "").trim();
-    if (!q) return "";
+        const data: ResolveFavoriteResponse = await res.json();
 
-    const cacheKey = q.toLowerCase();
-    const cached = artistAttractionCacheRef.current[cacheKey];
-    if (cached) return cached;
+        if (!res.ok || !data?.ok) {
+          setFavoriteOptions([]);
+          setFavoriteError(data?.error || "Could not load favorites.");
+          return;
+        }
 
-    try {
-      const r = await fetch(`/api/suggest/attractions?q=${encodeURIComponent(q)}`, {
-        cache: "no-store",
-      });
-      const j = await r.json().catch(() => ({} as any));
-      const id = String(j?.items?.[0]?.id || "").trim();
-
-      if (id) {
-        artistAttractionCacheRef.current[cacheKey] = id;
+        setFavoriteOptions(Array.isArray(data.items) ? data.items : []);
+      } catch (err: any) {
+        if (err?.name === "AbortError") return;
+        setFavoriteOptions([]);
+        setFavoriteError("Could not load favorites.");
+      } finally {
+        setFavoriteLoading(false);
       }
+    }, 200);
 
-      return id;
-    } catch {
-      return "";
-    }
-  }
+    return () => {
+      controller.abort();
+      window.clearTimeout(t);
+    };
+  }, [fav.f1Label, mode]);
 
   function onSearchArea() {
     const latN = Number(area.lat);
@@ -559,11 +426,6 @@ export default function HomePage() {
       return;
     }
 
-    if (areaGenreClean.length < 1) {
-      alert("Area search requires at least 1 Genre.");
-      return;
-    }
-
     const pickedCity =
       cities.find((c) => String(c.label || "").trim() === area.cityLabel.trim()) ||
       cities.find((c) => String(c.lat) === String(latN) && String(c.lon) === String(lonN));
@@ -582,7 +444,6 @@ export default function HomePage() {
         start: area.startDate,
         end: area.endDate,
         radiusMiles: String(clamp(area.radiusMiles, 10, 120)),
-        genres: listToCsv(areaGenreClean),
         countryCode: "US,CA",
       }).toString();
 
@@ -590,8 +451,8 @@ export default function HomePage() {
   }
 
   function onSearchFavorites() {
-    if (!fav.f1Label.trim() || !fav.f1AttractionId.trim() || !fav.f1DefaultGenre.trim()) {
-      alert("Favorites search requires Favorite 1 (pick an option so attractionId + defaultGenre fill).");
+    if (!fav.f1Label.trim() || !fav.f1AttractionId.trim()) {
+      alert("Favorites search requires selecting a valid favorite.");
       return;
     }
 
@@ -609,14 +470,14 @@ export default function HomePage() {
       countryCode: "US,CA",
       f1Label: fav.f1Label.trim(),
       f1AttractionId: fav.f1AttractionId.trim(),
-      f1DefaultGenre: fav.f1DefaultGenre.trim(),
-      genres: listToCsv(favGenreClean),
     };
 
-    if (fav.f2Label.trim() && fav.f2AttractionId.trim() && fav.f2DefaultGenre.trim()) {
-      params.f2Label = fav.f2Label.trim();
-      params.f2AttractionId = fav.f2AttractionId.trim();
-      params.f2DefaultGenre = fav.f2DefaultGenre.trim();
+    if (fav.f1DefaultGenre.trim()) {
+      params.f1DefaultGenre = fav.f1DefaultGenre.trim();
+    }
+
+    if (fav.f1Kind.trim()) {
+      params.f1Kind = fav.f1Kind.trim();
     }
 
     if (fav.favStart && fav.favEnd) {
@@ -636,7 +497,13 @@ export default function HomePage() {
     setOpenPanel(next);
   }
 
-  const areaGenres = ensureFourGenres(area.genres);
+  const favoriteHint = favoriteLoading
+    ? "Searching..."
+    : favoriteError
+    ? favoriteError
+    : fav.f1Label.trim()
+    ? `${favoriteOptions.length} match${favoriteOptions.length === 1 ? "" : "es"}`
+    : "";
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -671,8 +538,7 @@ export default function HomePage() {
                 <div>
                   <div className="text-lg font-black">Explore by City</div>
                   <div className={cx("mt-1 text-xs", openPanel === "area" ? "text-slate-300" : "text-slate-600")}>
-                    Tell us where and when you're going, and what you're into, and we'll find you some events to check
-                    out while you're there.
+                    Tell us where and when you're going, and we'll find you some events to check out while you're there.
                   </div>
                 </div>
                 <div className="text-2xl font-light leading-none">{openPanel === "area" ? "−" : "+"}</div>
@@ -693,7 +559,14 @@ export default function HomePage() {
                       value={area.cityLabel}
                       placeholder="Type a city…"
                       options={cities}
-                      onChange={(v) => setArea((s) => ({ ...s, cityLabel: v }))}
+                      onChange={(v) =>
+                        setArea((s) => ({
+                          ...s,
+                          cityLabel: v,
+                          lat: "",
+                          lon: "",
+                        }))
+                      }
                       onPick={(opt) =>
                         setArea((s) => ({
                           ...s,
@@ -732,44 +605,14 @@ export default function HomePage() {
                     <input type="hidden" value={area.radiusMiles} readOnly />
                   </div>
 
-                  <div className="mt-6">
-                    <div className="text-xs font-semibold text-slate-700">
-                      Favorite Sports and/or Music Genres (enter up to 4)
-                    </div>
-
-                    <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                      {areaGenres.map((g, i) => (
-                        <ComboBox<{ label: string }>
-                          key={i}
-                          label={`Genre ${i + 1}`}
-                          value={g}
-                          placeholder="Type a genre…"
-                          options={genreOptions}
-                          onChange={(v) =>
-                            setArea((s) => ({
-                              ...s,
-                              genres: ensureFourGenres(s.genres).map((val, idx) => (idx === i ? v : val)),
-                            }))
-                          }
-                          onPick={(opt) =>
-                            setArea((s) => ({
-                              ...s,
-                              genres: ensureFourGenres(s.genres).map((val, idx) => (idx === i ? opt.label : val)),
-                            }))
-                          }
-                        />
-                      ))}
-                    </div>
-
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={onSearchArea}
-                        className="h-11 rounded-2xl bg-slate-900 px-5 text-sm font-extrabold text-white hover:bg-slate-800"
-                      >
-                        Search
-                      </button>
-                    </div>
+                  <div className="mt-6 flex justify-center">
+                    <button
+                      type="button"
+                      onClick={onSearchArea}
+                      className="h-11 rounded-2xl bg-slate-900 px-8 text-sm font-extrabold text-white hover:bg-slate-800"
+                    >
+                      Search
+                    </button>
                   </div>
                 </div>
               </div>
@@ -787,11 +630,11 @@ export default function HomePage() {
             >
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <div className="text-lg font-black">Plan around Favorites</div>
+                  <div className="text-lg font-black">Plan around your Favorites</div>
                   <div
                     className={cx("mt-1 text-xs", openPanel === "favorites" ? "text-slate-300" : "text-slate-600")}
                   >
-                    Tell us what you're into, and we'll help you find some good trips.
+                    Pick a team or artist, then build from that schedule.
                   </div>
                 </div>
                 <div className="text-2xl font-light leading-none">{openPanel === "favorites" ? "−" : "+"}</div>
@@ -808,110 +651,34 @@ export default function HomePage() {
                 <div className="border-t border-slate-200 p-5 sm:p-7">
                   <div className="grid gap-5">
                     <ComboBox<FavoriteOption>
-                      label="Favorite Team, Artist or Band 1 (Required)"
+                      label="Favorite Team or Artist*"
                       value={fav.f1Label}
                       placeholder="Type a team or artist…"
                       options={favoriteOptions}
+                      rightHint={favoriteHint}
                       onChange={(v) =>
                         setFav((s) => ({
                           ...s,
                           f1Label: v,
-                          ...(v.trim()
-                            ? {}
-                            : {
-                                f1AttractionId: "",
-                                f1DefaultGenre: "",
-                              }),
+                          f1Kind: "",
+                          f1AttractionId: "",
+                          f1DefaultGenre: "",
                         }))
                       }
-                      onPick={async (opt) => {
-                        const nextLabel = opt.rawName;
-                        const nextGenre = opt.defaultGenre ? normalizeGenreFromConfig(opt.defaultGenre, genreAliases) : "";
-                        let id = opt.attractionId || "";
-
-                        if (!id && opt.kind === "artist") {
-                          id = await resolveArtistAttractionId(opt.rawName);
-                        }
-
+                      onPick={(opt) =>
                         setFav((s) => ({
                           ...s,
-                          f1Label: nextLabel,
-                          f1AttractionId: id,
-                          f1DefaultGenre: nextGenre || s.f1DefaultGenre || "",
-                        }));
-                      }}
-                    />
-
-                    <ComboBox<FavoriteOption>
-                      label="Favorite Team, Artist or Band 2"
-                      value={fav.f2Label}
-                      placeholder="Type a team or artist…"
-                      options={favoriteOptions}
-                      onChange={(v) =>
-                        setFav((s) => ({
-                          ...s,
-                          f2Label: v,
-                          ...(v.trim()
-                            ? {}
-                            : {
-                                f2AttractionId: "",
-                                f2DefaultGenre: "",
-                              }),
+                          f1Label: opt.rawName,
+                          f1Kind: opt.kind,
+                          f1AttractionId: String(opt.attractionId || "").trim(),
+                          f1DefaultGenre: String(opt.defaultGenre || "").trim(),
                         }))
                       }
-                      onPick={async (opt) => {
-                        const nextLabel = opt.rawName;
-                        const nextGenre = opt.defaultGenre ? normalizeGenreFromConfig(opt.defaultGenre, genreAliases) : "";
-                        let id = opt.attractionId || "";
-
-                        if (!id && opt.kind === "artist") {
-                          id = await resolveArtistAttractionId(opt.rawName);
-                        }
-
-                        setFav((s) => ({
-                          ...s,
-                          f2Label: nextLabel,
-                          f2AttractionId: id,
-                          f2DefaultGenre: nextGenre || s.f2DefaultGenre || "",
-                        }));
-                      }}
                     />
-
-                    <div>
-                      <div className="text-xs font-semibold text-slate-700">
-                        Favorite Sports and/or Music Genres (enter up to 4)
-                      </div>
-
-                      <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                        {ensureFourGenres(fav.genres).map((g, i) => (
-                          <ComboBox<{ label: string }>
-                            key={i}
-                            label={`Genre ${i + 1}`}
-                            value={g}
-                            placeholder="Type a genre…"
-                            options={genreOptions}
-                            onChange={(v) =>
-                              setFav((s) => {
-                                const next = ensureFourGenres(s.genres);
-                                next[i] = v;
-                                return { ...s, genres: next };
-                              })
-                            }
-                            onPick={(opt) =>
-                              setFav((s) => {
-                                const next = ensureFourGenres(s.genres);
-                                next[i] = opt.label;
-                                return { ...s, genres: next };
-                              })
-                            }
-                          />
-                        ))}
-                      </div>
-                    </div>
 
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div>
-                        <div className="text-xs font-semibold text-slate-700">Start (optional)</div>
+                        <div className="text-xs font-semibold text-slate-700">Start Date (optional)</div>
                         <input
                           value={fav.favStart}
                           onChange={(e) => setFav((s) => ({ ...s, favStart: e.target.value }))}
@@ -921,7 +688,7 @@ export default function HomePage() {
                       </div>
 
                       <div>
-                        <div className="text-xs font-semibold text-slate-700">End (optional)</div>
+                        <div className="text-xs font-semibold text-slate-700">End Date (optional)</div>
                         <input
                           value={fav.favEnd}
                           onChange={(e) => setFav((s) => ({ ...s, favEnd: e.target.value }))}
@@ -931,11 +698,11 @@ export default function HomePage() {
                       </div>
                     </div>
 
-                    <div>
+                    <div className="flex justify-center">
                       <button
                         type="button"
                         onClick={onSearchFavorites}
-                        className="h-11 rounded-2xl bg-slate-900 px-5 text-sm font-extrabold text-white hover:bg-slate-800"
+                        className="h-11 rounded-2xl bg-slate-900 px-8 text-sm font-extrabold text-white hover:bg-slate-800"
                       >
                         Search
                       </button>

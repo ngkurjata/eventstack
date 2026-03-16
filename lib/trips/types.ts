@@ -1,64 +1,96 @@
 // FILE: lib/trips/types.ts
 
-/**
- * SelectedEvent is the single normalized event shape used across:
- * - resultsa selections
- * - resultsbcd selections
- * - /api/trips/save payload
- *
- * Keep it stable + minimal: only what you need to render trips and rebuild later.
- */
-export type SelectedEvent = {
-  /** Stable internal id for this selected item (you can set this to tmEventId) */
+import type { Favorite } from "@/lib/favorites/types";
+
+export type CityRef = {
+  label: string;
+  lat: number;
+  lon: number;
+};
+
+export type CityWindow = {
+  city: CityRef;
+  startDate: string; // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD
+};
+
+export type AnchorEvent = {
   id: string;
+  attractionId: string;
+  favoriteLabel: string;
 
-  /** Source identity */
-  source: "ticketmaster";
-  tmEventId: string;
-
-  /** Display */
   name: string;
-  url: string | null;
+  localDate: string;
+  localTime: string | null;
 
-  /** Local date/time in the event’s local timezone as provided by TM */
-  localDate: string | null; // "YYYY-MM-DD"
-  localTime: string | null; // "HH:MM" or "HH:MM:SS"
-
-  /** Location strings */
   city: string;
-  region: string; // state/province code if available
-  country: string; // "US" | "CA" | ...
+  region: string | null;
+  country: string | null;
 
-  venueName: string;
+  venueName: string | null;
+  lat: number | null;
+  lon: number | null;
+  url: string | null;
+};
 
-  /** Optional geo if you have it */
-  lat?: number | null;
-  lon?: number | null;
+export type TripFilters = {
+  anchorFavorite: Favorite;
+  secondFavorite?: Favorite | null;
+  genres?: string[];
+  radiusMiles?: number;
+  windowDaysBefore?: number;
+  windowDaysAfter?: number;
+};
 
-  /** Preference/debug fields (optional but useful) */
-  matchedGenres?: string[]; // which user genres it matched
-  pillGenre?: string; // the single genre you show as the “primary” pill
+export type TripCandidate = {
+  cityWindow: CityWindow;
+
+  anchorEvents: AnchorEvent[];
+
+  matched: {
+    favorites: string[];
+    genres: string[];
+    defaultGenres: string[];
+  };
+
+  score: number;
 };
 
 /**
- * TripDoc is what /api/trips/get returns and what /api/trips/save stores.
- * This is intentionally simple for Phase 1.
+ * Keep these because your saved-trip flow already exists.
+ * We can refactor them later.
  */
+export type SelectedEvent = {
+  id: string;
+  source: "ticketmaster";
+  tmEventId: string;
+
+  name: string;
+  url: string | null;
+
+  localDate: string | null;
+  localTime: string | null;
+
+  city: string;
+  region: string;
+  country: string;
+
+  venueName: string;
+
+  lat?: number | null;
+  lon?: number | null;
+
+  matchedGenres?: string[];
+  pillGenre?: string;
+};
+
 export type TripDoc = {
   tripId: string;
-
-  /** For the page title: "HomeBase • start → end" */
   homeBase: string;
-
-  /** Trip window */
-  startDate: string; // "YYYY-MM-DD"
-  endDate: string; // "YYYY-MM-DD"
-
-  /** The selected events */
+  startDate: string;
+  endDate: string;
   events: SelectedEvent[];
-
-  /** Optional metadata */
-  createdAt?: string; // ISO
-  updatedAt?: string; // ISO
+  createdAt?: string;
+  updatedAt?: string;
   version?: number;
 };
