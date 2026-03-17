@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import BrandLogo from "@/app/components/BrandLogo";
-import { allGenreLabels } from "@/lib/events/genres";
+import { allGenreLabels, includesGenre, normalizeGenres } from "@/lib/events/genres";
 import { csvToList, listToCsv } from "@/lib/url";
 import {
   RowEvent,
@@ -97,12 +97,6 @@ function norm(s: any) {
 
 function normalizeToken(value: string | null | undefined) {
   return String(value || "").trim().toLowerCase();
-}
-
-function includesNormalized(list: string[] | null | undefined, value: string | null | undefined) {
-  const needle = normalizeToken(value);
-  if (!needle) return false;
-  return (list || []).some((item) => normalizeToken(item) === needle);
 }
 
 function uniqueStrings(values: Array<string | null | undefined>) {
@@ -262,6 +256,13 @@ function getTripWindow(card: AnchorCard, ctx?: ContextState) {
   };
 }
 
+function getCtxGenrePool(ctx?: ContextState) {
+  return normalizeGenres([
+    ...(ctx?.presentGenres || []),
+    ...((ctx?.events || []).flatMap((e) => [e?.genre])),
+  ]);
+}
+
 function getTripIncludesText({
   ctx,
   selectedGenres,
@@ -272,9 +273,10 @@ function getTripIncludesText({
   selectedGenres: string[];
 }) {
   const parts: string[] = [];
+  const genrePool = getCtxGenrePool(ctx);
 
   for (const genre of selectedGenres) {
-    if (includesNormalized(ctx?.presentGenres, genre)) {
+    if (includesGenre(genrePool, genre)) {
       parts.push(genre.toUpperCase());
     }
   }
@@ -995,7 +997,8 @@ export default function FavoritesResultsPage() {
       if (!ctx || ctx.loading) return true;
       if (ctx.error) return false;
 
-      return selectedGenres.every((genre) => includesNormalized(ctx.presentGenres, genre));
+      const genrePool = getCtxGenrePool(ctx);
+      return selectedGenres.every((genre) => includesGenre(genrePool, genre));
     });
   }, [cards, getCurrentCtx, selectedGenres]);
 
