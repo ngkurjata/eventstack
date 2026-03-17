@@ -10,6 +10,7 @@ import {
   mergeMatched,
   uniqueStrings,
 } from "@/lib/events/match";
+import { includesGenre, normalizeGenres } from "@/lib/events/genres";
 import { anchorWindowYMD, isYMD, ymdToTmRangeInclusive } from "@/lib/time/window";
 
 function json(payload: any, status = 200) {
@@ -20,7 +21,7 @@ type RequestFavorite = {
   id: string;
   label: string;
   attractionId: string;
-  defaultGenre?: string | null;
+  defaultGenre: string;
 };
 
 type AnchorInput = {
@@ -42,14 +43,18 @@ type Body = {
 
   anchorLocalDate?: string;
   anchorLat?: number;
-
   anchorLon?: number;
 
   localDate?: string;
   lat?: number;
   lon?: number;
 
-  favorites: RequestFavorite[];
+  favorites: Array<{
+    id: string;
+    label: string;
+    attractionId: string;
+    defaultGenre?: string | null;
+  }>;
   genres?: string[];
   radiusMiles?: number;
   countryCode?: string;
@@ -139,18 +144,25 @@ export async function POST(req: Request) {
   try {
     const body = (await req.json()) as Body;
 
-    const favorites: RequestFavorite[] = (body.favorites || []).filter(
-      (f): f is RequestFavorite =>
-        Boolean(
-          f &&
-            typeof f.id === "string" &&
-            f.id.trim() &&
-            typeof f.label === "string" &&
-            f.label.trim() &&
-            typeof f.attractionId === "string" &&
-            f.attractionId.trim()
-        )
-    );
+    const favorites: RequestFavorite[] = (body.favorites || [])
+      .filter(
+        (f): f is Body["favorites"][number] =>
+          Boolean(
+            f &&
+              typeof f.id === "string" &&
+              f.id.trim() &&
+              typeof f.label === "string" &&
+              f.label.trim() &&
+              typeof f.attractionId === "string" &&
+              f.attractionId.trim()
+          )
+      )
+      .map((f) => ({
+        id: String(f.id).trim(),
+        label: String(f.label).trim(),
+        attractionId: String(f.attractionId).trim(),
+        defaultGenre: String(f.defaultGenre || "Other").trim() || "Other",
+      }));
 
     if (favorites.length < 1) {
       return json({ error: "favorites required" }, 400);
@@ -197,11 +209,11 @@ export async function POST(req: Request) {
       if (isIncompleteEvent(ne)) continue;
 
       const embeddedAttractions = (tm?._embedded?.attractions || [])
-        .map((a: any) => String(a?.id || ""))
+        .map((a) => String(a?.id || ""))
         .filter(Boolean);
 
       applyMatchesToEvent(ne, {
-        favorites,
+        favorites: favorites as any,
         selectedGenres: userGenres,
         attractionIdsOnEvent: embeddedAttractions,
       });
@@ -243,8 +255,14 @@ export async function POST(req: Request) {
       cleanedEvents.flatMap((e) => e.matched?.favorites || [])
     );
 
-    const presentGenres = uniqueStrings(
-      cleanedEvents.flatMap((e) => e.matched?.genres || [])
+    const presentGenres = normalizeGenres(
+      cleanedEvents.flatMap((e) => [
+        e.canonicalGenre,
+        e.subGenre,
+        e.genre,
+        e.segment,
+        ...(e.matched?.genres || []),
+      ])
     );
 
     const requiredFavoriteIds = favorites.map((f) => f.id);
@@ -252,10 +270,7 @@ export async function POST(req: Request) {
     const requirementsMet =
       requiredFavoriteIds.every((id) =>
         presentFavorites.some((pf) => normalizeToken(pf) === normalizeToken(id))
-      ) &&
-      userGenres.every((g) =>
-        presentGenres.some((pg) => normalizeToken(pg) === normalizeToken(g))
-      );
+      ) && userGenres.every((g) => includesGenre(presentGenres, g));
 
     const hasTwoFavs = favorites.length >= 2;
     const crossoverInWindow =
