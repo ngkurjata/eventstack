@@ -2,7 +2,6 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import BrandLogo from "./components/BrandLogo";
 import { loadSession, saveSession } from "@/lib/home/persist";
 
 type Mode = "area" | "favorites";
@@ -49,6 +48,21 @@ function norm(s: any) {
     .replace(/\s+/g, " ");
 }
 
+function fmtDateChip(ymd: string) {
+  if (!isYMD(ymd)) return "";
+  try {
+    const [y, m, d] = ymd.split("-").map(Number);
+    const dt = new Date(y, m - 1, d);
+    return dt.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  } catch {
+    return ymd;
+  }
+}
+
 /* -------------------- data shapes -------------------- */
 
 type CityOpt = {
@@ -88,18 +102,24 @@ function ComboBox<T extends { label: string }>(props: {
   onPick: (opt: T) => void;
   disabled?: boolean;
   rightHint?: string;
+  renderOption?: (opt: T, active: boolean) => React.ReactNode;
 }) {
-  const { label, value, placeholder, options, onChange, onPick, disabled, rightHint } = props;
+  const { label, value, placeholder, options, onChange, onPick, disabled, rightHint, renderOption } = props;
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const wrapRef = useRef<HTMLDivElement | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
 
   const filtered = useMemo(() => {
     const q = norm(value);
     const base = options || [];
-    if (!q) return base.slice(0, 12);
-    const hits = base.filter((o) => norm(o.label).includes(q));
-    return hits.slice(0, 12);
+
+    if (!q) return base.slice(0, 20);
+
+    const starts = base.filter((o) => norm(o.label).startsWith(q));
+    const contains = base.filter((o) => !norm(o.label).startsWith(q) && norm(o.label).includes(q));
+
+    return [...starts, ...contains].slice(0, 20);
   }, [options, value]);
 
   useEffect(() => {
@@ -115,8 +135,16 @@ function ComboBox<T extends { label: string }>(props: {
     setActive(0);
   }, [value]);
 
+  useEffect(() => {
+    if (!open || !listRef.current) return;
+    const activeEl = listRef.current.querySelector<HTMLElement>(`[data-option-idx="${active}"]`);
+    activeEl?.scrollIntoView({ block: "nearest" });
+  }, [active, open]);
+
+  const showList = open && !disabled && value.trim().length > 0;
+
   return (
-    <div ref={wrapRef} className="relative">
+    <div ref={wrapRef} className="overflow-visible">
       <div className="flex items-end justify-between">
         <div className="text-xs font-semibold text-slate-700">{label}</div>
         {rightHint ? <div className="text-[11px] text-slate-500">{rightHint}</div> : null}
@@ -131,7 +159,11 @@ function ComboBox<T extends { label: string }>(props: {
         }}
         onFocus={() => setOpen(true)}
         onKeyDown={(e) => {
-          if (!open && (e.key === "ArrowDown" || e.key === "Enter")) setOpen(true);
+          if (!open && (e.key === "ArrowDown" || e.key === "Enter")) {
+            setOpen(true);
+            return;
+          }
+
           if (!open) return;
 
           if (e.key === "ArrowDown") {
@@ -159,28 +191,106 @@ function ComboBox<T extends { label: string }>(props: {
         )}
       />
 
-      {open && filtered.length > 0 && !disabled && (
-        <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
-          {filtered.map((opt, idx) => (
-            <button
-              type="button"
-              key={(opt as any).key || opt.label}
-              onMouseEnter={() => setActive(idx)}
-              onClick={() => {
-                onPick(opt);
-                setOpen(false);
-              }}
-              className={cx(
-                "w-full px-4 py-2 text-left text-sm",
-                idx === active ? "bg-slate-900 text-white" : "bg-white text-slate-900 hover:bg-slate-50"
-              )}
+      {showList && (
+        <div className="mt-2 rounded-2xl border border-slate-200 bg-white">
+          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2">
+            <div className="text-[11px] font-semibold text-slate-500">
+              {filtered.length > 0
+                ? `${filtered.length} match${filtered.length === 1 ? "" : "es"}`
+                : "No matches"}
+            </div>
+            {filtered.length > 0 ? (
+              <div className="text-[11px] text-slate-400">Use ↑ ↓ and Enter</div>
+            ) : null}
+          </div>
+
+          {filtered.length > 0 ? (
+            <div
+              ref={listRef}
+              className="max-h-96 overflow-y-auto overscroll-contain py-1"
             >
-              {opt.label}
-            </button>
-          ))}
+              {filtered.map((opt, idx) => {
+                const isActive = idx === active;
+                return (
+                  <button
+                    type="button"
+                    key={(opt as any).key || opt.label}
+                    data-option-idx={idx}
+                    onMouseEnter={() => setActive(idx)}
+                    onClick={() => {
+                      onPick(opt);
+                      setOpen(false);
+                    }}
+                    className={cx(
+                      "w-full border-b border-slate-100 px-4 py-3 text-left text-sm last:border-b-0",
+                      isActive ? "bg-slate-900 text-white" : "bg-white text-slate-900 hover:bg-slate-50"
+                    )}
+                  >
+                    {renderOption ? renderOption(opt, isActive) : opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="px-4 py-3 text-sm text-slate-500">
+              Keep typing to narrow it down.
+            </div>
+          )}
         </div>
       )}
     </div>
+  );
+}
+
+function DatePickerButton(props: {
+  value: string;
+  onChange: (next: string) => void;
+  min?: string;
+  placeholder: string;
+}) {
+  const { value, onChange, min, placeholder } = props;
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  function openPicker() {
+    const el = inputRef.current;
+    if (!el) return;
+
+    const anyEl = el as HTMLInputElement & { showPicker?: () => void };
+    if (typeof anyEl.showPicker === "function") {
+      anyEl.showPicker();
+      return;
+    }
+
+    el.click();
+  }
+
+  return (
+    <span className="relative inline-flex w-full align-middle">
+      <input
+        ref={inputRef}
+        type="date"
+        value={value}
+        min={min}
+        onChange={(e) => onChange(e.target.value)}
+        className="pointer-events-none absolute inset-0 h-full w-full opacity-0"
+        tabIndex={-1}
+        aria-hidden="true"
+      />
+
+      <button
+        type="button"
+        onClick={openPicker}
+        className={cx(
+          "inline-flex h-11 w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none",
+          "hover:border-slate-300"
+        )}
+      >
+        <span>{value ? fmtDateChip(value) : placeholder}</span>
+        <span aria-hidden="true" className="text-base">
+          📅
+        </span>
+      </button>
+    </span>
   );
 }
 
@@ -201,8 +311,6 @@ type FavState = {
   f1Kind: "" | "team" | "artist";
   f1AttractionId: string;
   f1DefaultGenre: string;
-  favStart: string;
-  favEnd: string;
 };
 
 const KEY_MODE = "eventstack_home_mode_v2";
@@ -224,8 +332,6 @@ const DEFAULT_FAV: FavState = {
   f1Kind: "",
   f1AttractionId: "",
   f1DefaultGenre: "",
-  favStart: "",
-  favEnd: "",
 };
 
 /* -------------------- page -------------------- */
@@ -422,7 +528,7 @@ export default function HomePage() {
 
     const maxEnd = addDaysLocal(area.startDate, 13);
     if (maxEnd && isYMD(maxEnd) && area.endDate > maxEnd) {
-      alert("End date must be within 14 days of Start (Start + 13 max).");
+      alert("Trip Length Cannot Exceed 14 Days.");
       return;
     }
 
@@ -456,16 +562,6 @@ export default function HomePage() {
       return;
     }
 
-    if ((fav.favStart && !isYMD(fav.favStart)) || (fav.favEnd && !isYMD(fav.favEnd))) {
-      alert("If provided, Favorites Start/End must be YYYY-MM-DD.");
-      return;
-    }
-
-    if ((fav.favStart && !fav.favEnd) || (!fav.favStart && fav.favEnd)) {
-      alert("Provide both Start and End or leave both empty for Favorites search.");
-      return;
-    }
-
     const params: Record<string, string> = {
       countryCode: "US,CA",
       f1Label: fav.f1Label.trim(),
@@ -480,11 +576,6 @@ export default function HomePage() {
       params.f1Kind = fav.f1Kind.trim();
     }
 
-    if (fav.favStart && fav.favEnd) {
-      params.start = fav.favStart;
-      params.end = fav.favEnd;
-    }
-
     router.push(`/results/favorites?${new URLSearchParams(params).toString()}`);
   }
 
@@ -497,35 +588,28 @@ export default function HomePage() {
     setOpenPanel(next);
   }
 
-  const favoriteHint = favoriteLoading
-    ? "Searching..."
-    : favoriteError
-    ? favoriteError
-    : fav.f1Label.trim()
-    ? `${favoriteOptions.length} match${favoriteOptions.length === 1 ? "" : "es"}`
-    : "";
+  function favoriteSubLabel(opt: FavoriteOption) {
+    const parts =
+      opt.kind === "team"
+        ? [String(opt.defaultGenre || "").trim(), String(opt.league || "").trim()]
+        : [String(opt.defaultGenre || "").trim()];
+
+    return parts.filter(Boolean).join(" • ");
+  }
+
+  const favoriteHint = favoriteLoading ? "Searching..." : favoriteError ? favoriteError : "";
 
   return (
     <main className="min-h-screen bg-slate-50">
-      <div className="border-b border-slate-200 bg-white/85 backdrop-blur">
-        <div className="mx-auto w-full max-w-md px-4 py-4 lg:max-w-4xl">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <BrandLogo />
-              <div className="min-w-0">
-                <div className="truncate text-base font-black tracking-tight text-slate-900">EventStack</div>
-                <div className="truncate text-xs text-slate-600">
-                  Simplifying Concert &amp; Live Sports Trip Planning
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <div className="mx-auto w-full max-w-md px-4 py-6 lg:max-w-4xl lg:py-10">
+        <div className="mb-6 text-center">
+          <h1 className="text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
+            Plan and build trips around live sports and concerts.
+          </h1>
+        </div>
+
         <div className="space-y-4">
-          <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <section className="overflow-visible rounded-3xl border border-slate-200 bg-white shadow-sm">
             <button
               type="button"
               onClick={() => togglePanel("area")}
@@ -536,9 +620,8 @@ export default function HomePage() {
             >
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <div className="text-lg font-black">Explore by City</div>
+                  <div className="text-lg font-black">by City</div>
                   <div className={cx("mt-1 text-xs", openPanel === "area" ? "text-slate-300" : "text-slate-600")}>
-                    Tell us where and when you're going, and we'll find you some events to check out while you're there.
                   </div>
                 </div>
                 <div className="text-2xl font-light leading-none">{openPanel === "area" ? "−" : "+"}</div>
@@ -579,25 +662,40 @@ export default function HomePage() {
 
                     <div>
                       <div className="text-xs font-semibold text-slate-700">Start Date</div>
-                      <input
-                        value={area.startDate}
-                        onChange={(e) => setArea((s) => ({ ...s, startDate: e.target.value }))}
-                        placeholder="YYYY-MM-DD"
-                        className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-slate-400"
-                      />
+                      <div className="mt-1">
+                        <DatePickerButton
+                          value={area.startDate}
+                          min={tomorrowYMD()}
+                          placeholder="Select date"
+                          onChange={(next) =>
+                            setArea((s) => ({
+                              ...s,
+                              startDate: next,
+                            }))
+                          }
+                        />
+                      </div>
                     </div>
 
                     <div>
                       <div className="text-xs font-semibold text-slate-700">End Date</div>
-                      <input
-                        value={area.endDate}
-                        onChange={(e) => setArea((s) => ({ ...s, endDate: e.target.value, endTouched: true }))}
-                        placeholder="YYYY-MM-DD"
-                        className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-slate-400"
-                      />
+                      <div className="mt-1">
+                        <DatePickerButton
+                          value={area.endDate}
+                          min={area.startDate && isYMD(area.startDate) ? area.startDate : undefined}
+                          placeholder="Select date"
+                          onChange={(next) =>
+                            setArea((s) => ({
+                              ...s,
+                              endDate: next,
+                              endTouched: true,
+                            }))
+                          }
+                        />
+                      </div>
                       {!area.endTouched && isYMD(area.startDate) ? (
                         <div className="mt-1 text-[11px] text-slate-500">
-                          Auto end: {addDaysLocal(area.startDate, 13)}
+                          Cannot be more than 14 days from start date.
                         </div>
                       ) : null}
                     </div>
@@ -619,7 +717,7 @@ export default function HomePage() {
             </div>
           </section>
 
-          <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <section className="overflow-visible rounded-3xl border border-slate-200 bg-white shadow-sm">
             <button
               type="button"
               onClick={() => togglePanel("favorites")}
@@ -630,11 +728,10 @@ export default function HomePage() {
             >
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <div className="text-lg font-black">Plan around your Favorites</div>
+                  <div className="text-lg font-black">by Favorite Team or Band</div>
                   <div
                     className={cx("mt-1 text-xs", openPanel === "favorites" ? "text-slate-300" : "text-slate-600")}
                   >
-                    Pick a team or artist, then build from that schedule.
                   </div>
                 </div>
                 <div className="text-2xl font-light leading-none">{openPanel === "favorites" ? "−" : "+"}</div>
@@ -651,11 +748,24 @@ export default function HomePage() {
                 <div className="border-t border-slate-200 p-5 sm:p-7">
                   <div className="grid gap-5">
                     <ComboBox<FavoriteOption>
-                      label="Favorite Team or Artist*"
+                      label="Favorite Team or Band"
                       value={fav.f1Label}
                       placeholder="Type a team or artist…"
                       options={favoriteOptions}
                       rightHint={favoriteHint}
+                      renderOption={(opt, active) => {
+                        const sub = favoriteSubLabel(opt);
+                        return (
+                          <div className="flex flex-col">
+                            <span className="font-semibold">{opt.label}</span>
+                            {sub ? (
+                              <span className={cx("text-xs", active ? "text-slate-300" : "text-slate-500")}>
+                                {sub}
+                              </span>
+                            ) : null}
+                          </div>
+                        );
+                      }}
                       onChange={(v) =>
                         setFav((s) => ({
                           ...s,
@@ -675,28 +785,6 @@ export default function HomePage() {
                         }))
                       }
                     />
-
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div>
-                        <div className="text-xs font-semibold text-slate-700">Start Date (optional)</div>
-                        <input
-                          value={fav.favStart}
-                          onChange={(e) => setFav((s) => ({ ...s, favStart: e.target.value }))}
-                          placeholder="YYYY-MM-DD"
-                          className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-slate-400"
-                        />
-                      </div>
-
-                      <div>
-                        <div className="text-xs font-semibold text-slate-700">End Date (optional)</div>
-                        <input
-                          value={fav.favEnd}
-                          onChange={(e) => setFav((s) => ({ ...s, favEnd: e.target.value }))}
-                          placeholder="YYYY-MM-DD"
-                          className="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-slate-400"
-                        />
-                      </div>
-                    </div>
 
                     <div className="flex justify-center">
                       <button

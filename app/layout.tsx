@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Inter, Roboto_Mono } from "next/font/google";
+import BrandLogo from "@/app/components/BrandLogo";
 import "./globals.css";
 
 const geistSans = Inter({
@@ -27,7 +29,32 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <header
+          style={{
+            borderBottom: "1px solid #e5e7eb",
+            background: "#fff",
+          }}
+        >
+          <div
+            style={{
+              maxWidth: 1200,
+              margin: "0 auto",
+              padding: "14px 20px",
+              display: "flex",
+              alignItems: "center",
+            }}
+          >
+            <Link
+              href="/"
+              aria-label="Go to homepage"
+              style={{ display: "inline-flex", alignItems: "center" }}
+            >
+              <BrandLogo />
+            </Link>
+          </div>
+        </header>
+
+        <main>{children}</main>
       </body>
     </html>
   );

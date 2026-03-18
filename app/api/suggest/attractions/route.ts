@@ -38,13 +38,13 @@ export async function GET(req: Request) {
     const q = String(url.searchParams.get("q") || "").trim();
     if (!q) return json({ ok: true, q, items: [] });
 
-    const curated: SuggestItem[] = findCuratedFavorites(q).map((fav) => ({
-      id: fav.attractionId,
-      name: fav.label,
-      genre: fav.defaultGenre,
-      favoriteId: fav.id,
-      curated: true,
-    }));
+const curated: SuggestItem[] = findCuratedFavorites(q).map((fav) => ({
+  id: fav.attractionId,
+  name: fav.label,
+  genre: fav.defaultGenre || "",
+  favoriteId: fav.id,
+  curated: true,
+}));
 
     const key = process.env.TM_API_KEY || process.env.TICKETMASTER_API_KEY;
     if (!key) {

@@ -1,3 +1,5 @@
+// FILE: app/api/trip/context/route.ts
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -10,7 +12,7 @@ import {
   mergeMatched,
   uniqueStrings,
 } from "@/lib/events/match";
-import { includesGenre, normalizeGenres } from "@/lib/events/genres";
+import { allVisibleGenreLabels } from "@/lib/events/genres";
 import { anchorWindowYMD, isYMD, ymdToTmRangeInclusive } from "@/lib/time/window";
 
 function json(payload: any, status = 200) {
@@ -103,6 +105,7 @@ function isIncompleteEvent(e: NormEvent): boolean {
   if (!e.url?.trim()) return true;
   if (!e.city?.trim()) return true;
   if (!e.venueName?.trim()) return true;
+  if (!Array.isArray(e.canonicalGenres) || e.canonicalGenres.length === 0) return true;
 
   const name = e.name.trim().toLowerCase();
   const city = e.city.trim().toLowerCase();
@@ -123,6 +126,7 @@ function eventQualityScore(e: NormEvent): number {
   if (e.city && !e.city.toLowerCase().includes("tbd")) score += 5;
   if (e.venueName && !e.venueName.toLowerCase().includes("tbd")) score += 3;
   if (e.localTime) score += 1;
+  if (Array.isArray(e.canonicalGenres) && e.canonicalGenres.length > 0) score += 2;
 
   return score;
 }
@@ -138,6 +142,15 @@ function isPlaceholderRow(e: NormEvent): boolean {
   if (venue === "location tbd" || venue.includes("location tbd")) return true;
 
   return false;
+}
+
+function sanitizeUserGenres(input: string[]): string[] {
+  const allowed = new Set(allVisibleGenreLabels().map((g) => g.toLowerCase()));
+
+  return uniqueStrings(input)
+    .map((s) => String(s).trim())
+    .filter((s) => allowed.has(s.toLowerCase()))
+    .slice(0, 4);
 }
 
 export async function POST(req: Request) {
@@ -161,7 +174,7 @@ export async function POST(req: Request) {
         id: String(f.id).trim(),
         label: String(f.label).trim(),
         attractionId: String(f.attractionId).trim(),
-        defaultGenre: String(f.defaultGenre || "Other").trim() || "Other",
+        defaultGenre: String(f.defaultGenre || "").trim(),
       }));
 
     if (favorites.length < 1) {
@@ -179,7 +192,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const userGenres = uniqueStrings((body.genres || []).map((s) => String(s).trim())).slice(0, 4);
+    const userGenres = sanitizeUserGenres((body.genres || []).map((s) => String(s).trim()));
 
     const w = anchorWindowYMD(anchor.localDate, 2);
     const { startDateTime, endDateTime } = ymdToTmRangeInclusive(w.start, w.end);
@@ -208,15 +221,17 @@ export async function POST(req: Request) {
       if (!ne) continue;
       if (isIncompleteEvent(ne)) continue;
 
-      const embeddedAttractions = (tm?._embedded?.attractions || [])
-        .map((a) => String(a?.id || ""))
-        .filter(Boolean);
+      const embeddedAttractions: string[] = ((tm?._embedded?.attractions || []) as any[])
+        .map((a: any) => String(a?.id || ""))
+        .filter((id: string) => Boolean(id));
 
       applyMatchesToEvent(ne, {
         favorites: favorites as any,
         selectedGenres: userGenres,
         attractionIdsOnEvent: embeddedAttractions,
       });
+
+      ne.pillLabel = ne.canonicalGenres[0] || null;
 
       normalized.push(ne);
     }
@@ -255,22 +270,19 @@ export async function POST(req: Request) {
       cleanedEvents.flatMap((e) => e.matched?.favorites || [])
     );
 
-    const presentGenres = normalizeGenres(
-      cleanedEvents.flatMap((e) => [
-        e.canonicalGenre,
-        e.subGenre,
-        e.genre,
-        e.segment,
-        ...(e.matched?.genres || []),
-      ])
-    );
+    const presentGenres = uniqueStrings(
+      cleanedEvents.flatMap((e) => e.canonicalGenres || [])
+    ).sort((a, b) => a.localeCompare(b));
 
     const requiredFavoriteIds = favorites.map((f) => f.id);
 
     const requirementsMet =
       requiredFavoriteIds.every((id) =>
         presentFavorites.some((pf) => normalizeToken(pf) === normalizeToken(id))
-      ) && userGenres.every((g) => includesGenre(presentGenres, g));
+      ) &&
+      userGenres.every((g) =>
+        presentGenres.some((pg) => normalizeToken(pg) === normalizeToken(g))
+      );
 
     const hasTwoFavs = favorites.length >= 2;
     const crossoverInWindow =

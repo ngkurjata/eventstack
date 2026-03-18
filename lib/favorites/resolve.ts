@@ -4,6 +4,10 @@ import fs from "node:fs";
 import path from "node:path";
 
 import type { Favorite, FavoriteKind } from "@/lib/favorites/types";
+import {
+  normalizeGenres,
+  allVisibleGenreLabels,
+} from "@/lib/events/genres";
 
 import artistOptionsJson from "@/data/artist_options.json";
 import teamAttractionIdsJson from "@/data/team_attraction_ids.json";
@@ -72,13 +76,15 @@ const ROOT = process.cwd();
 const DATA_DIR = path.join(ROOT, "data");
 const ENRICH_QUEUE_PATH = path.join(DATA_DIR, "artist_enrich_queue.json");
 
-const TM_API_KEY = process.env.TM_API_KEY || process.env.TICKETMASTER_API_KEY;
+const TM_API_KEY = process.env.TICKETMASTER_API_KEY || process.env.TM_API_KEY;
 const TM_BASE = "https://app.ticketmaster.com/discovery/v2/attractions.json";
 const TM_COUNTRY_CODE = "US,CA";
 
 const teamAttractionIds = teamAttractionIdsJson as TeamAttractionIds;
 const teamsMaster = (teamsMasterJson as TeamMasterRow[]) || [];
 const artistOptions = (artistOptionsJson as ArtistOptionRow[]) || [];
+
+const VISIBLE_GENRE_SET = new Set(allVisibleGenreLabels().map((g) => g.toLowerCase()));
 
 function normalizeName(input: string) {
   return String(input || "")
@@ -99,8 +105,18 @@ function canonicalizeArtistName(input: string) {
     .trim();
 }
 
-function firstGenre(genres?: string[]) {
-  return Array.isArray(genres) && genres.length ? genres[0] : "Music";
+function firstCanonicalVisibleGenre(values?: string[]): string {
+  const normalized = normalizeGenres(Array.isArray(values) ? values : [], 2);
+  return normalized.find((g) => VISIBLE_GENRE_SET.has(g.toLowerCase())) || "";
+}
+
+function favoriteDefaultGenreFromArtistGenres(genres?: string[]): string {
+  return firstCanonicalVisibleGenre(genres);
+}
+
+function favoriteDefaultGenreFromTeamLeague(league?: string): string {
+  const normalized = normalizeGenres([league || ""], 2);
+  return normalized[0] || "";
 }
 
 function uniqueByKey<T>(items: T[], getKey: (item: T) => string) {
@@ -115,6 +131,80 @@ function uniqueByKey<T>(items: T[], getKey: (item: T) => string) {
   }
 
   return out;
+}
+
+function isGenericArtistLabel(label: string) {
+  const l = normalizeName(label);
+
+  return (
+    l === "golf" ||
+    l === "music" ||
+    l === "comedy" ||
+    l === "country" ||
+    l === "rock" ||
+    l === "rap" ||
+    l === "pop" ||
+    l === "show"
+  );
+}
+
+function isWeakSingleWordArtistQuery(query: string) {
+  const q = normalizeName(query);
+  return !!q && !q.includes(" ");
+}
+
+function looksLikeEventTitle(label: string) {
+  const l = normalizeName(label);
+
+  return (
+    !l ||
+    l.length > 90 ||
+    /\b(outing|scramble|tournament|showcase|expo|fair|festival|summit|conference|seminar|clinic|camp|meet and greet)\b/.test(l) ||
+    /\b(hotel package|package|upsell|vip|reservation|admission|upgrade)\b/.test(l) ||
+    /\bmini golf\b/.test(l) ||
+    /\bgolf club\b/.test(l) ||
+    /\bbridal\b/.test(l) ||
+    /\bwedding show\b/.test(l) ||
+    /\bopen house\b/.test(l)
+  );
+}
+
+function isTributeOrVariantArtist(option: { label: string; defaultGenre?: string }, query?: string) {
+  const labelNorm = normalizeName(option.label);
+  const genreNorm = normalizeName(option.defaultGenre || "");
+  const queryNorm = normalizeName(query || "");
+
+  if (queryNorm && labelNorm === queryNorm) return false;
+
+  if (/\b(tribute|tribute band|experience|cover|covers|revue|vs|featuring|feat)\b/.test(labelNorm)) {
+    return true;
+  }
+
+  if (/\b(tribute|tribute band)\b/.test(genreNorm)) {
+    return true;
+  }
+
+  if (queryNorm && labelNorm === `${queryNorm} uk`) {
+    return true;
+  }
+
+  if (queryNorm && labelNorm.startsWith(`the ${queryNorm} `)) {
+    return true;
+  }
+
+  return false;
+}
+
+function isAllowedArtistLabel(label: string, genres?: string[]) {
+  if (looksLikeEventTitle(label)) return false;
+  if (isGenericArtistLabel(label)) return false;
+
+  const canonical = firstCanonicalVisibleGenre(genres);
+  if (!canonical) return false;
+
+  if (isTributeOrVariantArtist({ label, defaultGenre: canonical })) return false;
+
+  return true;
 }
 
 function scoreStringMatch(query: string, candidate: string) {
@@ -137,7 +227,7 @@ function scoreStringMatch(query: string, candidate: string) {
   score += exactTokenMatches * 40;
 
   const startsWithTokenMatches = qTokens.filter((t) =>
-    cTokens.some((ct) => ct.startsWith(t)),
+    cTokens.some((ct) => ct.startsWith(t))
   ).length;
   score += startsWithTokenMatches * 25;
 
@@ -153,12 +243,16 @@ function buildArtistLocalOptions(): FavoriteSearchOption[] {
       const label = String(row.label || "").trim();
       if (!id || !label) return null;
 
+      const defaultGenre = favoriteDefaultGenreFromArtistGenres(row.genres);
+      if (!defaultGenre) return null;
+      if (!isAllowedArtistLabel(label, row.genres)) return null;
+
       return {
         key: `artist:${id}`,
         label,
         kind: "artist" as const,
         rawName: label,
-        defaultGenre: firstGenre(row.genres),
+        defaultGenre,
         attractionId: id,
         source: "local" as const,
       };
@@ -206,7 +300,7 @@ function buildTeamLocalOptions(): FavoriteSearchOption[] {
     label: x.teamName,
     kind: "team" as const,
     rawName: x.teamName,
-    defaultGenre: x.league,
+    defaultGenre: favoriteDefaultGenreFromTeamLeague(x.league),
     attractionId: x.attractionId,
     league: x.league,
     source: "local" as const,
@@ -217,7 +311,7 @@ const LOCAL_ARTIST_OPTIONS = buildArtistLocalOptions();
 const LOCAL_TEAM_OPTIONS = buildTeamLocalOptions();
 
 function dedupeArtistOptionsByCanonicalName(
-  items: FavoriteSearchOption[],
+  items: FavoriteSearchOption[]
 ): FavoriteSearchOption[] {
   const byCanonical = new Map<string, FavoriteSearchOption>();
 
@@ -269,16 +363,18 @@ function dedupeArtistOptionsByCanonicalName(
 function rankLocalOptions(
   query: string,
   kind: FavoriteSearchKind,
-  limit = 8,
+  limit = 8
 ): FavoriteSearchOption[] {
   const source = kind === "team" ? LOCAL_TEAM_OPTIONS : LOCAL_ARTIST_OPTIONS;
+
+  const minScore = kind === "artist" ? 250 : 1;
 
   const scored = source
     .map((opt) => ({
       ...opt,
       score: scoreStringMatch(query, opt.label),
     }))
-    .filter((opt) => (opt.score || 0) > 0)
+    .filter((opt) => (opt.score || 0) >= minScore)
     .sort((a, b) => {
       const byScore = (b.score || 0) - (a.score || 0);
       if (byScore !== 0) return byScore;
@@ -288,7 +384,7 @@ function rankLocalOptions(
   if (kind === "team") {
     return uniqueByKey(
       scored,
-      (x) => `${x.kind}:${x.league}:${x.attractionId}`,
+      (x) => `${x.kind}:${x.league}:${x.attractionId}`
     ).slice(0, limit);
   }
 
@@ -297,7 +393,7 @@ function rankLocalOptions(
 
 function shouldUseArtistLiveFallback(
   query: string,
-  local: FavoriteSearchOption[],
+  local: FavoriteSearchOption[]
 ) {
   if (!query.trim()) return false;
   if (!local.length) return true;
@@ -337,7 +433,7 @@ function isArtistLikeAttraction(a: TmAttraction) {
   if (segmentNames.includes("sports")) return false;
   if (
     /\b(nhl|nfl|nba|wnba|mlb|milb|cfl|ncaa|soccer|football|baseball|basketball|hockey|lacrosse|racing|golf|tennis|boxing|mma|ufc|wwe)\b/.test(
-      all,
+      all
     )
   ) {
     return false;
@@ -351,6 +447,7 @@ function attractionGenres(a: TmAttraction) {
 
   for (const c of a.classifications || []) {
     for (const v of [
+      c.segment?.name,
       c.genre?.name,
       c.subGenre?.name,
       c.type?.name,
@@ -358,7 +455,7 @@ function attractionGenres(a: TmAttraction) {
     ]) {
       const s = String(v || "").trim();
       if (!s) continue;
-      if (/^(undefined|miscellaneous|artist|individual|group)$/i.test(s)) continue;
+      if (/^(undefined|miscellaneous|artist|individual|group|other)$/i.test(s)) continue;
       out.add(s);
     }
   }
@@ -366,51 +463,23 @@ function attractionGenres(a: TmAttraction) {
   return Array.from(out);
 }
 
-function isLikelyTributeOrVariantArtist(
-  option: FavoriteSearchOption,
-  query: string,
-) {
-  const labelNorm = normalizeName(option.label);
-  const queryNorm = normalizeName(query);
-  const genreNorm = normalizeName(option.defaultGenre || "");
-
-  if (labelNorm === queryNorm) return false;
-
-  if (
-    /\b(tribute|tribute band|experience|cover|covers|revue|vs|featuring|feat)\b/.test(
-      labelNorm,
-    )
-  ) {
-    return true;
-  }
-
-  if (/\b(tribute|tribute band)\b/.test(genreNorm)) {
-    return true;
-  }
-
-  if (labelNorm === `${queryNorm} uk`) {
-    return true;
-  }
-
-  if (labelNorm.startsWith(`the ${queryNorm} `)) {
-    return true;
-  }
-
-  return false;
-}
-
 function cleanupArtistSearchResults(
   query: string,
-  items: FavoriteSearchOption[],
+  items: FavoriteSearchOption[]
 ): FavoriteSearchOption[] {
   const exactNorm = normalizeName(query);
   const hasExact = items.some((x) => normalizeName(x.label) === exactNorm);
+  const weakSingleWordQuery = isWeakSingleWordArtistQuery(query);
 
-  let filtered = [...items];
-
-  if (hasExact) {
-    filtered = filtered.filter((x) => !isLikelyTributeOrVariantArtist(x, query));
-  }
+  let filtered = items.filter((x) => {
+    if (!x.label || !x.attractionId) return false;
+    if (!x.defaultGenre) return false;
+    if (looksLikeEventTitle(x.label)) return false;
+    if (isGenericArtistLabel(x.label)) return false;
+    if (weakSingleWordQuery && normalizeName(x.label) === exactNorm) return false;
+    if (hasExact && isTributeOrVariantArtist(x, query)) return false;
+    return true;
+  });
 
   filtered = dedupeArtistOptionsByCanonicalName(filtered);
 
@@ -428,7 +497,7 @@ function cleanupArtistSearchResults(
 
 async function searchLiveArtistOptions(
   query: string,
-  limit = 8,
+  limit = 8
 ): Promise<FavoriteSearchOption[]> {
   if (!TM_API_KEY || !query.trim()) return [];
 
@@ -457,15 +526,21 @@ async function searchLiveArtistOptions(
     const label = String(a.name || "").trim();
     if (!id || !label) continue;
     if (!isArtistLikeAttraction(a)) continue;
+    if (looksLikeEventTitle(label)) continue;
+
+    const genres = attractionGenres(a);
+    const defaultGenre = firstCanonicalVisibleGenre(genres);
+    if (!defaultGenre) continue;
 
     const score = scoreStringMatch(query, label);
+    if (score < 250) continue;
 
     scored.push({
       key: `artist:${id}`,
       label,
       kind: "artist",
       rawName: label,
-      defaultGenre: firstGenre(attractionGenres(a)),
+      defaultGenre,
       attractionId: id,
       score,
       source: "live",
@@ -476,14 +551,13 @@ async function searchLiveArtistOptions(
     query,
     uniqueByKey(
       scored
-        .filter((x) => (x.score || 0) > 0)
         .sort((a, b) => {
           const byScore = (b.score || 0) - (a.score || 0);
           if (byScore !== 0) return byScore;
           return a.label.localeCompare(b.label);
         }),
-      (x) => String(x.attractionId || normalizeName(x.label)),
-    ),
+      (x) => String(x.attractionId || normalizeName(x.label))
+    )
   ).slice(0, limit);
 }
 
@@ -493,7 +567,7 @@ function readEnrichQueue(): ArtistEnrichQueue {
       return { version: 1, updatedAt: new Date().toISOString(), items: [] };
     }
     return JSON.parse(
-      fs.readFileSync(ENRICH_QUEUE_PATH, "utf8"),
+      fs.readFileSync(ENRICH_QUEUE_PATH, "utf8")
     ) as ArtistEnrichQueue;
   } catch {
     return { version: 1, updatedAt: new Date().toISOString(), items: [] };
@@ -506,16 +580,16 @@ function writeEnrichQueue(queue: ArtistEnrichQueue) {
     fs.writeFileSync(
       ENRICH_QUEUE_PATH,
       JSON.stringify(queue, null, 2) + "\n",
-      "utf8",
+      "utf8"
     );
   } catch {
-    // swallow write failures so autocomplete/resolve still works in readonly envs
+    // swallow write failures
   }
 }
 
 function queueArtistForEnrichment(
   option: FavoriteSearchOption,
-  sourceQuery: string,
+  sourceQuery: string
 ) {
   if (option.kind !== "artist") return;
   if (!option.label || !option.attractionId) return;
@@ -523,7 +597,7 @@ function queueArtistForEnrichment(
   const localMatch = LOCAL_ARTIST_OPTIONS.find(
     (x) =>
       x.attractionId === option.attractionId ||
-      canonicalizeArtistName(x.label) === canonicalizeArtistName(option.label),
+      canonicalizeArtistName(x.label) === canonicalizeArtistName(option.label)
   );
   if (localMatch) return;
 
@@ -531,7 +605,7 @@ function queueArtistForEnrichment(
   const exists = queue.items.some(
     (x) =>
       (x.id && x.id === option.attractionId) ||
-      canonicalizeArtistName(x.name) === canonicalizeArtistName(option.label),
+      canonicalizeArtistName(x.name) === canonicalizeArtistName(option.label)
   );
   if (exists) return;
 
@@ -550,7 +624,7 @@ function queueArtistForEnrichment(
 export async function searchFavoriteOptions(
   q: string,
   kind: FavoriteSearchKind,
-  limit = 8,
+  limit = 8
 ): Promise<FavoriteSearchOption[]> {
   const query = String(q || "").trim();
   if (!query) return [];
@@ -587,8 +661,8 @@ export async function searchFavoriteOptions(
       (x) =>
         x.kind === "team"
           ? `${x.kind}:${x.league}:${x.attractionId}`
-          : `${x.kind}:${x.attractionId || normalizeName(x.label)}`,
-    ),
+          : `${x.kind}:${x.attractionId || normalizeName(x.label)}`
+    )
   );
 
   return combined.slice(0, limit);
@@ -596,7 +670,7 @@ export async function searchFavoriteOptions(
 
 export async function resolveFavorite(
   input: string,
-  kind: FavoriteSearchKind,
+  kind: FavoriteSearchKind
 ): Promise<Favorite | null> {
   const query = String(input || "").trim();
   if (!query) return null;
@@ -622,8 +696,6 @@ export async function resolveFavorite(
     label: best.label,
     kind: best.kind,
     attractionId: best.attractionId,
-    defaultGenre:
-      best.defaultGenre ||
-      (best.kind === "team" ? best.league || "Sports" : "Music"),
+    defaultGenre: best.defaultGenre || "",
   };
 }

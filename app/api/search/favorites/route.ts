@@ -25,11 +25,12 @@ type Body = {
   startDate?: string | null;
   endDate?: string | null;
   countryCode?: string;
-  genres?: string[];
+  genres?: string[]; // kept for wiring compatibility
 };
 
 type MatchBag = {
   favorites: string[];
+  attractionIds: string[];
   defaultGenres: string[];
   genres: string[];
 };
@@ -58,6 +59,13 @@ const DEFAULT_COUNTRY_CODE = "US,CA";
 const DEFAULT_RADIUS_MILES = 90;
 const DEFAULT_DAYS_EACH_SIDE = 3;
 const MAX_GENRES = 4;
+
+// Progressive paging controls:
+// - max pages keeps quota bounded
+// - stall pages stops once deduped unique games stop growing
+const TM_PAGE_SIZE = 200;
+const TM_MAX_PAGES = 8;
+const TM_STALL_PAGES = 2;
 
 const attractionCache = new Map<string, AttractionCacheEntry>();
 const inflightAttractionFetches = new Map<string, Promise<NormEvent[]>>();
@@ -114,10 +122,6 @@ function isJunkTM(tm: any): boolean {
   if (!d || !isYMD(d)) return true;
 
   return false;
-}
-
-function normalizeToken(value: string | null | undefined) {
-  return String(value || "").trim().toLowerCase();
 }
 
 function uniqueStrings(values: Array<string | null | undefined>) {
@@ -257,39 +261,18 @@ function ensureMatched(ne: NormEvent): MatchBag {
   const matched = (ne.matched || {}) as Partial<MatchBag>;
   const normalized: MatchBag = {
     favorites: Array.isArray(matched.favorites) ? matched.favorites : [],
+    attractionIds: Array.isArray(matched.attractionIds) ? matched.attractionIds : [],
     defaultGenres: Array.isArray(matched.defaultGenres) ? matched.defaultGenres : [],
-    genres: Array.isArray((matched as any).genres) ? (matched as any).genres : [],
+    genres: Array.isArray(matched.genres) ? matched.genres : [],
   };
   (ne as any).matched = normalized;
   return normalized;
 }
 
-async function tmSearchByAttractionUncached(args: {
-  attractionId: string;
-  countryCode: string;
-  startDateTime?: string;
-  endDateTime?: string;
-}) {
-  await sleep(250);
-
-  const tmEvents = await withRateLimitRetry(() =>
-    TM.tmSearchEventsAll(
-      {
-        attractionId: args.attractionId,
-        countryCode: args.countryCode,
-        ...(args.startDateTime && args.endDateTime
-          ? { startDateTime: args.startDateTime, endDateTime: args.endDateTime }
-          : {}),
-        sort: "date,asc",
-        size: 200,
-      },
-      300
-    )
-  );
-
+function normalizeAndDedupeTMEvents(rawEvents: any[]): NormEvent[] {
   const normalized: NormEvent[] = [];
 
-  for (const tm of tmEvents) {
+  for (const tm of rawEvents) {
     if (isJunkTM(tm)) continue;
 
     const ne = normalizeTMEvent(tm);
@@ -300,6 +283,50 @@ async function tmSearchByAttractionUncached(args: {
   }
 
   return dedupeEvents(normalized).filter((e) => !isJunkNorm(e));
+}
+
+async function tmSearchByAttractionUncached(args: {
+  attractionId: string;
+  countryCode: string;
+  startDateTime?: string;
+  endDateTime?: string;
+}) {
+  await sleep(200);
+
+  let lastUniqueCount = 0;
+  let stallPages = 0;
+
+  const tmEvents = await withRateLimitRetry(() =>
+    TM.tmSearchEventsAll(
+      {
+        attractionId: args.attractionId,
+        countryCode: args.countryCode,
+        ...(args.startDateTime ? { startDateTime: args.startDateTime } : {}),
+        ...(args.endDateTime ? { endDateTime: args.endDateTime } : {}),
+        sort: "date,asc",
+        size: 200,
+      },
+      {
+        hardCap: 1000,
+        maxPages: 8,
+        onPage(eventsSoFar) {
+          const dedupedSoFar = normalizeAndDedupeTMEvents(eventsSoFar);
+          const uniqueCount = dedupedSoFar.length;
+
+          if (uniqueCount <= lastUniqueCount) {
+            stallPages += 1;
+          } else {
+            lastUniqueCount = uniqueCount;
+            stallPages = 0;
+          }
+
+          return stallPages >= 2;
+        },
+      }
+    )
+  );
+
+  return normalizeAndDedupeTMEvents(tmEvents);
 }
 
 async function tmSearchByAttraction(args: {
@@ -337,6 +364,15 @@ async function tmSearchByAttraction(args: {
   return promise;
 }
 
+function cleanNullableYMD(value: string | null | undefined): string | null {
+  const raw = String(value || "").trim();
+  return raw ? raw : null;
+}
+
+function todayUtcYMD() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 async function runSearch(body: Body) {
   const favorite1 = resolveFavorite(body.favorite1, "F1");
   const favorite2 = resolveFavorite(body.favorite2 || null, "F2");
@@ -350,20 +386,48 @@ async function runSearch(body: Body) {
   const radiusMiles = DEFAULT_RADIUS_MILES;
   const daysEachSide = DEFAULT_DAYS_EACH_SIDE;
 
+  const startDate = cleanNullableYMD(body.startDate);
+  const endDate = cleanNullableYMD(body.endDate);
+
   let startDateTime: string | undefined;
   let endDateTime: string | undefined;
 
-  if (body.startDate || body.endDate) {
-    if (!isYMD(body.startDate) || !isYMD(body.endDate)) {
-      return {
-        error: "If provided, startDate and endDate must be YYYY-MM-DD",
-        status: 400,
-      };
-    }
+  if (startDate && !isYMD(startDate)) {
+    return {
+      error: "startDate must be blank or YYYY-MM-DD",
+      status: 400,
+    };
+  }
 
-    const r = ymdToTmRangeInclusive(body.startDate, body.endDate);
+  if (endDate && !isYMD(endDate)) {
+    return {
+      error: "endDate must be blank or YYYY-MM-DD",
+      status: 400,
+    };
+  }
+
+  if (startDate && startDate < todayUtcYMD()) {
+    return {
+      error: "startDate cannot be earlier than today",
+      status: 400,
+    };
+  }
+
+  if (startDate && endDate && endDate < startDate) {
+    return {
+      error: "endDate cannot be earlier than startDate when both are provided",
+      status: 400,
+    };
+  }
+
+  if (startDate && endDate) {
+    const r = ymdToTmRangeInclusive(startDate, endDate);
     startDateTime = r.startDateTime;
     endDateTime = r.endDateTime;
+  } else if (startDate) {
+    startDateTime = `${startDate}T00:00:00Z`;
+  } else if (endDate) {
+    endDateTime = `${endDate}T23:59:59Z`;
   }
 
   const [f1Anchors, f2Events] = await Promise.all([
@@ -385,29 +449,30 @@ async function runSearch(body: Body) {
 
   for (const anchor of f1Anchors) {
     const matched = ensureMatched(anchor);
-    matched.favorites = uniqueStrings([favorite1.id, favorite1.label, favorite1.attractionId]);
+    matched.favorites = uniqueStrings([favorite1.id, favorite1.label]);
+    matched.attractionIds = uniqueStrings([favorite1.attractionId]);
     matched.defaultGenres = uniqueStrings([favorite1.defaultGenre]);
     matched.genres = [];
   }
 
   for (const event of f2Events) {
     const matched = ensureMatched(event);
-    matched.favorites = uniqueStrings([
-      favorite2?.id || "F2",
-      favorite2?.label || "",
-      favorite2?.attractionId || "",
-    ]);
+    matched.favorites = uniqueStrings([favorite2?.id || "F2", favorite2?.label || ""]);
+    matched.attractionIds = uniqueStrings([favorite2?.attractionId || ""]);
     matched.defaultGenres = uniqueStrings([favorite2?.defaultGenre || ""]);
     matched.genres = [];
   }
 
   const candidateAnchors = f1Anchors.filter((anchor) => {
-    return (
-      Boolean(anchor.localDate) &&
-      isYMD(String(anchor.localDate)) &&
-      typeof anchor.lat === "number" &&
-      typeof anchor.lon === "number"
-    );
+    if (!anchor.localDate || !isYMD(String(anchor.localDate))) {
+      return false;
+    }
+
+    if (!favorite2?.attractionId) {
+      return true;
+    }
+
+    return typeof anchor.lat === "number" && typeof anchor.lon === "number";
   });
 
   const candidateMeta = candidateAnchors.map((anchor) => {
@@ -429,10 +494,12 @@ async function runSearch(body: Body) {
     const presentFavorites = uniqueStrings([
       favorite1.id,
       favorite1.label,
+      ...(nearbyF2Events.length > 0 && favorite2 ? [favorite2.id, favorite2.label] : []),
+    ]);
+
+    const presentAttractionIds = uniqueStrings([
       favorite1.attractionId,
-      ...(nearbyF2Events.length > 0 && favorite2
-        ? [favorite2.id, favorite2.label, favorite2.attractionId]
-        : []),
+      ...(nearbyF2Events.length > 0 && favorite2 ? [favorite2.attractionId] : []),
     ]);
 
     const presentDefaultGenres = uniqueStrings([
@@ -445,6 +512,7 @@ async function runSearch(body: Body) {
       matched: {
         ...(anchor.matched || {}),
         favorites: presentFavorites,
+        attractionIds: presentAttractionIds,
         defaultGenres: presentDefaultGenres,
         genres: [],
       } as any,
@@ -464,8 +532,8 @@ async function runSearch(body: Body) {
       favorites: [favorite1, ...(favorite2?.attractionId ? [favorite2] : [])].map((fav) => fav.id),
       genres,
     },
-    startDate: body.startDate || null,
-    endDate: body.endDate || null,
+    startDate,
+    endDate,
     count: anchorCards.length,
     anchorCards,
   };
@@ -485,11 +553,14 @@ export async function POST(req: Request) {
     const genres = normalizeGenresInput(body.genres);
     const countryCode = String(body.countryCode || DEFAULT_COUNTRY_CODE).trim() || DEFAULT_COUNTRY_CODE;
 
+    const startDate = cleanNullableYMD(body.startDate);
+    const endDate = cleanNullableYMD(body.endDate);
+
     const searchKey = makeSearchKey({
       favorite1,
       favorite2,
-      startDate: body.startDate || null,
-      endDate: body.endDate || null,
+      startDate,
+      endDate,
       countryCode,
       genres,
     });

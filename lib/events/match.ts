@@ -22,12 +22,25 @@ export function uniqueStrings(values: Array<string | null | undefined>): string[
   return out;
 }
 
-export function mergeMatched(into: NormEvent, from: Pick<NormEvent, "matched"> | NormEvent): NormEvent {
-  const source = from?.matched || { favorites: [], genres: [], defaultGenres: [] };
+export function mergeMatched(
+  into: NormEvent,
+  from: Pick<NormEvent, "matched"> | NormEvent
+): NormEvent {
+  const source = from?.matched || {
+    favorites: [],
+    attractionIds: [],
+    genres: [],
+    defaultGenres: [],
+  };
 
   into.matched.favorites = uniqueStrings([
     ...(into.matched.favorites || []),
     ...(source.favorites || []),
+  ]);
+
+  into.matched.attractionIds = uniqueStrings([
+    ...(into.matched.attractionIds || []),
+    ...(source.attractionIds || []),
   ]);
 
   into.matched.genres = uniqueStrings([
@@ -47,11 +60,16 @@ export function getMatchedSelectedGenres(
   event: NormEvent,
   selectedGenres: string[]
 ): string[] {
-  const canonical = norm(event.canonicalGenre);
-  if (!canonical) return [];
+  const eventGenres = Array.isArray(event.canonicalGenres)
+    ? event.canonicalGenres.map((g) => norm(g)).filter(Boolean)
+    : [];
+
+  if (eventGenres.length === 0) return [];
+
+  const eventGenreSet = new Set(eventGenres);
 
   return uniqueStrings(
-    selectedGenres.filter((genre) => norm(genre) === canonical)
+    selectedGenres.filter((genre) => eventGenreSet.has(norm(genre)))
   );
 }
 
@@ -104,6 +122,7 @@ export function applyMatchesToEvent(
   );
 
   event.matched.favorites = matchedFavoriteIds;
+  event.matched.attractionIds = uniqueStrings(args.attractionIdsOnEvent || []);
   event.matched.genres = matchedGenres;
   event.matched.defaultGenres = matchedDefaultGenres;
 

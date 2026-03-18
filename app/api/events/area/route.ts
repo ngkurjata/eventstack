@@ -7,6 +7,7 @@ import { NextResponse } from "next/server";
 import TM from "@/lib/tm/client";
 import { normalizeTMEvent, type NormEvent } from "@/lib/events/normalize";
 import { ymdToTmRangeInclusive, isYMD } from "@/lib/time/window";
+import { uniqueStrings } from "@/lib/events/match";
 
 function json(payload: any, status = 200) {
   return NextResponse.json(payload, { status });
@@ -21,7 +22,7 @@ type Body = {
   startDate: string | null;
   endDate: string | null;
   radiusMiles?: number;
-  countryCode?: string; // ex: "US,CA"
+  countryCode?: string;
 };
 
 type ApiResp = {
@@ -30,6 +31,7 @@ type ApiResp = {
   startDate: string;
   endDate: string;
   count: number;
+  genres: string[];
   events: NormEvent[];
   error?: string;
 };
@@ -86,7 +88,7 @@ export async function POST(req: Request) {
     const { startDateTime, endDateTime } = ymdToTmRangeInclusive(startDate, endDate);
     const latlong = `${city.lat},${city.lon}`;
 
-    const tm = await TM.searchEvents({
+    const tm = await TM.tmFetchJson("/events.json", {
       latlong,
       radius: radiusMiles,
       unit: "miles",
@@ -98,11 +100,27 @@ export async function POST(req: Request) {
       page: 0,
     });
 
-    const rawEvents = Array.isArray(tm?._embedded?.events) ? tm._embedded.events : [];
+    const rawEvents: any[] = Array.isArray(tm?._embedded?.events) ? tm._embedded.events : [];
+
     const events = dedupeEvents(
       rawEvents
-        .map((raw) => normalizeTMEvent(raw))
+        .map((raw: any) => normalizeTMEvent(raw))
         .filter((ev): ev is NormEvent => Boolean(ev))
+        .filter((ev) => Array.isArray(ev.canonicalGenres) && ev.canonicalGenres.length > 0)
+        .map((ev) => ({
+          ...ev,
+          matched: {
+            favorites: [],
+            attractionIds: [],
+            genres: ev.canonicalGenres,
+            defaultGenres: [],
+          },
+          pillLabel: ev.canonicalGenres[0] || null,
+        }))
+    );
+
+    const genres = uniqueStrings(events.flatMap((e) => e.canonicalGenres || [])).sort((a, b) =>
+      a.localeCompare(b)
     );
 
     const resp: ApiResp = {
@@ -111,6 +129,7 @@ export async function POST(req: Request) {
       startDate,
       endDate,
       count: events.length,
+      genres,
       events,
     };
 

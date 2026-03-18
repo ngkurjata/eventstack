@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { visibleGenresByBucket } from "@/lib/events/genres";
 
 type NormEvent = {
   id: string;
@@ -15,6 +16,8 @@ type NormEvent = {
   url: string | null;
   matched?: {
     genres?: string[];
+    favorites?: string[];
+    attractionIds?: string[];
   };
 };
 
@@ -29,69 +32,22 @@ type ApiResp = {
   error?: string;
 };
 
+type CarriedFavorite = {
+  label: string;
+  attractionId: string;
+  defaultGenre: string;
+};
+
+type FilterPanelMode = "hidden" | "sports" | "music";
+
 const LS_SELECTED = "eventstack_selected_events_v1";
+const LS_DELETED = "eventstack_deleted_events_v1";
 const LS_LAST_AREA_QUERY = "eventstack_area_last_query_v1";
 
-const LEAGUE_FILTERS = new Set(
-  [
-    "mlb",
-    "milb",
-    "nba",
-    "wnba",
-    "nfl",
-    "cfl",
-    "nhl",
-    "ahl",
-    "echl",
-    "mls",
-    "nwsl",
-    "ufl",
-    "pga",
-    "lpga",
-    "atp",
-    "wta",
-    "ncaa",
-    "ncaa football",
-    "ncaa basketball",
-  ].map((x) => x.toLowerCase())
-);
-
-const EXCLUDED_GENERIC_FILTERS = new Set(
-  [
-    "music",
-    "sports",
-    "arts & theatre",
-    "film",
-    "miscellaneous",
-    "undefined",
-  ].map((x) => x.toLowerCase())
-);
-
-const DEFAULT_SPORT_FILTERS = [
-  "Football",
-  "Baseball",
-  "Basketball",
-  "Hockey",
-  "Soccer",
-];
-
-const DEFAULT_CONCERT_FILTERS = [
-  "Country",
-  "Rock",
-  "Pop",
-  "Alternative",
-  "Hip-Hop/Rap",
-];
-
-const ALWAYS_VISIBLE_DEFAULTS = [
-  ...DEFAULT_SPORT_FILTERS,
-  ...DEFAULT_CONCERT_FILTERS,
-];
-
-function readSelectedMap(): Record<string, boolean> {
+function readBooleanMap(key: string): Record<string, boolean> {
   if (typeof window === "undefined") return {};
   try {
-    const raw = localStorage.getItem(LS_SELECTED);
+    const raw = localStorage.getItem(key);
     if (!raw) return {};
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") return {};
@@ -101,24 +57,19 @@ function readSelectedMap(): Record<string, boolean> {
   }
 }
 
-function writeSelectedMap(map: Record<string, boolean>) {
+function writeBooleanMap(key: string, map: Record<string, boolean>) {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(LS_SELECTED, JSON.stringify(map));
+    localStorage.setItem(key, JSON.stringify(map));
   } catch {}
 }
 
-function isSelected(id: string) {
-  const map = readSelectedMap();
-  return !!map[id];
+function readSelectedMap(): Record<string, boolean> {
+  return readBooleanMap(LS_SELECTED);
 }
 
-function toggleSelected(id: string) {
-  const map = readSelectedMap();
-  map[id] = !map[id];
-  if (!map[id]) delete map[id];
-  writeSelectedMap(map);
-  return Object.keys(map).length;
+function writeSelectedMap(map: Record<string, boolean>) {
+  writeBooleanMap(LS_SELECTED, map);
 }
 
 function clearSelected() {
@@ -128,9 +79,36 @@ function clearSelected() {
   } catch {}
 }
 
-function countSelected() {
-  const map = readSelectedMap();
-  return Object.keys(map).length;
+function readDeletedMap(): Record<string, boolean> {
+  return readBooleanMap(LS_DELETED);
+}
+
+function writeDeletedMap(map: Record<string, boolean>) {
+  writeBooleanMap(LS_DELETED, map);
+}
+
+function countSelectedFromMap(map: Record<string, boolean>) {
+  return Object.keys(map).filter((id) => !!map[id]).length;
+}
+
+function sanitizeSelectedMap(
+  selected: Record<string, boolean>,
+  deleted: Record<string, boolean>
+) {
+  const next: Record<string, boolean> = {};
+  for (const id of Object.keys(selected)) {
+    if (!selected[id]) continue;
+    if (deleted[id]) continue;
+    next[id] = true;
+  }
+  return next;
+}
+
+function csvToList(value: string) {
+  return String(value || "")
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
 }
 
 function areaQueryKey(input: {
@@ -141,6 +119,9 @@ function areaQueryKey(input: {
   end: string;
   radiusMiles: number;
   countryCode: string;
+  f1AttractionId: string;
+  f2AttractionId: string;
+  genresCsv: string;
 }) {
   return [
     String(input.cityLabel || "").trim(),
@@ -150,6 +131,9 @@ function areaQueryKey(input: {
     String(input.end || "").trim(),
     String(input.radiusMiles || ""),
     String(input.countryCode || "").trim(),
+    String(input.f1AttractionId || "").trim(),
+    String(input.f2AttractionId || "").trim(),
+    String(input.genresCsv || "").trim().toLowerCase(),
   ].join("|");
 }
 
@@ -201,6 +185,7 @@ function formatSectionDate(dateStr: string) {
   const d = new Date(`${dateStr}T12:00:00`);
   return d
     .toLocaleDateString("en-CA", {
+      weekday: "short",
       month: "short",
       day: "2-digit",
       year: "numeric",
@@ -225,13 +210,44 @@ function formatTime12h(time: string | null) {
   });
 }
 
+function sortEventsChronologically(events: NormEvent[]) {
+  return [...events].sort((a, b) => {
+    const diff = eventSortValue(a) - eventSortValue(b);
+    if (diff !== 0) return diff;
+    return String(a.name || "").localeCompare(String(b.name || ""));
+  });
+}
+
+function eventSortValue(event: NormEvent) {
+  const date = String(event.localDate || "").trim();
+  const rawTime = String(event.localTime || "").trim();
+
+  if (!isYMD(date)) return Number.MAX_SAFE_INTEGER;
+
+  const hhmm = rawTime.match(/^(\d{2}:\d{2})/)?.[1] || "23:59";
+  const ts = Date.parse(`${date}T${hhmm}:00`);
+
+  return Number.isFinite(ts) ? ts : Number.MAX_SAFE_INTEGER;
+}
+
 function groupByDate(events: NormEvent[]) {
+  const sorted = [...events].sort((a, b) => {
+    const dateDiff = String(a.localDate || "").localeCompare(String(b.localDate || ""));
+    if (dateDiff !== 0) return dateDiff;
+
+    const timeDiff = eventSortValue(a) - eventSortValue(b);
+    if (timeDiff !== 0) return timeDiff;
+
+    return String(a.name || "").localeCompare(String(b.name || ""));
+  });
+
   const map = new Map<string, NormEvent[]>();
-  for (const event of events) {
+  for (const event of sorted) {
     const key = event.localDate || "Unknown Date";
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(event);
   }
+
   return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
 }
 
@@ -239,18 +255,8 @@ function normalizeGenreKey(value: string) {
   return String(value || "").trim().toLowerCase();
 }
 
-function isLeagueOrGeneric(value: string) {
-  const key = normalizeGenreKey(value);
-  return LEAGUE_FILTERS.has(key) || EXCLUDED_GENERIC_FILTERS.has(key);
-}
-
-function classifyFilterGroup(value: string): "sports" | "concerts" | "other" {
-  const key = normalizeGenreKey(value);
-
-  if (DEFAULT_SPORT_FILTERS.some((x) => normalizeGenreKey(x) === key)) return "sports";
-  if (DEFAULT_CONCERT_FILTERS.some((x) => normalizeGenreKey(x) === key)) return "concerts";
-
-  return "other";
+function normalizeToken(value: string | null | undefined) {
+  return String(value || "").trim().toLowerCase();
 }
 
 function getEventFilterLabels(e: NormEvent): string[] {
@@ -261,10 +267,10 @@ function getEventFilterLabels(e: NormEvent): string[] {
   for (const item of raw) {
     const val = String(item || "").trim();
     if (!val) continue;
-    if (isLeagueOrGeneric(val)) continue;
 
     const key = normalizeGenreKey(val);
     if (seen.has(key)) continue;
+
     seen.add(key);
     out.push(val);
   }
@@ -272,16 +278,24 @@ function getEventFilterLabels(e: NormEvent): string[] {
   if (out.length > 0) return out;
 
   const fallback = String(e.pillLabel || "").trim();
-  if (fallback && !isLeagueOrGeneric(fallback)) return [fallback];
-
-  return [];
+  return fallback ? [fallback] : [];
 }
 
-function pickDisplayPill(e: NormEvent, hiddenGenreKeys: Set<string>): string | null {
+function pickDisplayPill(
+  e: NormEvent,
+  activeGenreKeys: Set<string>,
+  carriedGenreKeys: Set<string>
+): string | null {
   const labels = getEventFilterLabels(e);
 
   for (const label of labels) {
-    if (!hiddenGenreKeys.has(normalizeGenreKey(label))) {
+    if (activeGenreKeys.has(normalizeGenreKey(label))) {
+      return label;
+    }
+  }
+
+  for (const label of labels) {
+    if (carriedGenreKeys.has(normalizeGenreKey(label))) {
       return label;
     }
   }
@@ -293,20 +307,45 @@ function sortAlpha(filters: string[]) {
   return [...filters].sort((a, b) => a.localeCompare(b));
 }
 
-function dedupeGenreList(filters: string[]) {
-  const seen = new Set<string>();
-  const out: string[] = [];
+function readCarriedFavorite(
+  sp: URLSearchParams,
+  prefix: "f1" | "f2"
+): CarriedFavorite | null {
+  const label = String(sp.get(`${prefix}Label`) || "").trim();
+  const attractionId = String(sp.get(`${prefix}AttractionId`) || "").trim();
+  const defaultGenre = String(sp.get(`${prefix}DefaultGenre`) || "").trim();
 
-  for (const f of filters) {
-    const val = String(f || "").trim();
-    if (!val) continue;
-    const key = normalizeGenreKey(val);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(val);
-  }
+  if (!label || !attractionId) return null;
 
-  return out;
+  return {
+    label,
+    attractionId,
+    defaultGenre,
+  };
+}
+
+function eventMatchesFavorite(e: NormEvent, favorite: CarriedFavorite | null) {
+  if (!favorite) return false;
+
+  const favoriteLabelKey = normalizeToken(favorite.label);
+  const favoriteAttractionIdKey = normalizeToken(favorite.attractionId);
+
+  const matchedFavorites = Array.isArray(e?.matched?.favorites)
+    ? e.matched!.favorites!
+    : [];
+  const matchedAttractionIds = Array.isArray(e?.matched?.attractionIds)
+    ? e.matched!.attractionIds!
+    : [];
+
+  const hasFavoriteLabel = matchedFavorites.some(
+    (v) => normalizeToken(v) === favoriteLabelKey
+  );
+
+  const hasAttractionId = matchedAttractionIds.some(
+    (v) => normalizeToken(v) === favoriteAttractionIdKey
+  );
+
+  return hasFavoriteLabel || hasAttractionId;
 }
 
 export default function AreaResultsPage() {
@@ -320,15 +359,39 @@ export default function AreaResultsPage() {
   const end = (sp.get("end") || "").trim();
   const radiusMiles = Number(sp.get("radiusMiles") || "90");
   const countryCode = sp.get("countryCode") || "US,CA";
-  const airportIata = (sp.get("airportIata") || "").trim().toUpperCase();
+
+  const tripDestIata = (sp.get("airportIata") || sp.get("destIata") || "")
+    .trim()
+    .toUpperCase();
+
+  const carriedF1 = useMemo(() => readCarriedFavorite(sp, "f1"), [sp]);
+  const carriedF2 = useMemo(() => readCarriedFavorite(sp, "f2"), [sp]);
+
+  const carriedGenres = useMemo(() => {
+    return csvToList(sp.get("genres") || "");
+  }, [sp]);
+
+  const carriedGenreKeys = useMemo(
+    () => new Set(carriedGenres.map((g) => normalizeGenreKey(g))),
+    [carriedGenres]
+  );
+
+  const hasCarriedFavorites = !!carriedF1 || !!carriedF2;
+  const hasCarriedGenres = carriedGenres.length > 0;
 
   const [loading, setLoading] = useState(true);
   const [resp, setResp] = useState<ApiResp | null>(null);
   const [err, setErr] = useState<string | null>(null);
+
+  const [selectedMap, setSelectedMap] = useState<Record<string, boolean>>({});
+  const [deletedMap, setDeletedMap] = useState<Record<string, boolean>>({});
   const [selectedCount, setSelectedCount] = useState(0);
-  const [hiddenGenres, setHiddenGenres] = useState<string[]>([]);
-  const [dismissedEventIds, setDismissedEventIds] = useState<string[]>([]);
+
+  const [activeGenres, setActiveGenres] = useState<string[]>([]);
   const [lastDismissed, setLastDismissed] = useState<NormEvent | null>(null);
+  const [filterPanelMode, setFilterPanelMode] = useState<FilterPanelMode>("hidden");
+
+  const [selectedEventsOpen, setSelectedEventsOpen] = useState(true);
 
   useEffect(() => {
     const key = areaQueryKey({
@@ -339,6 +402,9 @@ export default function AreaResultsPage() {
       end,
       radiusMiles,
       countryCode,
+      f1AttractionId: carriedF1?.attractionId || "",
+      f2AttractionId: carriedF2?.attractionId || "",
+      genresCsv: carriedGenres.join(","),
     });
 
     const last = readLastAreaQueryKey();
@@ -348,11 +414,36 @@ export default function AreaResultsPage() {
     }
 
     writeLastAreaQueryKey(key);
-    setSelectedCount(countSelected());
-    setDismissedEventIds([]);
+
+    const nextDeletedMap = readDeletedMap();
+    const rawSelectedMap = readSelectedMap();
+    const nextSelectedMap = sanitizeSelectedMap(rawSelectedMap, nextDeletedMap);
+
+    if (
+      JSON.stringify(rawSelectedMap) !== JSON.stringify(nextSelectedMap)
+    ) {
+      writeSelectedMap(nextSelectedMap);
+    }
+
+    setDeletedMap(nextDeletedMap);
+    setSelectedMap(nextSelectedMap);
+    setSelectedCount(countSelectedFromMap(nextSelectedMap));
+
     setLastDismissed(null);
-    setHiddenGenres([]);
-  }, [cityLabel, lat, lon, start, end, radiusMiles, countryCode]);
+    setActiveGenres(carriedGenres.length > 0 ? carriedGenres : []);
+    setFilterPanelMode("hidden");
+  }, [
+    cityLabel,
+    lat,
+    lon,
+    start,
+    end,
+    radiusMiles,
+    countryCode,
+    carriedF1?.attractionId,
+    carriedF2?.attractionId,
+    carriedGenres,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -372,6 +463,8 @@ export default function AreaResultsPage() {
             endDate: end,
             radiusMiles,
             countryCode,
+            favorites: [carriedF1, carriedF2].filter(Boolean),
+            genres: [],
           }),
         });
 
@@ -391,7 +484,17 @@ export default function AreaResultsPage() {
     return () => {
       cancelled = true;
     };
-  }, [cityLabel, lat, lon, start, end, radiusMiles, countryCode]);
+  }, [
+    cityLabel,
+    lat,
+    lon,
+    start,
+    end,
+    radiusMiles,
+    countryCode,
+    carriedF1,
+    carriedF2,
+  ]);
 
   useEffect(() => {
     if (!lastDismissed) return;
@@ -405,113 +508,173 @@ export default function AreaResultsPage() {
 
   const allEvents = resp?.events || [];
 
+  const visibleBucketDefs = useMemo(() => visibleGenresByBucket(), []);
+  const visibleGenreSet = useMemo(() => {
+    return new Set(
+      [...visibleBucketDefs.sports, ...visibleBucketDefs.music].map((g) =>
+        normalizeGenreKey(g)
+      )
+    );
+  }, [visibleBucketDefs]);
+
+  const sportsGenreKeys = useMemo(
+    () => new Set(visibleBucketDefs.sports.map((g) => normalizeGenreKey(g))),
+    [visibleBucketDefs]
+  );
+
+  const musicGenreKeys = useMemo(
+    () => new Set(visibleBucketDefs.music.map((g) => normalizeGenreKey(g))),
+    [visibleBucketDefs]
+  );
+
   const availableGenres = useMemo(() => {
-    const seen = new Set<string>();
-    const out: string[] = [];
-
-    for (const e of allEvents) {
-      for (const label of getEventFilterLabels(e)) {
-        const key = normalizeGenreKey(label);
-        if (seen.has(key)) continue;
-        seen.add(key);
-        out.push(label);
-      }
-    }
-
-    return sortAlpha(out);
-  }, [allEvents]);
+    const raw = Array.isArray(resp?.genres) ? resp!.genres : [];
+    return sortAlpha(
+      raw.filter((g) => visibleGenreSet.has(normalizeGenreKey(g)))
+    );
+  }, [resp, visibleGenreSet]);
 
   const availableGenreKeys = useMemo(
     () => new Set(availableGenres.map((g) => normalizeGenreKey(g))),
     [availableGenres]
   );
 
-  const filterSections = useMemo(() => {
-    const defaultSports = [...DEFAULT_SPORT_FILTERS];
-    const defaultConcerts = [...DEFAULT_CONCERT_FILTERS];
-
-    const extraSports: string[] = [];
-    const extraConcerts: string[] = [];
-    const other: string[] = [];
-
-    const defaultKeys = new Set(ALWAYS_VISIBLE_DEFAULTS.map((x) => normalizeGenreKey(x)));
-
-    for (const genre of availableGenres) {
-      const key = normalizeGenreKey(genre);
-      if (defaultKeys.has(key)) continue;
-
-      const group = classifyFilterGroup(genre);
-
-      if (group === "sports") extraSports.push(genre);
-      else if (group === "concerts") extraConcerts.push(genre);
-      else other.push(genre);
-    }
-
-    return {
-      defaultSports,
-      defaultConcerts,
-      extraSports: sortAlpha(dedupeGenreList(extraSports)),
-      extraConcerts: sortAlpha(dedupeGenreList(extraConcerts)),
-      other: sortAlpha(dedupeGenreList(other)),
-    };
-  }, [availableGenres]);
-
   useEffect(() => {
     if (loading || err) return;
 
-    const defaultVisibleKeys = new Set(
-      ALWAYS_VISIBLE_DEFAULTS.map((g) => normalizeGenreKey(g))
-    );
+    setActiveGenres((prev) => {
+      const kept = prev.filter((g) =>
+        availableGenreKeys.has(normalizeGenreKey(g))
+      );
 
-    const defaultHidden = availableGenres.filter(
-      (g) => !defaultVisibleKeys.has(normalizeGenreKey(g))
-    );
+      const merged: string[] = [];
+      const seen = new Set<string>();
 
-    setHiddenGenres(defaultHidden);
-  }, [loading, err, availableGenres, cityLabel, lat, lon, start, end, radiusMiles, countryCode]);
+      for (const g of kept) {
+        const key = normalizeGenreKey(g);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        merged.push(g);
+      }
 
-  const hiddenGenreKeys = useMemo(
-    () => new Set(hiddenGenres.map((g) => normalizeGenreKey(g))),
-    [hiddenGenres]
+      return merged;
+    });
+  }, [loading, err, availableGenreKeys]);
+
+  const activeGenreKeys = useMemo(
+    () => new Set(activeGenres.map((g) => normalizeGenreKey(g))),
+    [activeGenres]
   );
 
-  const dismissedEventKeySet = useMemo(() => new Set(dismissedEventIds), [dismissedEventIds]);
+  const deletedEventKeySet = useMemo(() => {
+    return new Set(Object.keys(deletedMap).filter((id) => !!deletedMap[id]));
+  }, [deletedMap]);
+
+  const selectedEventKeySet = useMemo(() => {
+    return new Set(Object.keys(selectedMap).filter((id) => !!selectedMap[id]));
+  }, [selectedMap]);
+
+  const bucketedGenres = useMemo(() => {
+    return {
+      sports: visibleBucketDefs.sports.filter((g) =>
+        availableGenreKeys.has(normalizeGenreKey(g))
+      ),
+      music: visibleBucketDefs.music.filter((g) =>
+        availableGenreKeys.has(normalizeGenreKey(g))
+      ),
+    };
+  }, [visibleBucketDefs, availableGenreKeys]);
 
   const visibleEvents = useMemo(() => {
     return allEvents.filter((e) => {
-      if (dismissedEventKeySet.has(e.id)) return false;
+      if (deletedEventKeySet.has(e.id)) return false;
 
-      const labels = getEventFilterLabels(e);
-      if (labels.length === 0) return false;
+      if (selectedEventKeySet.has(e.id)) return true;
       if (!e.url) return false;
 
-      return labels.some((label) => !hiddenGenreKeys.has(normalizeGenreKey(label)));
-    });
-  }, [allEvents, hiddenGenreKeys, dismissedEventKeySet]);
+      const labels = getEventFilterLabels(e).filter((label) =>
+        visibleGenreSet.has(normalizeGenreKey(label))
+      );
+      if (labels.length === 0) return false;
 
-  const groupedEvents = useMemo(() => groupByDate(visibleEvents), [visibleEvents]);
+      const matchesCarriedFavorite =
+        eventMatchesFavorite(e, carriedF1) || eventMatchesFavorite(e, carriedF2);
+
+      const matchesActiveGenre =
+        activeGenreKeys.size > 0 &&
+        labels.some((label) => activeGenreKeys.has(normalizeGenreKey(label)));
+
+      const hasAnyVisibleFilter =
+        hasCarriedFavorites || hasCarriedGenres || activeGenreKeys.size > 0;
+
+      if (!hasAnyVisibleFilter) return false;
+
+      return matchesCarriedFavorite || matchesActiveGenre;
+    });
+  }, [
+    allEvents,
+    deletedEventKeySet,
+    selectedEventKeySet,
+    activeGenreKeys,
+    carriedF1,
+    carriedF2,
+    hasCarriedFavorites,
+    hasCarriedGenres,
+    visibleGenreSet,
+  ]);
+
+  const selectedVisibleEvents = useMemo(() => {
+    return sortEventsChronologically(
+      visibleEvents.filter((e) => selectedEventKeySet.has(e.id))
+    );
+  }, [visibleEvents, selectedEventKeySet]);
+
+  const unselectedVisibleEvents = useMemo(() => {
+    return visibleEvents.filter((e) => !selectedEventKeySet.has(e.id));
+  }, [visibleEvents, selectedEventKeySet]);
+
+  const groupedSelectedEvents = useMemo(
+    () => groupByDate(selectedVisibleEvents),
+    [selectedVisibleEvents]
+  );
+
+  const groupedEvents = useMemo(
+    () => groupByDate(unselectedVisibleEvents),
+    [unselectedVisibleEvents]
+  );
 
   const titleCity = resp?.city?.label || cityLabel || "Area Results";
   const subtitleRange = formatDateRange(start, end);
 
-  const visiblePills = useMemo(() => {
-    const set = new Set<string>();
-    for (const e of visibleEvents) {
-      const pill = pickDisplayPill(e, hiddenGenreKeys);
-      if (pill) set.add(pill);
-    }
-    return Array.from(set);
-  }, [visibleEvents, hiddenGenreKeys]);
+  const carriedFilterSummary = useMemo(() => {
+    const parts: string[] = [];
 
-  const eventPillMinWidth = useMemo(() => {
-    const labels = visiblePills.length > 0 ? visiblePills : ["Hip-Hop/Rap"];
-    const maxLen = labels.reduce((max, label) => Math.max(max, label.length), 0);
-    return Math.max(92, Math.min(168, Math.ceil(maxLen * 8.5 + 22)));
-  }, [visiblePills]);
+    if (carriedF1?.label) parts.push(`F1: ${carriedF1.label}`);
+    if (carriedF2?.label) parts.push(`F2: ${carriedF2.label}`);
+    carriedGenres.forEach((g, i) => parts.push(`G${i + 1}: ${g}`));
 
+    return parts;
+  }, [carriedF1, carriedF2, carriedGenres]);
+
+  function toggleSelectedEventsOpen() {
+  setSelectedEventsOpen((prev) => !prev);
+}
   function onToggleEvent(e: NormEvent) {
-    const nextCount = toggleSelected(e.id);
-    setSelectedCount(nextCount);
+    if (deletedMap[e.id]) return;
+
+    setSelectedMap((prev) => {
+      const next = { ...prev };
+
+      if (next[e.id]) {
+        delete next[e.id];
+      } else {
+        next[e.id] = true;
+      }
+
+      writeSelectedMap(next);
+      setSelectedCount(countSelectedFromMap(next));
+      return next;
+    });
   }
 
   function onToggleGenre(genre: string) {
@@ -519,76 +682,184 @@ export default function AreaResultsPage() {
 
     if (!availableGenreKeys.has(key)) return;
 
-    setHiddenGenres((prev) => {
+    setActiveGenres((prev) => {
       const exists = prev.some((g) => normalizeGenreKey(g) === key);
-      return exists
-        ? prev.filter((g) => normalizeGenreKey(g) !== key)
-        : [...prev, genre];
+
+      if (exists) {
+        return prev.filter((g) => normalizeGenreKey(g) !== key);
+      }
+
+      return [...prev, genre];
     });
   }
 
+  function clearBucketFilters(bucket: "sports" | "music") {
+    setActiveGenres((prev) =>
+      prev.filter((genre) => {
+        const key = normalizeGenreKey(genre);
+        if (bucket === "sports") return !sportsGenreKeys.has(key);
+        return !musicGenreKeys.has(key);
+      })
+    );
+  }
+
   function onDismissEvent(event: NormEvent) {
-    setDismissedEventIds((prev) => (prev.includes(event.id) ? prev : [...prev, event.id]));
+    setDeletedMap((prevDeleted) => {
+      const nextDeleted = { ...prevDeleted, [event.id]: true };
+      writeDeletedMap(nextDeleted);
+      return nextDeleted;
+    });
+
+    setSelectedMap((prevSelected) => {
+      if (!prevSelected[event.id]) return prevSelected;
+
+      const nextSelected = { ...prevSelected };
+      delete nextSelected[event.id];
+      writeSelectedMap(nextSelected);
+      setSelectedCount(countSelectedFromMap(nextSelected));
+      return nextSelected;
+    });
+
     setLastDismissed(event);
   }
 
   function onUndoDismiss() {
     if (!lastDismissed) return;
 
-    setDismissedEventIds((prev) => prev.filter((id) => id !== lastDismissed.id));
+    setDeletedMap((prevDeleted) => {
+      const nextDeleted = { ...prevDeleted };
+      delete nextDeleted[lastDismissed.id];
+      writeDeletedMap(nextDeleted);
+      return nextDeleted;
+    });
+
     setLastDismissed(null);
   }
 
   function onBuildTrip() {
+    if (!canBuild) return;
+
     const q = new URLSearchParams();
     q.set("tripStyle", "A");
-    q.set("destIata", airportIata);
     q.set("start", start);
     q.set("end", end);
     q.set("radiusMiles", String(radiusMiles));
     q.set("countryCode", countryCode);
     q.set("resetSel", "1");
 
+    if (cityLabel) q.set("cityLabel", cityLabel);
+    if (Number.isFinite(lat)) q.set("lat", String(lat));
+    if (Number.isFinite(lon)) q.set("lon", String(lon));
+
+    if (tripDestIata) {
+      q.set("destIata", tripDestIata);
+    }
+
     router.push(`/build-trip?${q.toString()}`);
   }
 
   const canBuild =
     selectedCount > 0 &&
-    airportIata.length === 3 &&
     /^\d{4}-\d{2}-\d{2}$/.test(start) &&
     /^\d{4}-\d{2}-\d{2}$/.test(end);
 
-  function renderFilterButtons(filters: string[], options?: { disableIfUnavailable?: boolean }) {
-    if (filters.length === 0) return null;
+  function toggleFilterPanelMode(nextMode: Exclude<FilterPanelMode, "hidden">) {
+    setFilterPanelMode((prev) => {
+      if (prev === nextMode) {
+        clearBucketFilters(nextMode);
+        return "hidden";
+      }
+      return nextMode;
+    });
+  }
 
-    const disableIfUnavailable = !!options?.disableIfUnavailable;
+  function renderTopLevelBucketButtons() {
+    return (
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+          gap: 10,
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => toggleFilterPanelMode("sports")}
+          style={{
+            minHeight: 42,
+            padding: "0 14px",
+            borderRadius: 12,
+            border: "1px solid #d9e0ea",
+            background: filterPanelMode === "sports" ? "#17315f" : "#fff",
+            color: filterPanelMode === "sports" ? "#fff" : "#17315f",
+            fontSize: 14,
+            fontWeight: 800,
+            cursor: "pointer",
+            textAlign: "left",
+          }}
+        >
+          Sports
+        </button>
+
+        <button
+          type="button"
+          onClick={() => toggleFilterPanelMode("music")}
+          style={{
+            minHeight: 42,
+            padding: "0 14px",
+            borderRadius: 12,
+            border: "1px solid #d9e0ea",
+            background: filterPanelMode === "music" ? "#17315f" : "#fff",
+            color: filterPanelMode === "music" ? "#fff" : "#17315f",
+            fontSize: 14,
+            fontWeight: 800,
+            cursor: "pointer",
+            textAlign: "left",
+          }}
+        >
+          Music
+        </button>
+      </div>
+    );
+  }
+
+  function renderGenreButtons(filters: string[]) {
+    if (filters.length === 0) {
+      return <div style={{ fontSize: 13, color: "#8a94a6", fontWeight: 600 }}>None</div>;
+    }
 
     return (
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+          gap: 8,
+        }}
+      >
         {filters.map((genre) => {
           const key = normalizeGenreKey(genre);
-          const isAvailable = availableGenreKeys.has(key);
-          const disabled = disableIfUnavailable && !isAvailable;
-          const off = hiddenGenreKeys.has(key);
+          const on = activeGenreKeys.has(key);
 
           return (
             <button
               key={genre}
               type="button"
-              disabled={disabled}
               onClick={() => onToggleGenre(genre)}
               style={{
-                minHeight: 36,
-                padding: "0 14px",
-                borderRadius: 999,
-                border: disabled ? "1px solid #c8d0db" : "1px solid #111",
-                background: disabled ? "#e5e7eb" : off ? "#fff" : "#111",
-                color: disabled ? "#8a94a6" : off ? "#111" : "#fff",
+                minHeight: 38,
+                padding: "0 12px",
+                borderRadius: 10,
+                border: on ? "1px solid #111" : "1px solid #d9e0ea",
+                background: on ? "#111" : "#fff",
+                color: on ? "#fff" : "#17315f",
                 fontSize: 13,
                 fontWeight: 700,
-                cursor: disabled ? "not-allowed" : "pointer",
+                cursor: "pointer",
                 lineHeight: 1.1,
-                whiteSpace: "nowrap",
+                textAlign: "left",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "flex-start",
               }}
             >
               {genre}
@@ -599,36 +870,187 @@ export default function AreaResultsPage() {
     );
   }
 
-  function renderFilterSection(
-    title: string,
-    primaryFilters: string[],
-    secondaryFilters: string[] = [],
-    marginTop = 0
-  ) {
-    if (primaryFilters.length === 0 && secondaryFilters.length === 0) return null;
+  function renderEventCard(e: NormEvent) {
+    const selected = !!selectedMap[e.id];
+    const pill = pickDisplayPill(e, activeGenreKeys, carriedGenreKeys);
 
     return (
-      <div style={{ marginTop }}>
-        <div
-          style={{
-            fontSize: 12,
-            fontWeight: 800,
-            color: "#536b8f",
-            marginBottom: 8,
-            textTransform: "uppercase",
-            letterSpacing: 0.3,
-          }}
-        >
-          {title}
-        </div>
+      <div
+        key={e.id}
+        role="button"
+        tabIndex={0}
+        onClick={() => onToggleEvent(e)}
+        onKeyDown={(evt) => {
+          if (evt.key === "Enter" || evt.key === " ") {
+            evt.preventDefault();
+            onToggleEvent(e);
+          }
+        }}
+        style={{
+          display: "block",
+          background: selected ? "#f8fbff" : "#fff",
+          border: selected ? "2px solid #17315f" : "1px solid #d9e0ea",
+          borderRadius: 18,
+          padding: "12px 12px",
+          cursor: "pointer",
+          boxShadow: selected ? "0 6px 18px rgba(23,49,95,0.10)" : "none",
+          transition: "border-color 120ms ease, box-shadow 120ms ease, background 120ms ease",
+        }}
+      >
+        <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                gap: 8,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 16,
+                  fontWeight: 800,
+                  color: "#071b3b",
+                  minWidth: 0,
+                  flex: 1,
+                  lineHeight: 1.2,
+                  paddingRight: 2,
+                  wordBreak: "break-word",
+                }}
+              >
+                {e.name}
+              </div>
 
-        {renderFilterButtons(primaryFilters, { disableIfUnavailable: true })}
+              <button
+                type="button"
+                aria-label="Hide event"
+                onClick={(evt) => {
+                  evt.preventDefault();
+                  evt.stopPropagation();
+                  onDismissEvent(e);
+                }}
+                style={{
+                  flexShrink: 0,
+                  width: 28,
+                  height: 28,
+                  borderRadius: 999,
+                  border: "1px solid #dc2626",
+                  background: "#fff5f5",
+                  color: "#dc2626",
+                  fontSize: 16,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  lineHeight: 1,
+                }}
+              >
+                ×
+              </button>
+            </div>
 
-        {secondaryFilters.length > 0 && (
-          <div style={{ marginTop: 8 }}>
-            {renderFilterButtons(secondaryFilters, { disableIfUnavailable: false })}
+            <div
+              style={{
+                marginTop: 4,
+                fontSize: 14,
+                color: "#5e7597",
+                lineHeight: 1.3,
+                wordBreak: "break-word",
+              }}
+            >
+              {e.city}
+              {e.region ? `, ${e.region}` : ""}
+              {e.localTime ? ` • ${formatTime12h(e.localTime)}` : ""}
+            </div>
+
+            <div
+              style={{
+                marginTop: 10,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 10,
+                flexWrap: "wrap",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                {pill ? (
+                  <div
+                    style={{
+                      minHeight: 24,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      boxSizing: "border-box",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      padding: "2px 8px",
+                      borderRadius: 999,
+                      background: "#111",
+                      color: "#fff",
+                      textAlign: "center",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {pill}
+                  </div>
+                ) : null}
+
+                {selected ? (
+                  <div
+                    style={{
+                      minHeight: 24,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      boxSizing: "border-box",
+                      fontSize: 11,
+                      fontWeight: 800,
+                      padding: "2px 8px",
+                      borderRadius: 999,
+                      background: "#e8f0ff",
+                      color: "#17315f",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    Selected
+                  </div>
+                ) : null}
+              </div>
+
+              <div
+                style={{
+                  marginLeft: "auto",
+                  flex: "0 0 auto",
+                }}
+              >
+                {e.url ? (
+                  <button
+                    type="button"
+                    onClick={(evt) => {
+                      evt.preventDefault();
+                      evt.stopPropagation();
+                      window.open(e.url || "", "_blank", "noopener,noreferrer");
+                    }}
+                    style={{
+                      minHeight: 32,
+                      padding: "0 12px",
+                      borderRadius: 999,
+                      border: "1px solid #17315f",
+                      background: "#17315f",
+                      color: "#fff",
+                      fontSize: 13,
+                      fontWeight: 800,
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    Tickets
+                  </button>
+                ) : null}
+              </div>
+            </div>
           </div>
-        )}
+        </div>
       </div>
     );
   }
@@ -654,28 +1076,127 @@ export default function AreaResultsPage() {
               borderRadius: 18,
             }}
           >
-            {renderFilterSection(
-              "Sports",
-              filterSections.defaultSports,
-              filterSections.extraSports,
-              0
-            )}
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: 800,
+                color: "#536b8f",
+                marginBottom: 10,
+                textTransform: "uppercase",
+                letterSpacing: 0.3,
+              }}
+            >
+              Event Types Available
+            </div>
 
-            {renderFilterSection(
-              "Concerts",
-              filterSections.defaultConcerts,
-              filterSections.extraConcerts,
-              12
-            )}
+            {renderTopLevelBucketButtons()}
 
-            {renderFilterSection("Other Event Types Available Here", filterSections.other, [], 12)}
+            {filterPanelMode !== "hidden" && (
+              <div style={{ marginTop: 12 }}>
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 800,
+                    color: "#536b8f",
+                    marginBottom: 8,
+                    textTransform: "uppercase",
+                    letterSpacing: 0.3,
+                  }}
+                >
+                  {filterPanelMode === "sports" ? "Sports Filters" : "Music Filters"}
+                </div>
+
+                {filterPanelMode === "sports"
+                  ? renderGenreButtons(bucketedGenres.sports)
+                  : renderGenreButtons(bucketedGenres.music)}
+              </div>
+            )}
           </div>
         )}
 
         {loading && <div>Loading…</div>}
         {err && <div style={{ color: "crimson" }}>{err}</div>}
 
-        {!loading && !err && groupedEvents.length === 0 && (
+        {!loading && !err && groupedSelectedEvents.length > 0 && (
+  <div
+    style={{
+      marginBottom: 22,
+      background: "#eef4ff",
+      border: "1px solid #c9d8f2",
+      borderRadius: 20,
+      padding: 14,
+      boxShadow: "0 10px 24px rgba(23,49,95,0.08)",
+    }}
+  >
+    <button
+      type="button"
+      onClick={toggleSelectedEventsOpen}
+      aria-expanded={selectedEventsOpen}
+      aria-label={selectedEventsOpen ? "Hide selected events" : "Show selected events"}
+      style={{
+        width: "100%",
+        background: "#071b3b",
+        color: "#fff",
+        borderRadius: 14,
+        padding: "12px 14px",
+        marginBottom: selectedEventsOpen ? 14 : 0,
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        fontSize: 13,
+        fontWeight: 800,
+        letterSpacing: 0.4,
+        textTransform: "uppercase",
+        boxShadow: "inset 0 -1px 0 rgba(255,255,255,0.08)",
+        border: "none",
+        cursor: "pointer",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span>Selected Events</span>
+        <span style={{ opacity: 0.9 }}>({selectedVisibleEvents.length})</span>
+      </div>
+
+      <span
+        aria-hidden="true"
+        style={{
+          fontSize: 16,
+          lineHeight: 1,
+          opacity: 0.9,
+          transform: selectedEventsOpen ? "rotate(0deg)" : "rotate(-90deg)",
+          transition: "transform 120ms ease",
+        }}
+      >
+        ▾
+      </span>
+    </button>
+
+    {selectedEventsOpen && (
+      <>
+        {groupedSelectedEvents.map(([date, items]) => (
+          <div key={`selected-${date}`} style={{ marginBottom: 14 }}>
+            <div
+              style={{
+                fontSize: 13,
+                fontWeight: 800,
+                color: "#36527f",
+                marginBottom: 10,
+              }}
+            >
+              {formatSectionDate(date)}
+            </div>
+
+            <div style={{ display: "grid", gap: 10 }}>
+              {items.map((e) => renderEventCard(e))}
+            </div>
+          </div>
+        ))}
+      </>
+    )}
+  </div>
+)}
+
+        {!loading && !err && groupedEvents.length === 0 && selectedVisibleEvents.length === 0 && (
           <div
             style={{
               background: "#fff",
@@ -686,188 +1207,53 @@ export default function AreaResultsPage() {
               fontWeight: 700,
             }}
           >
-            No events match the current filters.
+            {carriedFilterSummary.length > 0
+              ? "No events match the carried Favorites / genre filters."
+              : activeGenreKeys.size === 0
+              ? "Select Sports or Music, then choose one or more event types to see events."
+              : "No events match the current filters."}
           </div>
         )}
 
-        {!loading &&
-          !err &&
-          groupedEvents.map(([date, items]) => (
-            <div key={date} style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: "#536b8f", marginBottom: 10 }}>
-                {formatSectionDate(date)}
-              </div>
-
-              <div style={{ display: "grid", gap: 10 }}>
-                {items.map((e) => {
-                  const checked = isSelected(e.id);
-                  const pill = pickDisplayPill(e, hiddenGenreKeys);
-
-                  return (
-                    <label
-                      key={e.id}
-                      style={{
-                        display: "block",
-                        background: "#fff",
-                        border: "1px solid #d9e0ea",
-                        borderRadius: 18,
-                        padding: "12px 12px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => onToggleEvent(e)}
-                          style={{ marginTop: 3, width: 18, height: 18, flexShrink: 0 }}
-                        />
-
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div
-                            style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "flex-start",
-                              gap: 8,
-                            }}
-                          >
-                            <div
-                              style={{
-                                fontSize: 16,
-                                fontWeight: 800,
-                                color: "#071b3b",
-                                minWidth: 0,
-                                flex: 1,
-                                lineHeight: 1.2,
-                                paddingRight: 2,
-                                wordBreak: "break-word",
-                              }}
-                            >
-                              {e.name}
-                            </div>
-
-                            <button
-                              type="button"
-                              aria-label="Hide event"
-                              onClick={(evt) => {
-                                evt.preventDefault();
-                                evt.stopPropagation();
-                                onDismissEvent(e);
-                              }}
-                              style={{
-                                flexShrink: 0,
-                                width: 26,
-                                height: 26,
-                                borderRadius: 999,
-                                border: "1px solid #d9e0ea",
-                                background: "#fff",
-                                color: "#5e7597",
-                                fontSize: 16,
-                                fontWeight: 700,
-                                cursor: "pointer",
-                                lineHeight: 1,
-                              }}
-                            >
-                              ×
-                            </button>
-                          </div>
-
-                          <div
-                            style={{
-                              marginTop: 4,
-                              fontSize: 14,
-                              color: "#5e7597",
-                              lineHeight: 1.3,
-                              wordBreak: "break-word",
-                            }}
-                          >
-                            {e.city}
-                            {e.region ? `, ${e.region}` : ""}
-                            {e.localTime ? ` • ${formatTime12h(e.localTime)}` : ""}
-                          </div>
-
-                          <div
-                            style={{
-                              marginTop: 10,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "space-between",
-                              gap: 10,
-                              flexWrap: "wrap",
-                            }}
-                          >
-                            <div
-                              style={{
-                                flex: "0 0 auto",
-                                minWidth: pill ? eventPillMinWidth : 0,
-                                maxWidth: "100%",
-                              }}
-                            >
-                              {pill ? (
-                                <div
-                                  style={{
-                                    minHeight: 32,
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    width: "100%",
-                                    boxSizing: "border-box",
-                                    fontSize: 12,
-                                    fontWeight: 700,
-                                    padding: "4px 10px",
-                                    borderRadius: 999,
-                                    background: "#111",
-                                    color: "#fff",
-                                    textAlign: "center",
-                                    whiteSpace: "nowrap",
-                                  }}
-                                >
-                                  {pill}
-                                </div>
-                              ) : null}
-                            </div>
-
-                            <div
-                              style={{
-                                marginLeft: "auto",
-                                flex: "0 0 auto",
-                              }}
-                            >
-                              {e.url ? (
-                                <button
-                                  type="button"
-                                  onClick={(evt) => {
-                                    evt.preventDefault();
-                                    evt.stopPropagation();
-                                    window.open(e.url || "", "_blank", "noopener,noreferrer");
-                                  }}
-                                  style={{
-                                    minHeight: 32,
-                                    padding: "0 12px",
-                                    borderRadius: 999,
-                                    border: "1px solid #17315f",
-                                    background: "#17315f",
-                                    color: "#fff",
-                                    fontSize: 13,
-                                    fontWeight: 800,
-                                    cursor: "pointer",
-                                    whiteSpace: "nowrap",
-                                  }}
-                                >
-                                  Tickets
-                                </button>
-                              ) : null}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </label>
-                  );
-                })}
-              </div>
+        {!loading && !err && groupedEvents.length > 0 && (
+          <div style={{ marginTop: groupedSelectedEvents.length > 0 ? 6 : 0 }}>
+            <div
+              style={{
+                background: "#e8edf5",
+                color: "#17315f",
+                borderRadius: 12,
+                padding: "10px 12px",
+                marginBottom: 12,
+                fontSize: 13,
+                fontWeight: 800,
+                letterSpacing: 0.4,
+                textTransform: "uppercase",
+                border: "1px solid #d9e0ea",
+              }}
+            >
+              Other Events to Add
             </div>
-          ))}
+
+            {groupedEvents.map(([date, items]) => (
+              <div key={date} style={{ marginBottom: 14 }}>
+                <div
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 800,
+                    color: "#536b8f",
+                    marginBottom: 10,
+                  }}
+                >
+                  {formatSectionDate(date)}
+                </div>
+
+                <div style={{ display: "grid", gap: 10 }}>
+                  {items.map((e) => renderEventCard(e))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {lastDismissed && (
@@ -944,6 +1330,7 @@ export default function AreaResultsPage() {
               fontSize: 16,
               fontWeight: 800,
               opacity: canBuild ? 1 : 0.45,
+              cursor: canBuild ? "pointer" : "default",
             }}
           >
             Build trip {selectedCount > 0 ? `(${selectedCount})` : ""}

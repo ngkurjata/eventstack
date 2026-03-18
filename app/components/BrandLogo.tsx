@@ -9,7 +9,7 @@ export default function BrandLogo({
     <img
       src={`/brand/logo.svg?v=${encodeURIComponent(LOGO_VERSION)}`}
       alt={`${APP_NAME} logo`}
-      className={["h-10 w-10", className].join(" ")}
+      className={["h-10 w-auto", className].join(" ")}
       loading="eager"
       decoding="async"
     />

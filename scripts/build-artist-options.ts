@@ -1,8 +1,10 @@
 // FILE: scripts/build-artist-options.ts
 /* eslint-disable no-console */
 
+import "dotenv/config";
 import fs from "node:fs";
 import path from "node:path";
+import { normalizeGenres } from "../lib/events/genres";
 
 type ArtistOptionRow = {
   id: string;
@@ -74,11 +76,10 @@ const API_KEY = process.env.TM_API_KEY || process.env.TICKETMASTER_API_KEY;
 const TM_BASE = "https://app.ticketmaster.com/discovery/v2/attractions.json";
 const DEFAULT_COUNTRY_CODE = "US,CA";
 
-// Important: include digits so artists like 070 Shake / 2 Chainz are discoverable.
+// include digits so artists like 070 Shake / 2 Chainz remain discoverable
 const DEFAULT_CHARSET = "abcdefghijklmnopqrstuvwxyz0123456789";
 
-// Keep page * size < 1000 to avoid Discovery API paging-depth failures.
-// Example: size=200, maxPages=4 => 800.
+// keep page * size < 1000
 const DEFAULT_PAGE_SIZE = 200;
 const DEFAULT_MAX_PAGES = 4;
 const DEFAULT_STALE_DAYS = 30;
@@ -113,14 +114,52 @@ function normalizeArtistName(input: string) {
     .toLowerCase();
 }
 
-function isArtistLikeAttraction(a: TmAttraction) {
-  const classes = Array.isArray(a.classifications) ? a.classifications : [];
-  const segmentNames = classes
-    .map((c) => String(c.segment?.name || "").trim().toLowerCase())
-    .filter(Boolean);
+function firstCanonicalVisibleGenre(values?: string[]) {
+  const normalized = normalizeGenres(Array.isArray(values) ? values : [], 2);
+  return normalized[0] || "";
+}
 
-  const genreNames = classes
+function looksLikeEventTitle(label: string) {
+  const l = String(label || "").trim().toLowerCase();
+  if (!l) return true;
+
+  return (
+    l.length > 90 ||
+    /\b(outing|scramble|tournament|showcase|expo|fair|festival|summit|conference|seminar|clinic|camp|meet and greet)\b/.test(
+      l
+    ) ||
+    /\b(hotel package|package|upsell|vip|reservation|admission|upgrade)\b/.test(
+      l
+    ) ||
+    /\bmini golf\b/.test(l) ||
+    /\bgolf club\b/.test(l) ||
+    /\bbridal\b/.test(l) ||
+    /\bwedding show\b/.test(l) ||
+    /\bopen house\b/.test(l)
+  );
+}
+
+function isTributeOrVariant(label: string, genres: string[]) {
+  const l = String(label || "").trim().toLowerCase();
+  const g = (genres || []).join(" ").toLowerCase();
+
+  return (
+    /\btribute\b/.test(g) ||
+    /\btribute\b/.test(l) ||
+    /\bcover\b/.test(l) ||
+    /\bexperience\b/.test(l) ||
+    /\brevue\b/.test(l) ||
+    /\bfeaturing\b/.test(l) ||
+    /\bfeat\b/.test(l)
+  );
+}
+
+function isSportsLikeAttraction(a: TmAttraction) {
+  const classes = Array.isArray(a.classifications) ? a.classifications : [];
+
+  const values = classes
     .flatMap((c) => [
+      c.segment?.name,
       c.genre?.name,
       c.subGenre?.name,
       c.type?.name,
@@ -129,45 +168,66 @@ function isArtistLikeAttraction(a: TmAttraction) {
     .map((v) => String(v || "").trim().toLowerCase())
     .filter(Boolean);
 
-  const all = [...segmentNames, ...genreNames].join(" ");
+  const blob = values.join(" ");
 
-  // Exclude sports/team-ish entities from artist options.
-  if (segmentNames.includes("sports")) return false;
-  if (
-    /\b(nhl|nfl|nba|wnba|mlb|milb|cfl|ncaa|soccer|football|baseball|basketball|hockey|lacrosse|racing|golf|tennis|boxing|mma|ufc|wwe)\b/.test(
-      all,
+  return (
+    /\b(sports|nhl|nfl|nba|wnba|mlb|milb|cfl|ncaa|soccer|football|baseball|basketball|hockey|lacrosse|racing|golf|tennis|boxing|mma|ufc|wwe)\b/.test(
+      blob
     )
-  ) {
-    return false;
-  }
-
-  // Keep music / comedy / arts & theatre / miscellaneous performers.
-  return true;
+  );
 }
 
 function attractionGenres(a: TmAttraction) {
   const out = new Set<string>();
+
   for (const c of a.classifications || []) {
-    const vals = [c.genre?.name, c.subGenre?.name, c.type?.name, c.subType?.name];
-    for (const v of vals) {
+    for (const v of [
+      c.segment?.name,
+      c.genre?.name,
+      c.subGenre?.name,
+      c.type?.name,
+      c.subType?.name,
+    ]) {
       const s = String(v || "").trim();
       if (!s) continue;
-if (/^(undefined|miscellaneous|artist|individual|group)$/i.test(s)) continue;      out.add(s);
+      if (/^(undefined|miscellaneous|artist|individual|group|other)$/i.test(s)) {
+        continue;
+      }
+      out.add(s);
     }
   }
+
   return Array.from(out);
+}
+
+function isArtistLikeAttraction(a: TmAttraction) {
+  if (isSportsLikeAttraction(a)) return false;
+
+  const genres = attractionGenres(a);
+  const canonicalGenre = firstCanonicalVisibleGenre(genres);
+
+  // this is the important gate:
+  // if it does not map to one of your app's visible genres, reject it
+  if (!canonicalGenre) return false;
+
+  return true;
 }
 
 function attractionToRow(a: TmAttraction): ArtistOptionRow | null {
   const id = String(a.id || "").trim();
   const label = String(a.name || "").trim();
   if (!id || !label) return null;
+
+  const genres = attractionGenres(a);
+
   if (!isArtistLikeAttraction(a)) return null;
+  if (looksLikeEventTitle(label)) return null;
+  if (isTributeOrVariant(label, genres)) return null;
 
   return {
     id,
     label,
-    genres: attractionGenres(a),
+    genres,
   };
 }
 
@@ -196,8 +256,7 @@ function dedupeArtistRows(rows: ArtistOptionRow[]) {
 
     if (existingByNorm) {
       const mergedGenres = new Set([...(existingByNorm.genres || []), ...(row.genres || [])]);
-      const preferred =
-  existingByNorm.label.length <= label.length ? existingByNorm : row;
+      const preferred = existingByNorm.label.length <= label.length ? existingByNorm : row;
 
       const merged: ArtistOptionRow = {
         id: preferred.id,
@@ -227,7 +286,7 @@ async function tmFetchAttractions(
   keyword: string,
   page: number,
   size = DEFAULT_PAGE_SIZE,
-  countryCode = DEFAULT_COUNTRY_CODE,
+  countryCode = DEFAULT_COUNTRY_CODE
 ): Promise<TmAttractionsResponse> {
   if (!API_KEY) {
     throw new Error("Missing TM_API_KEY or TICKETMASTER_API_KEY");
@@ -238,12 +297,11 @@ async function tmFetchAttractions(
   qs.set("keyword", keyword);
   qs.set("page", String(page));
   qs.set("size", String(size));
+  qs.set("sort", "name,asc");
 
   if (countryCode.trim()) {
     qs.set("countryCode", countryCode);
   }
-
-  qs.set("sort", "name,asc");
 
   const url = `${TM_BASE}?${qs.toString()}`;
   const res = await fetch(url, { cache: "no-store" });
@@ -259,7 +317,7 @@ async function tmFetchAttractions(
 async function fetchSeedRows(
   seed: string,
   maxPages = DEFAULT_MAX_PAGES,
-  pageSize = DEFAULT_PAGE_SIZE,
+  pageSize = DEFAULT_PAGE_SIZE
 ) {
   const out: ArtistOptionRow[] = [];
   let pagesFetched = 0;
@@ -304,7 +362,6 @@ async function lookupArtistRows(name: string) {
       const qNorm = normalizeArtistName(name);
       const rowNorm = normalizeArtistName(row.label);
 
-      // Allow exact / prefix / contains for lookup mode, but exact gets merged in first.
       if (
         rowNorm === qNorm ||
         rowNorm.startsWith(qNorm) ||
@@ -365,7 +422,7 @@ function markQueueItemsMerged(mergedRows: ArtistOptionRow[]) {
 
   const mergedIds = new Set(mergedRows.map((r) => String(r.id || "").trim()));
   const mergedNorms = new Set(
-    mergedRows.map((r) => normalizeArtistName(String(r.label || ""))),
+    mergedRows.map((r) => normalizeArtistName(String(r.label || "")))
   );
 
   const queue = loadEnrichQueue();
@@ -373,10 +430,7 @@ function markQueueItemsMerged(mergedRows: ArtistOptionRow[]) {
 
   queue.items = queue.items.map((item) => {
     const itemNorm = normalizeArtistName(item.name);
-    if (
-      (item.id && mergedIds.has(item.id)) ||
-      mergedNorms.has(itemNorm)
-    ) {
+    if ((item.id && mergedIds.has(item.id)) || mergedNorms.has(itemNorm)) {
       changed = true;
       return { ...item, status: "merged" };
     }
@@ -471,7 +525,7 @@ async function runFull(charset: string, maxPages: number, pageSize: number, limi
   console.log(`Done. Wrote ${merged.length} artists to ${ARTIST_OPTIONS_PATH}`);
 }
 
-async function processEnrichmentQueue(maxPages: number, pageSize: number) {
+async function processEnrichmentQueue() {
   const queue = loadEnrichQueue();
   const pending = queue.items.filter((x) => x.status !== "merged");
 
@@ -499,15 +553,14 @@ async function processEnrichmentQueue(maxPages: number, pageSize: number) {
         queue.items = queue.items.map((q) => {
           const isMatch =
             normalizeArtistName(q.name) &&
-            (norms.has(normalizeArtistName(q.name)) ||
-              (q.id ? ids.has(q.id) : false));
+            (norms.has(normalizeArtistName(q.name)) || (q.id ? ids.has(q.id) : false));
 
           if (!isMatch) return q;
           return { ...q, status: "merged", id: q.id || rows[0]?.id };
         });
       } else {
         queue.items = queue.items.map((q) =>
-          q === item ? { ...q, status: "failed" } : q,
+          q === item ? { ...q, status: "failed" } : q
         );
       }
     } catch (err) {
@@ -528,12 +581,12 @@ async function runRefresh(
   maxPages: number,
   pageSize: number,
   limitSeeds = 0,
-  processQueueOnly = false,
+  processQueueOnly = false
 ) {
   if (!processQueueOnly) {
-    await processEnrichmentQueue(maxPages, pageSize);
+    await processEnrichmentQueue();
   } else {
-    await processEnrichmentQueue(maxPages, pageSize);
+    await processEnrichmentQueue();
     return;
   }
 
@@ -580,7 +633,9 @@ async function runRefresh(
 
 async function runLookup(name: string) {
   if (!name.trim()) {
-    throw new Error(`Lookup mode requires a name, e.g. npm run build:artist-options -- lookup "Gord Bamford"`);
+    throw new Error(
+      `Lookup mode requires a name, e.g. npm run build:artist-options -- lookup "Gord Bamford"`
+    );
   }
 
   const rows = await lookupArtistRows(name);
@@ -608,8 +663,16 @@ async function runLookup(name: string) {
 }
 
 async function main() {
-  const { mode, lookup, limitSeeds, staleDays, maxPages, pageSize, charset, processQueueOnly } =
-    parseArgs(process.argv.slice(2));
+  const {
+    mode,
+    lookup,
+    limitSeeds,
+    staleDays,
+    maxPages,
+    pageSize,
+    charset,
+    processQueueOnly,
+  } = parseArgs(process.argv.slice(2));
 
   if (!API_KEY) {
     throw new Error("Missing TM_API_KEY or TICKETMASTER_API_KEY");

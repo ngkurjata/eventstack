@@ -4,7 +4,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AirportPicker, type Airport } from "../components/AirportPicker";
-import BrandLogo from "../components/BrandLogo";
 import { APP_NAME, TAGLINE } from "../../lib/brand";
 
 /* -------------------- Types -------------------- */
@@ -416,8 +415,11 @@ export default function BuildTripPage() {
   const dataFromParam = useMemo(() => unwrapBuildTripPayload(safeParseData(dataParam)), [dataParam]);
 
   // Canonical A-only params
-  const tripStyle = (sp.get("tripStyle") || "A").toUpperCase();
+    const tripStyle = (sp.get("tripStyle") || "A").toUpperCase();
   const destIata = (sp.get("destIata") || "").trim().toUpperCase();
+  const cityLabel = (sp.get("cityLabel") || "").trim();
+  const cityLat = Number(sp.get("lat") || "");
+  const cityLon = Number(sp.get("lon") || "");
   const start = (sp.get("start") || "").trim();
   const end = (sp.get("end") || "").trim();
   const radiusMiles = Number(sp.get("radiusMiles") || 120) || 120;
@@ -448,12 +450,17 @@ export default function BuildTripPage() {
       setBuiltLoading(false);
       return;
     }
-    if (!destIata || destIata.length !== 3) {
+
+    const hasDestIata = destIata.length === 3;
+    const hasCityAnchor = !!cityLabel || (Number.isFinite(cityLat) && Number.isFinite(cityLon));
+
+    if (!hasDestIata && !hasCityAnchor) {
       setBuilt(null);
-      setBuiltError("Missing destination (destIata). Go back and re-run your search.");
+      setBuiltError("Missing destination context. Go back and re-run your search.");
       setBuiltLoading(false);
       return;
     }
+
     if (!isYMD(start) || !isYMD(end)) {
       setBuilt(null);
       setBuiltError("Missing/invalid start/end. Go back and pick valid dates.");
@@ -480,15 +487,19 @@ export default function BuildTripPage() {
           method: "POST",
           headers: { "content-type": "application/json" },
           cache: "no-store",
-          body: JSON.stringify({
+                    body: JSON.stringify({
             tripStyle: "A",
             destIata,
+            cityLabel,
+            lat: Number.isFinite(cityLat) ? cityLat : null,
+            lon: Number.isFinite(cityLon) ? cityLon : null,
             start,
             end,
             radiusMiles,
             countryCode,
             eventIds: ids,
           }),
+
         });
 
         const json = (await res.json().catch(() => ({}))) as BuildTripApiResponse | BuildTripPayload;
@@ -512,7 +523,19 @@ export default function BuildTripPage() {
     return () => {
       cancelled = true;
     };
-  }, [dataFromParam, tripStyle, destIata, start, end, radiusMiles, countryCode]);
+  }, [
+    dataFromParam,
+    tripStyle,
+    destIata,
+    cityLabel,
+    cityLat,
+    cityLon,
+    start,
+    end,
+    radiusMiles,
+    countryCode,
+  ]);
+
 
   /* -------------------- Load datasets -------------------- */
 
@@ -630,10 +653,17 @@ export default function BuildTripPage() {
   }, [representativeCityLabel, representativeCity, displayCityState]);
 
   // Flights/Packages: prefer IATA for A-only.
-  const destinationForAir = useMemo(
-    () => (destIata.length === 3 ? destIata : destinationQuery),
-    [destIata, destinationQuery]
-  );
+  
+  const representativeAirportIata = useMemo(() => {
+    const iata = String((representativeAirport as any)?.iata || "").trim().toUpperCase();
+    return iata.length === 3 ? iata : "";
+  }, [representativeAirport]);
+
+  const destinationForAir = useMemo(() => {
+    if (destIata.length === 3) return destIata;
+    if (representativeAirportIata) return representativeAirportIata;
+    return destinationQuery;
+  }, [destIata, representativeAirportIata, destinationQuery]);
 
   const hasOrigin = Boolean(airportIata && airportIata.trim());
 
@@ -678,62 +708,65 @@ export default function BuildTripPage() {
 
   return (
     <main className="min-h-screen bg-slate-50">
-      <div className="border-b border-slate-200 bg-white/85 backdrop-blur">
-        <div className="mx-auto w-full max-w-md px-4 py-4 lg:max-w-3xl">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <BrandLogo />
-              <div className="min-w-0">
-                <div className="text-base font-black tracking-tight text-slate-900 truncate">Build trip</div>
-                <div className="text-xs text-slate-600 truncate">{TAGLINE}</div>
-              </div>
-            </div>
+      
 
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                disabled={shareDisabled}
-                onClick={onShare}
-                className={cx(
-                  "rounded-2xl px-3.5 py-2 text-[11px] font-extrabold transition",
-                  shareDisabled
-                    ? "bg-slate-200 text-slate-400 cursor-not-allowed"
-                    : "bg-slate-900 text-white hover:bg-slate-800"
-                )}
-                title="Share this trip"
-              >
-                {shareBusy ? "Sharing…" : "Share"}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  if (window.history.length > 1) router.back();
-                  else router.push(`/events?${sp.toString()}`);
-                }}
-                className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2 text-[11px] font-extrabold text-slate-800 hover:bg-slate-50"
-                title="Back to events"
-              >
-                Events
-              </button>
-
-              <button
-                type="button"
-                onClick={() => router.push("/")}
-                className="rounded-2xl bg-slate-900 px-3.5 py-2 text-[11px] font-extrabold text-white hover:bg-slate-800"
-                title="Search again"
-              >
-                Search
-              </button>
-            </div>
-          </div>
-
-          {!!shareNote && <div className="mt-2 text-right text-xs font-semibold text-slate-600">{shareNote}</div>}
+<div className="mx-auto w-full max-w-md px-4 py-6 lg:max-w-3xl lg:py-10">
+  <div className="mb-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="min-w-0">
+        <div className="text-sm font-black tracking-tight text-slate-900 sm:text-base">
+          Build Trip
+        </div>
+        <div className="mt-0.5 text-xs text-slate-600">
+          {TAGLINE}
         </div>
       </div>
 
-      <div className="mx-auto w-full max-w-md px-4 py-6 lg:max-w-3xl lg:py-10">
-        {builtLoading ? (
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          disabled={shareDisabled}
+          onClick={onShare}
+          className={cx(
+            "rounded-2xl px-3.5 py-2 text-[11px] font-extrabold transition",
+            shareDisabled
+              ? "bg-slate-200 text-slate-400 cursor-not-allowed"
+              : "bg-slate-900 text-white hover:bg-slate-800"
+          )}
+          title="Share this trip"
+        >
+          {shareBusy ? "Sharing…" : "Share"}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            if (window.history.length > 1) router.back();
+            else router.push(`/events?${sp.toString()}`);
+          }}
+          className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2 text-[11px] font-extrabold text-slate-800 hover:bg-slate-50"
+          title="Back to events"
+        >
+          Events
+        </button>
+
+        <button
+          type="button"
+          onClick={() => router.push("/")}
+          className="rounded-2xl bg-slate-900 px-3.5 py-2 text-[11px] font-extrabold text-white hover:bg-slate-800"
+          title="Search again"
+        >
+          Search
+        </button>
+      </div>
+    </div>
+
+    {!!shareNote && (
+      <div className="mt-3 text-xs font-semibold text-slate-600">
+        {shareNote}
+      </div>
+    )}
+  </div>        {builtLoading ? (
           <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex items-center gap-3">
               <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700" />

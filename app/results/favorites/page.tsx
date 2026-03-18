@@ -2,15 +2,9 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import BrandLogo from "@/app/components/BrandLogo";
-import { allGenreLabels, includesGenre, normalizeGenres } from "@/lib/events/genres";
+import { allVisibleGenreLabels } from "@/lib/events/genres";
 import { csvToList, listToCsv } from "@/lib/url";
-import {
-  RowEvent,
-  coerceTripContextResponse,
-  fmtYMDPretty,
-  isYMD,
-} from "@/lib/trips/sharePayload";
+import { fmtYMDPretty, isYMD } from "@/lib/trips/sharePayload";
 
 type Favorite = {
   id: string;
@@ -51,8 +45,6 @@ type ApiResp = {
 type ContextState = {
   loading: boolean;
   error: string;
-  anchor?: RowEvent | null;
-  events: RowEvent[];
   presentFavorites: string[];
   presentGenres: string[];
   requirementsMet: boolean;
@@ -79,10 +71,26 @@ type GenreOption = {
   label: string;
 };
 
+type CombinedOption =
+  | {
+      key: string;
+      label: string;
+      optionType: "favorite";
+      favorite: FavoriteOption;
+    }
+  | {
+      key: string;
+      label: string;
+      optionType: "genre";
+      genre: string;
+    };
+
 const MAX_PRELOAD_CONCURRENCY = 4;
 const PRELOAD_ROOT_MARGIN = "120px 0px";
-const MAX_GENRES = 2;
 const AREA_RADIUS_MILES = 90;
+const ANCHOR_DAY_WINDOW = 2;
+
+const SS_FAVORITES_STATE = "eventstack_favorites_state_v1";
 
 function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
@@ -99,21 +107,6 @@ function normalizeToken(value: string | null | undefined) {
   return String(value || "").trim().toLowerCase();
 }
 
-function uniqueStrings(values: Array<string | null | undefined>) {
-  const seen = new Set<string>();
-  const out: string[] = [];
-
-  for (const value of values) {
-    const raw = String(value || "").trim();
-    const key = raw.toLowerCase();
-    if (!raw || seen.has(key)) continue;
-    seen.add(key);
-    out.push(raw);
-  }
-
-  return out;
-}
-
 function makeFavorite(
   id: string,
   label: string,
@@ -123,170 +116,52 @@ function makeFavorite(
   return { id, label, attractionId, defaultGenre };
 }
 
-function anchorToRowEvent(a: AnchorCard): RowEvent {
-  return {
-    date: a.localDate || null,
-    name: a.name || "Anchor event",
-    location: [a.city, a.region].filter(Boolean).join(", "),
-    genre: (a.matched?.defaultGenres || [])[0] || null,
-    url: a.url || null,
-    lat: typeof a.lat === "number" ? a.lat : null,
-    lon: typeof a.lon === "number" ? a.lon : null,
-    localTime: a.localTime || null,
-  };
+function addDaysLocalYMD(ymd: string, days: number) {
+  if (!isYMD(ymd)) return "";
+  const [yy, mm, dd] = ymd.split("-").map(Number);
+  const dt = new Date(yy, mm - 1, dd);
+  dt.setDate(dt.getDate() + days);
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth() + 1).padStart(2, "0");
+  const d = String(dt.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
-function ensureAnchorIncluded(anchor: RowEvent | null | undefined, events: RowEvent[]) {
-  const out = Array.isArray(events) ? [...events] : [];
-  if (!anchor) return out;
-
-  const exists = out.some((e) => {
-    return (
-      String(e?.name || "").trim().toLowerCase() === String(anchor?.name || "").trim().toLowerCase() &&
-      String(e?.date || "").trim() === String(anchor?.date || "").trim() &&
-      String(e?.location || "").trim().toLowerCase() ===
-        String(anchor?.location || "").trim().toLowerCase()
-    );
-  });
-
-  if (!exists) out.unshift(anchor);
-  return out;
+function ymdFromLocalDate(dt: Date) {
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth() + 1).padStart(2, "0");
+  const d = String(dt.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
-function isRenderableRowEvent(e: RowEvent) {
-  const name = String(e?.name || "").trim();
-  const loc = String(e?.location || "").trim();
-
-  if (!name) return false;
-  if (name.toLowerCase().includes("untitled")) return false;
-  if (!loc) return false;
-  if (loc.toLowerCase().includes("location tbd")) return false;
-
-  return true;
+function todayYMD() {
+  return ymdFromLocalDate(new Date());
 }
 
-function splitLocation(location: string | null | undefined) {
-  const raw = String(location || "").trim();
-  if (!raw) return { city: "", region: "" };
-
-  const parts = raw
-    .split(",")
-    .map((p) => p.trim())
-    .filter(Boolean);
-
-  return {
-    city: parts[0] || "",
-    region: parts[1] || "",
-  };
-}
-
-function getTripEvents(card: AnchorCard, ctx?: ContextState) {
-  const anchor = ctx?.anchor || anchorToRowEvent(card);
-  return ensureAnchorIncluded(anchor, ctx?.events || []).filter(isRenderableRowEvent);
-}
-
-function getTripLocationLabel(card: AnchorCard, ctx?: ContextState) {
-  const events = getTripEvents(card, ctx);
-
-  if (!events.length) {
-    return [card.city, card.region].filter(Boolean).join(", ");
+function fmtDateChip(ymd: string) {
+  if (!isYMD(ymd)) return "";
+  try {
+    const [y, m, d] = ymd.split("-").map(Number);
+    const dt = new Date(y, m - 1, d);
+    return dt.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  } catch {
+    return ymd;
   }
-
-  const counts = new Map<string, { label: string; count: number }>();
-
-  for (const e of events) {
-    const parts = splitLocation(e.location);
-    const label = [parts.city, parts.region].filter(Boolean).join(", ");
-    if (!label) continue;
-
-    const key = normalizeToken(label);
-    const existing = counts.get(key);
-    if (existing) {
-      existing.count += 1;
-    } else {
-      counts.set(key, { label, count: 1 });
-    }
-  }
-
-  const ranked = [...counts.values()].sort(
-    (a, b) => b.count - a.count || a.label.localeCompare(b.label)
-  );
-
-  return ranked[0]?.label || [card.city, card.region].filter(Boolean).join(", ");
 }
 
-function getTripDateRange(card: AnchorCard, ctx?: ContextState) {
-  const events = getTripEvents(card, ctx);
-  const validDates = uniqueStrings(
-    events
-      .map((e) => (isYMD(String(e.date || "")) ? String(e.date) : ""))
-      .filter(Boolean)
-  ).sort();
-
-  if (!validDates.length) {
-    return card.localDate ? fmtYMDPretty(card.localDate) : "Date TBD";
-  }
-
-  const first = validDates[0];
-  const last = validDates[validDates.length - 1];
-
-  if (first === last) return fmtYMDPretty(first);
-  return `${fmtYMDPretty(first)} → ${fmtYMDPretty(last)}`;
-}
-
-function getTripWindow(card: AnchorCard, ctx?: ContextState) {
-  const events = getTripEvents(card, ctx);
-  const validDates = uniqueStrings(
-    events
-      .map((e) => (isYMD(String(e.date || "")) ? String(e.date) : ""))
-      .filter(Boolean)
-  ).sort();
-
-  if (!validDates.length) {
-    const fallback = card.localDate && isYMD(card.localDate) ? card.localDate : "";
-    return {
-      start: fallback,
-      end: fallback,
-    };
-  }
-
-  return {
-    start: validDates[0],
-    end: validDates[validDates.length - 1],
-  };
-}
-
-function getCtxGenrePool(ctx?: ContextState) {
-  return normalizeGenres([
-    ...(ctx?.presentGenres || []),
-    ...((ctx?.events || []).flatMap((e) => [e?.genre])),
-  ]);
-}
-
-function getTripIncludesText({
-  ctx,
-  selectedGenres,
-}: {
-  card: AnchorCard;
-  ctx?: ContextState;
-  f2: Favorite | null;
-  selectedGenres: string[];
-}) {
-  const parts: string[] = [];
-  const genrePool = getCtxGenrePool(ctx);
-
-  for (const genre of selectedGenres) {
-    if (includesGenre(genrePool, genre)) {
-      parts.push(genre.toUpperCase());
-    }
-  }
-
-  if (!parts.length) return "";
-  return `Trip includes ${parts.join(" - ")}`;
-}
-
-function makeContextKey(cardId: string, favorite2AttractionId: string | null | undefined) {
-  return `${cardId}__${normalizeToken(favorite2AttractionId)}`;
+function makeContextKey(
+  cardId: string,
+  favorite2AttractionId: string | null | undefined,
+  selectedGenres: string[]
+) {
+  return `${cardId}__${normalizeToken(favorite2AttractionId)}__${selectedGenres
+    .map(normalizeToken)
+    .sort()
+    .join("|")}`;
 }
 
 function hasLoadedContext(ctx?: ContextState) {
@@ -309,6 +184,123 @@ function allCardsChecked(
   });
 }
 
+function favoritesStateKey(input: {
+  countryCode: string;
+  start: string;
+  end: string;
+  f1AttractionId: string;
+  f2AttractionId: string;
+  genres: string[];
+}) {
+  return [
+    String(input.countryCode || "").trim(),
+    String(input.start || "").trim(),
+    String(input.end || "").trim(),
+    String(input.f1AttractionId || "").trim(),
+    String(input.f2AttractionId || "").trim(),
+    [...input.genres].map((g) => normalizeToken(g)).sort().join(","),
+  ].join("|");
+}
+
+function readFavoritesStateMap(): Record<string, any> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = sessionStorage.getItem(SS_FAVORITES_STATE);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return {};
+    return parsed;
+  } catch {
+    return {};
+  }
+}
+
+function writeFavoritesStateMap(map: Record<string, any>) {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(SS_FAVORITES_STATE, JSON.stringify(map));
+  } catch {}
+}
+
+function readFavoritesState(key: string) {
+  const map = readFavoritesStateMap();
+  return map[key] || null;
+}
+
+function writeFavoritesState(key: string, value: any) {
+  const map = readFavoritesStateMap();
+  map[key] = value;
+  writeFavoritesStateMap(map);
+}
+
+function fmtTimeDisplay(localTime: string | null | undefined) {
+  const raw = String(localTime || "").trim();
+  if (!raw) return "Time TBD";
+
+  const m = raw.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (!m) return raw;
+
+  const hh = Number(m[1]);
+  const mm = m[2];
+  if (!Number.isFinite(hh)) return raw;
+
+  const suffix = hh >= 12 ? "PM" : "AM";
+  const h12 = hh % 12 || 12;
+  return `${h12}:${mm} ${suffix}`;
+}
+
+function DatePickerButton(props: {
+  value: string;
+  onChange: (next: string) => void;
+  min?: string;
+  placeholder: string;
+}) {
+  const { value, onChange, min, placeholder } = props;
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  function openPicker() {
+    const el = inputRef.current;
+    if (!el) return;
+
+    const anyEl = el as HTMLInputElement & { showPicker?: () => void };
+    if (typeof anyEl.showPicker === "function") {
+      anyEl.showPicker();
+      return;
+    }
+
+    el.click();
+  }
+
+  return (
+    <span className="relative inline-flex align-middle">
+      <input
+        ref={inputRef}
+        type="date"
+        value={value}
+        min={min}
+        onChange={(e) => onChange(e.target.value)}
+        className="pointer-events-none absolute inset-0 h-full w-full opacity-0"
+        tabIndex={-1}
+        aria-hidden="true"
+      />
+
+      <button
+        type="button"
+        onClick={openPicker}
+        className={cx(
+          "inline-flex h-11 min-w-[154px] items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none",
+          "hover:border-slate-300"
+        )}
+      >
+        <span>{value ? fmtDateChip(value) : placeholder}</span>
+        <span aria-hidden="true" className="text-base">
+          📅
+        </span>
+      </button>
+    </span>
+  );
+}
+
 function ComboBox<T extends { label: string }>(props: {
   label: string;
   value: string;
@@ -317,19 +309,24 @@ function ComboBox<T extends { label: string }>(props: {
   onChange: (next: string) => void;
   onPick: (opt: T) => void;
   disabled?: boolean;
-  rightHint?: string;
+  renderOption?: (opt: T, active: boolean) => React.ReactNode;
 }) {
-  const { label, value, placeholder, options, onChange, onPick, disabled, rightHint } = props;
+  const { label, value, placeholder, options, onChange, onPick, disabled, renderOption } = props;
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const wrapRef = useRef<HTMLDivElement | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
 
   const filtered = useMemo(() => {
     const q = norm(value);
     const base = options || [];
-    if (!q) return base.slice(0, 12);
-    const hits = base.filter((o) => norm(o.label).includes(q));
-    return hits.slice(0, 12);
+
+    if (!q) return base.slice(0, 20);
+
+    const starts = base.filter((o) => norm(o.label).startsWith(q));
+    const contains = base.filter((o) => !norm(o.label).startsWith(q) && norm(o.label).includes(q));
+
+    return [...starts, ...contains].slice(0, 20);
   }, [options, value]);
 
   useEffect(() => {
@@ -345,12 +342,17 @@ function ComboBox<T extends { label: string }>(props: {
     setActive(0);
   }, [value]);
 
+  useEffect(() => {
+    if (!open || !listRef.current) return;
+    const activeEl = listRef.current.querySelector<HTMLElement>(`[data-option-idx="${active}"]`);
+    activeEl?.scrollIntoView({ block: "nearest" });
+  }, [active, open]);
+
+  const showList = open && !disabled && value.trim().length > 0;
+
   return (
-    <div ref={wrapRef} className="relative">
-      <div className="flex items-end justify-between">
-        <div className="text-xs font-semibold text-slate-700">{label}</div>
-        {rightHint ? <div className="text-[11px] text-slate-500">{rightHint}</div> : null}
-      </div>
+    <div ref={wrapRef} className="relative inline-block min-w-[240px] max-w-full overflow-visible align-middle sm:min-w-[280px]">
+      <div className="sr-only">{label}</div>
 
       <input
         value={value}
@@ -359,9 +361,17 @@ function ComboBox<T extends { label: string }>(props: {
           onChange(e.target.value);
           setOpen(true);
         }}
-        onFocus={() => setOpen(true)}
+        onFocus={() => {
+          if (!disabled) setOpen(true);
+        }}
         onKeyDown={(e) => {
-          if (!open && (e.key === "ArrowDown" || e.key === "Enter")) setOpen(true);
+          if (disabled) return;
+
+          if (!open && (e.key === "ArrowDown" || e.key === "Enter")) {
+            setOpen(true);
+            return;
+          }
+
           if (!open) return;
 
           if (e.key === "ArrowDown") {
@@ -383,71 +393,56 @@ function ComboBox<T extends { label: string }>(props: {
         }}
         placeholder={placeholder}
         className={cx(
-          "mt-1 h-11 w-full rounded-2xl border bg-white px-4 text-sm font-semibold text-slate-900 outline-none",
+          "h-11 w-full rounded-2xl border bg-white px-4 text-sm font-semibold text-slate-900 outline-none",
           "border-slate-200 focus:border-slate-400",
-          disabled && "cursor-not-allowed bg-slate-100 text-slate-500"
+          disabled && "cursor-default bg-white text-slate-900"
         )}
       />
 
-      {open && filtered.length > 0 && !disabled && (
-        <div className="absolute z-30 mt-2 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
-          {filtered.map((opt, idx) => (
-            <button
-              type="button"
-              key={(opt as any).key || opt.label}
-              onMouseEnter={() => setActive(idx)}
-              onClick={() => {
-                onPick(opt);
-                setOpen(false);
-              }}
-              className={cx(
-                "w-full px-4 py-2 text-left text-sm",
-                idx === active ? "bg-slate-900 text-white" : "bg-white text-slate-900 hover:bg-slate-50"
-              )}
-            >
-              {opt.label}
-            </button>
-          ))}
+      {showList && (
+        <div className="absolute left-0 top-full z-50 mt-2 w-full min-w-[320px] max-w-[min(92vw,38rem)] rounded-2xl border border-slate-200 bg-white shadow-lg ring-1 ring-black/5">
+          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2">
+            <div className="text-[11px] font-semibold text-slate-500">
+              {filtered.length > 0
+                ? `${filtered.length} match${filtered.length === 1 ? "" : "es"}`
+                : "No matches"}
+            </div>
+            {filtered.length > 0 ? (
+              <div className="text-[11px] text-slate-400">Use ↑ ↓ and Enter</div>
+            ) : null}
+          </div>
+
+          {filtered.length > 0 ? (
+            <div ref={listRef} className="max-h-96 overflow-y-auto overscroll-contain py-1">
+              {filtered.map((opt, idx) => {
+                const isActive = idx === active;
+                return (
+                  <button
+                    type="button"
+                    key={(opt as any).key || opt.label}
+                    data-option-idx={idx}
+                    onMouseEnter={() => setActive(idx)}
+                    onClick={() => {
+                      onPick(opt);
+                      setOpen(false);
+                    }}
+                    className={cx(
+                      "w-full border-b border-slate-100 px-4 py-3 text-left text-sm last:border-b-0",
+                      isActive ? "bg-slate-900 text-white" : "bg-white text-slate-900 hover:bg-slate-50"
+                    )}
+                  >
+                    {renderOption ? renderOption(opt, isActive) : opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="px-4 py-3 text-sm text-slate-500">
+              Keep typing to narrow it down.
+            </div>
+          )}
         </div>
       )}
-    </div>
-  );
-}
-
-function SelectionChip({
-  text,
-  onRemove,
-  disabled,
-  title,
-}: {
-  text: string;
-  onRemove: () => void;
-  disabled?: boolean;
-  title?: string;
-}) {
-  return (
-    <div
-      className={cx(
-        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-extrabold sm:text-xs",
-        disabled
-          ? "border-slate-200 bg-slate-100 text-slate-400"
-          : "border-slate-300 bg-slate-100 text-slate-800"
-      )}
-      title={title}
-    >
-      <span>{text}</span>
-      <button
-        type="button"
-        onClick={onRemove}
-        disabled={disabled}
-        className={cx(
-          "rounded-full px-1 leading-none",
-          disabled ? "cursor-not-allowed text-slate-400" : "text-slate-700 hover:bg-slate-200"
-        )}
-        aria-label={`Remove ${text}`}
-      >
-        ×
-      </button>
     </div>
   );
 }
@@ -496,8 +491,8 @@ export default function FavoritesResultsPage() {
   const router = useRouter();
 
   const countryCode = sp.get("countryCode") || "US,CA";
-  const start = sp.get("start");
-  const end = sp.get("end");
+  const appliedStartParam = sp.get("start") || "";
+  const appliedEndParam = sp.get("end") || "";
 
   const f1Label = sp.get("f1Label") || "";
   const f1AttractionId = sp.get("f1AttractionId") || "";
@@ -508,14 +503,14 @@ export default function FavoritesResultsPage() {
     const attractionId = sp.get("f2AttractionId") || "";
     const defaultGenre = sp.get("f2DefaultGenre") || "";
     if (!label || !attractionId) return null;
-    return makeFavorite("F2", label, attractionId, defaultGenre || "Other");
+    return makeFavorite("F2", label, attractionId, defaultGenre || "");
   }, [sp]);
 
   const initialGenres = useMemo(() => {
     return csvToList(sp.get("genres") || "")
       .map((g) => String(g).trim())
       .filter(Boolean)
-      .slice(0, MAX_GENRES);
+      .slice(0, 1);
   }, [sp]);
 
   const f1 = useMemo(() => {
@@ -525,8 +520,23 @@ export default function FavoritesResultsPage() {
   const [selectedF2, setSelectedF2] = useState<Favorite | null>(initialF2);
   const [selectedGenres, setSelectedGenres] = useState<string[]>(initialGenres);
 
-  const [f2Input, setF2Input] = useState("");
-  const [genreInput, setGenreInput] = useState("");
+  const [startDateInput, setStartDateInput] = useState<string>(() => {
+    return isYMD(appliedStartParam) ? appliedStartParam : "";
+  });
+
+  const [endDateInput, setEndDateInput] = useState<string>(() => {
+    return isYMD(appliedEndParam) ? appliedEndParam : "";
+  });
+
+  const [appliedStartDate, setAppliedStartDate] = useState<string>(() => {
+    return isYMD(appliedStartParam) ? appliedStartParam : "";
+  });
+
+  const [appliedEndDate, setAppliedEndDate] = useState<string>(() => {
+    return isYMD(appliedEndParam) ? appliedEndParam : "";
+  });
+
+  const [comboInput, setComboInput] = useState("");
 
   const [favoriteOptions, setFavoriteOptions] = useState<FavoriteOption[]>([]);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
@@ -535,6 +545,7 @@ export default function FavoritesResultsPage() {
   const [loading, setLoading] = useState(true);
   const [resp, setResp] = useState<ApiResp | null>(null);
   const [err, setErr] = useState<string | null>(null);
+
   const [ctxCache, setCtxCache] = useState<Record<string, ContextState>>({});
   const [resolvedCards, setResolvedCards] = useState<AnchorCard[]>([]);
 
@@ -545,7 +556,7 @@ export default function FavoritesResultsPage() {
   const activeCountRef = useRef(0);
   const cardsRef = useRef<AnchorCard[]>([]);
   const lastUrlRef = useRef("");
-  const genreLabels = useMemo(() => allGenreLabels(), []);
+  const genreLabels = useMemo(() => allVisibleGenreLabels(), []);
 
   useEffect(() => {
     ctxCacheRef.current = ctxCache;
@@ -573,9 +584,20 @@ export default function FavoritesResultsPage() {
   }, [initialF2, initialGenres]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    const q = f2Input.trim();
+    const nextAppliedStart = isYMD(appliedStartParam) ? appliedStartParam : "";
+    const nextAppliedEnd = isYMD(appliedEndParam) ? appliedEndParam : "";
 
-    if (!q) {
+    setAppliedStartDate((prev) => (prev === nextAppliedStart ? prev : nextAppliedStart));
+    setAppliedEndDate((prev) => (prev === nextAppliedEnd ? prev : nextAppliedEnd));
+
+    setStartDateInput((prev) => (prev === nextAppliedStart ? prev : nextAppliedStart));
+    setEndDateInput((prev) => (prev === nextAppliedEnd ? prev : nextAppliedEnd));
+  }, [appliedStartParam, appliedEndParam]);
+
+  useEffect(() => {
+    const q = comboInput.trim();
+
+    if (!q || selectedF2 || selectedGenres.length > 0) {
       setFavoriteOptions([]);
       setFavoriteLoading(false);
       setFavoriteError("");
@@ -620,13 +642,36 @@ export default function FavoritesResultsPage() {
       controller.abort();
       window.clearTimeout(t);
     };
-  }, [f2Input, f1.label]);
+  }, [comboInput, f1.label, selectedF2, selectedGenres]);
 
   const availableGenreOptions = useMemo<GenreOption[]>(() => {
-    return genreLabels
-      .filter((g) => !selectedGenres.some((picked) => normalizeToken(picked) === normalizeToken(g)))
-      .map((label) => ({ label }));
-  }, [genreLabels, selectedGenres]);
+    if (selectedF2 || selectedGenres.length > 0) return [];
+    return genreLabels.map((label) => ({ label }));
+  }, [genreLabels, selectedF2, selectedGenres]);
+
+  const combinedOptions = useMemo<CombinedOption[]>(() => {
+    const canAddFilter = !selectedF2 && selectedGenres.length === 0;
+
+    const favoriteItems: CombinedOption[] = canAddFilter
+      ? favoriteOptions.map((opt) => ({
+          key: `favorite-${String(opt.attractionId || opt.key || opt.label)}`,
+          label: opt.label,
+          optionType: "favorite",
+          favorite: opt,
+        }))
+      : [];
+
+    const genreItems: CombinedOption[] = canAddFilter
+      ? availableGenreOptions.map((opt) => ({
+          key: `genre-${opt.label}`,
+          label: opt.label,
+          optionType: "genre",
+          genre: opt.label,
+        }))
+      : [];
+
+    return [...favoriteItems, ...genreItems];
+  }, [favoriteOptions, availableGenreOptions, selectedF2, selectedGenres]);
 
   const favoritesPayload = useMemo(() => {
     return [f1, ...(selectedF2 ? [selectedF2] : [])];
@@ -636,11 +681,11 @@ export default function FavoritesResultsPage() {
     return {
       favorite1: f1,
       favorite2: selectedF2,
-      startDate: start || null,
-      endDate: end || null,
+      startDate: isYMD(appliedStartDate) ? appliedStartDate : null,
+      endDate: isYMD(appliedEndDate) ? appliedEndDate : null,
       countryCode,
     };
-  }, [f1, selectedF2, start, end, countryCode]);
+  }, [f1, selectedF2, appliedStartDate, appliedEndDate, countryCode]);
 
   const filterSignature = useMemo(() => {
     return [
@@ -649,10 +694,21 @@ export default function FavoritesResultsPage() {
     ].join("|");
   }, [selectedF2, selectedGenres]);
 
-  const needsContextCheck = Boolean(selectedGenres.length > 0);
+  const needsContextCheck = Boolean(selectedF2 || selectedGenres.length > 0);
+
+  const pageStateKey = useMemo(() => {
+    return favoritesStateKey({
+      countryCode,
+      start: appliedStartDate,
+      end: appliedEndDate,
+      f1AttractionId: f1.attractionId,
+      f2AttractionId: selectedF2?.attractionId || "",
+      genres: selectedGenres,
+    });
+  }, [countryCode, appliedStartDate, appliedEndDate, f1.attractionId, selectedF2, selectedGenres]);
 
   const updateUrl = useCallback(
-    (nextF2: Favorite | null, nextGenres: string[]) => {
+    (nextF2: Favorite | null, nextGenres: string[], nextStartDate: string, nextEndDate: string) => {
       const params = new URLSearchParams();
 
       params.set("countryCode", countryCode);
@@ -660,8 +716,8 @@ export default function FavoritesResultsPage() {
       params.set("f1AttractionId", f1.attractionId);
       params.set("f1DefaultGenre", f1.defaultGenre);
 
-      if (start) params.set("start", start);
-      if (end) params.set("end", end);
+      if (isYMD(nextStartDate)) params.set("start", nextStartDate);
+      if (isYMD(nextEndDate)) params.set("end", nextEndDate);
 
       if (nextF2?.label && nextF2?.attractionId) {
         params.set("f2Label", nextF2.label);
@@ -678,18 +734,68 @@ export default function FavoritesResultsPage() {
       lastUrlRef.current = nextUrl;
       router.replace(nextUrl, { scroll: false });
     },
-    [countryCode, end, f1, router, start]
+    [countryCode, f1, router]
   );
 
   useEffect(() => {
-    updateUrl(selectedF2, selectedGenres);
-  }, [selectedF2, selectedGenres, updateUrl]);
+    const cached = readFavoritesState(pageStateKey);
+    if (!cached) return;
+
+    if (cached.resp) setResp(cached.resp);
+    if (cached.ctxCache) setCtxCache(cached.ctxCache);
+    if (cached.resolvedCards) setResolvedCards(cached.resolvedCards);
+    setErr(null);
+    setLoading(false);
+  }, [pageStateKey]);
+
+  useEffect(() => {
+    if (!resp) return;
+
+    writeFavoritesState(pageStateKey, {
+      resp,
+      ctxCache,
+      resolvedCards,
+      savedAt: Date.now(),
+    });
+  }, [pageStateKey, resp, ctxCache, resolvedCards]);
 
   useEffect(() => {
     if (!f1AttractionId) {
       searchAbortRef.current?.abort();
       setResp(null);
       setErr("Favorite 1 is required.");
+      setLoading(false);
+      return;
+    }
+
+    if (appliedStartDate && !isYMD(appliedStartDate)) {
+      searchAbortRef.current?.abort();
+      setResp(null);
+      setErr("Start date must be blank or a valid date.");
+      setLoading(false);
+      return;
+    }
+
+    if (appliedEndDate && !isYMD(appliedEndDate)) {
+      searchAbortRef.current?.abort();
+      setResp(null);
+      setErr("End date must be blank or a valid date.");
+      setLoading(false);
+      return;
+    }
+
+    if (appliedStartDate && appliedStartDate < todayYMD()) {
+      searchAbortRef.current?.abort();
+      setResp(null);
+      setErr("Start date cannot be earlier than today.");
+      setLoading(false);
+      return;
+    }
+
+    if (appliedStartDate && appliedEndDate && appliedEndDate < appliedStartDate) {
+      searchAbortRef.current?.abort();
+      setResp(null);
+      setErr("End date cannot be earlier than start date.");
       setLoading(false);
       return;
     }
@@ -701,10 +807,16 @@ export default function FavoritesResultsPage() {
     let cancelled = false;
 
     async function run() {
+      const cached = readFavoritesState(pageStateKey);
+
       setLoading(true);
       setErr(null);
-      setCtxCache({});
-      setResolvedCards([]);
+
+      if (!cached) {
+        setCtxCache({});
+        setResolvedCards([]);
+      }
+
       contextInflightRef.current = {};
       queueRef.current = [];
       activeCountRef.current = 0;
@@ -744,25 +856,19 @@ export default function FavoritesResultsPage() {
       cancelled = true;
       controller.abort();
     };
-  }, [f1AttractionId, searchRequestBody]);
+  }, [f1AttractionId, appliedStartDate, appliedEndDate, searchRequestBody, pageStateKey]);
 
-  const cards = resp?.anchorCards || [];
+  const cards = useMemo(() => resp?.anchorCards ?? [], [resp?.anchorCards]);
 
   useEffect(() => {
     cardsRef.current = cards;
   }, [cards]);
 
-  useEffect(() => {
-    if (!needsContextCheck) {
-      setResolvedCards(cards);
-    }
-  }, [cards, needsContextCheck]);
-
   const getCurrentCtx = useCallback(
     (cardId: string) => {
-      return ctxCache[makeContextKey(cardId, selectedF2?.attractionId)];
+      return ctxCache[makeContextKey(cardId, selectedF2?.attractionId, selectedGenres)];
     },
-    [ctxCache, selectedF2]
+    [ctxCache, selectedF2, selectedGenres]
   );
 
   const fetchContext = useCallback(
@@ -788,11 +894,9 @@ export default function FavoritesResultsPage() {
             ...prev,
             [contextKey]: {
               loading: false,
-              error: "This anchor is missing valid localDate/lat/lon; cannot load nearby events.",
-              events: prev[contextKey]?.events || [],
-              anchor: prev[contextKey]?.anchor || anchorToRowEvent(card),
-              presentFavorites: prev[contextKey]?.presentFavorites || [],
-              presentGenres: prev[contextKey]?.presentGenres || [],
+              error: "This anchor is missing valid localDate/lat/lon.",
+              presentFavorites: [],
+              presentGenres: [],
               requirementsMet: false,
             },
           }));
@@ -804,8 +908,6 @@ export default function FavoritesResultsPage() {
           [contextKey]: {
             loading: true,
             error: "",
-            anchor: prev[contextKey]?.anchor ?? null,
-            events: prev[contextKey]?.events ?? [],
             presentFavorites: prev[contextKey]?.presentFavorites ?? [],
             presentGenres: prev[contextKey]?.presentGenres ?? [],
             requirementsMet: prev[contextKey]?.requirementsMet ?? false,
@@ -821,8 +923,10 @@ export default function FavoritesResultsPage() {
             lat: card.lat,
             lon: card.lon,
             favorites: favoritesPayload,
-            genres: [],
+            genres: selectedGenres,
             countryCode,
+            radiusMiles: AREA_RADIUS_MILES,
+            dayWindow: ANCHOR_DAY_WINDOW,
           };
 
           const r = await fetch("/api/trip/context", {
@@ -835,17 +939,11 @@ export default function FavoritesResultsPage() {
           const json = await r.json().catch(() => ({}));
           if (!r.ok) throw new Error((json as any)?.error || `Context failed (${r.status})`);
 
-          const { anchor, events } = coerceTripContextResponse(json);
-          const resolvedAnchor = anchor || anchorToRowEvent(card);
-          const withAnchor = ensureAnchorIncluded(resolvedAnchor, events);
-
           setCtxCache((prev) => ({
             ...prev,
             [contextKey]: {
               loading: false,
               error: "",
-              anchor: resolvedAnchor,
-              events: withAnchor,
               presentFavorites: Array.isArray((json as any)?.present?.favorites)
                 ? (json as any).present.favorites
                 : [],
@@ -860,9 +958,7 @@ export default function FavoritesResultsPage() {
             ...prev,
             [contextKey]: {
               loading: false,
-              error: e?.message || "Failed to load nearby events",
-              anchor: prev[contextKey]?.anchor ?? anchorToRowEvent(card),
-              events: prev[contextKey]?.events ?? [],
+              error: e?.message || "Failed to validate anchor",
               presentFavorites: prev[contextKey]?.presentFavorites ?? [],
               presentGenres: prev[contextKey]?.presentGenres ?? [],
               requirementsMet: false,
@@ -879,7 +975,7 @@ export default function FavoritesResultsPage() {
         delete contextInflightRef.current[contextKey];
       }
     },
-    [countryCode, favoritesPayload]
+    [countryCode, favoritesPayload, selectedGenres]
   );
 
   const pumpQueue = useCallback(() => {
@@ -907,7 +1003,7 @@ export default function FavoritesResultsPage() {
       const card = cardsRef.current.find((c) => c.id === cardId);
       if (!card) return;
 
-      const contextKey = makeContextKey(card.id, selectedF2?.attractionId);
+      const contextKey = makeContextKey(card.id, selectedF2?.attractionId, selectedGenres);
       const existing = ctxCacheRef.current[contextKey];
       if (existing?.loading || hasLoadedContext(existing)) return;
 
@@ -918,29 +1014,64 @@ export default function FavoritesResultsPage() {
       queueRef.current.push({ card, contextKey });
       pumpQueue();
     },
-    [pumpQueue, selectedF2]
+    [pumpQueue, selectedF2, selectedGenres]
   );
 
   useEffect(() => {
     if (!cards.length) return;
-    if (!selectedGenres.length) return;
+    if (!needsContextCheck) return;
 
     cards.forEach((card) => {
       enqueueCardContext(card.id);
     });
-  }, [cards, enqueueCardContext, filterSignature, selectedGenres.length]);
+  }, [cards, enqueueCardContext, filterSignature, needsContextCheck]);
+
+  const applyDateFilters = useCallback(
+    (nextStartDate: string, nextEndDate: string) => {
+      const today = todayYMD();
+
+      if (nextStartDate && !isYMD(nextStartDate)) {
+        setErr("Start date must be blank or a valid date.");
+        return;
+      }
+
+      if (nextEndDate && !isYMD(nextEndDate)) {
+        setErr("End date must be blank or a valid date.");
+        return;
+      }
+
+      if (nextStartDate && nextStartDate < today) {
+        setErr("Start date cannot be earlier than today.");
+        return;
+      }
+
+      if (nextStartDate && nextEndDate && nextEndDate < nextStartDate) {
+        setErr("End date cannot be earlier than start date.");
+        return;
+      }
+
+      setErr(null);
+      setStartDateInput(nextStartDate);
+      setEndDateInput(nextEndDate);
+      setAppliedStartDate(nextStartDate);
+      setAppliedEndDate(nextEndDate);
+      updateUrl(selectedF2, selectedGenres, nextStartDate, nextEndDate);
+    },
+    [selectedF2, selectedGenres, updateUrl]
+  );
 
   function openAreaResultsForCard(card: AnchorCard) {
-    const ctx = getCurrentCtx(card.id);
-
     const cityLabel = [card.city, card.region].filter(Boolean).join(", ");
     const lat = typeof card.lat === "number" ? card.lat : null;
     const lon = typeof card.lon === "number" ? card.lon : null;
-    const { start, end } = getTripWindow(card, ctx);
+    const anchorDate = isYMD(card.localDate) ? card.localDate : "";
 
-    if (!cityLabel || typeof lat !== "number" || typeof lon !== "number" || !start || !end) {
+    if (!cityLabel || typeof lat !== "number" || typeof lon !== "number" || !anchorDate) {
       return;
     }
+
+    const start = addDaysLocalYMD(anchorDate, -ANCHOR_DAY_WINDOW);
+    const end = addDaysLocalYMD(anchorDate, ANCHOR_DAY_WINDOW);
 
     const params = new URLSearchParams({
       cityLabel,
@@ -950,38 +1081,86 @@ export default function FavoritesResultsPage() {
       end,
       radiusMiles: String(AREA_RADIUS_MILES),
       countryCode,
+      f1Label: f1.label,
+      f1AttractionId: f1.attractionId,
+      f1DefaultGenre: f1.defaultGenre,
     });
+
+    if (selectedF2?.label && selectedF2?.attractionId) {
+      params.set("f2Label", selectedF2.label);
+      params.set("f2AttractionId", selectedF2.attractionId);
+      if (selectedF2.defaultGenre) params.set("f2DefaultGenre", selectedF2.defaultGenre);
+    }
+
+    const genreCsv = listToCsv(selectedGenres);
+    if (genreCsv) params.set("genres", genreCsv);
 
     router.push(`/results/area?${params.toString()}`);
   }
 
   function handlePickF2(opt: FavoriteOption) {
+    if (selectedF2 || selectedGenres.length > 0) return;
+
     const nextLabel = opt.rawName;
-    const nextGenre = opt.defaultGenre || "Other";
+    const nextGenre = opt.defaultGenre || "";
     const id = String(opt.attractionId || "").trim();
 
     if (!id) return;
 
-    setSelectedF2(makeFavorite("F2", nextLabel, id, nextGenre));
-    setF2Input("");
+    const nextFavorite = makeFavorite("F2", nextLabel, id, nextGenre);
+    setSelectedF2(nextFavorite);
+    setSelectedGenres([]);
+    setComboInput(nextLabel);
     setFavoriteOptions([]);
     setFavoriteError("");
+    setErr(null);
+    updateUrl(nextFavorite, [], appliedStartDate, appliedEndDate);
   }
 
   function addGenre(genre: string) {
+    if (selectedF2 || selectedGenres.length > 0) return;
+
     const raw = String(genre || "").trim();
     if (!raw) return;
-    if (selectedGenres.length >= MAX_GENRES) return;
-    if (selectedGenres.some((g) => normalizeToken(g) === normalizeToken(raw))) return;
 
-    setSelectedGenres((prev) => [...prev, raw].slice(0, MAX_GENRES));
-    setGenreInput("");
+    const nextGenres = [raw];
+    setSelectedF2(null);
+    setSelectedGenres(nextGenres);
+    setComboInput(raw);
+    setFavoriteOptions([]);
+    setFavoriteError("");
+    setErr(null);
+    updateUrl(null, nextGenres, appliedStartDate, appliedEndDate);
   }
 
-  function removeGenreAtIndex(index: number) {
-    if (index < 0 || index >= selectedGenres.length) return;
-    if (index === 0 && selectedGenres.length > 1) return;
-    setSelectedGenres((prev) => prev.filter((_, i) => i !== index));
+  function handlePickCombined(opt: CombinedOption) {
+    if (selectedF2 || selectedGenres.length > 0) return;
+
+    if (opt.optionType === "favorite") {
+      handlePickF2(opt.favorite);
+      return;
+    }
+
+    addGenre(opt.genre);
+  }
+
+  function clearOtherEventFilter() {
+    setSelectedF2(null);
+    setSelectedGenres([]);
+    setComboInput("");
+    setFavoriteOptions([]);
+    setFavoriteError("");
+    setErr(null);
+    updateUrl(null, [], appliedStartDate, appliedEndDate);
+  }
+
+  function handleClearDates() {
+    setStartDateInput("");
+    setEndDateInput("");
+    setErr(null);
+    setAppliedStartDate("");
+    setAppliedEndDate("");
+    updateUrl(selectedF2, selectedGenres, "", "");
   }
 
   const cardsStillChecking = useMemo(() => {
@@ -989,18 +1168,15 @@ export default function FavoritesResultsPage() {
   }, [cards, getCurrentCtx, needsContextCheck]);
 
   const computedFilteredCards = useMemo(() => {
-    if (!selectedGenres.length) return cards;
+    if (!needsContextCheck) return cards;
 
     return cards.filter((card) => {
       const ctx = getCurrentCtx(card.id);
-
       if (!ctx || ctx.loading) return true;
       if (ctx.error) return false;
-
-      const genrePool = getCtxGenrePool(ctx);
-      return selectedGenres.every((genre) => includesGenre(genrePool, genre));
+      return Boolean(ctx.requirementsMet);
     });
-  }, [cards, getCurrentCtx, selectedGenres]);
+  }, [cards, getCurrentCtx, needsContextCheck]);
 
   useEffect(() => {
     if (!needsContextCheck) {
@@ -1019,123 +1195,176 @@ export default function FavoritesResultsPage() {
     return cardsStillChecking ? resolvedCards : computedFilteredCards;
   }, [cards, cardsStillChecking, computedFilteredCards, needsContextCheck, resolvedCards]);
 
-  const headerText = useMemo(() => {
-    if (selectedF2 && selectedGenres.length) {
-      return `Showing ${f1.label} / ${selectedF2.label} trips. Genre filters apply after verification completes.`;
-    }
+  function getMatchSummary(card: AnchorCard, ctx?: ContextState) {
+    if (!selectedF2 && !selectedGenres.length) return "";
+
+    const parts: string[] = [];
 
     if (selectedF2) {
-      return `Showing only ${f1.label} / ${selectedF2.label} crossover trips.`;
+      const present = (ctx?.presentFavorites || []).some(
+        (v) => normalizeToken(v) === normalizeToken(selectedF2.label)
+      );
+      if (present) parts.push(`Includes ${selectedF2.label}`);
     }
 
-    if (selectedGenres.length) {
-      return `Showing ${f1.label} trips. Genre filters apply after verification completes.`;
+    if (selectedGenres[0]) {
+      const genre = selectedGenres[0];
+      const present = (ctx?.presentGenres || []).some(
+        (v) => normalizeToken(v) === normalizeToken(genre)
+      );
+      if (present) parts.push(genre.toUpperCase());
     }
 
-    return `All trips include ${f1.label}.`;
-  }, [f1.label, selectedF2, selectedGenres]);
+    return parts.join(" • ");
+  }
 
-  const favoriteHint = favoriteLoading
-    ? "Searching..."
-    : favoriteError
-    ? favoriteError
-    : f2Input.trim()
-    ? `${favoriteOptions.length} match${favoriteOptions.length === 1 ? "" : "es"}`
-    : "optional";
+  function favoriteSubLabel(opt: FavoriteOption) {
+    const parts =
+      opt.kind === "team"
+        ? [String(opt.defaultGenre || "").trim(), String(opt.league || "").trim()]
+        : [String(opt.defaultGenre || "").trim()];
+
+    return parts.filter(Boolean).join(" • ");
+  }
+
+  const selectedOtherFilterLabel = selectedF2
+    ? selectedF2.label
+    : selectedGenres[0]
+    ? selectedGenres[0]
+    : "";
+
+  const hasAppliedDateFilter = Boolean(appliedStartDate || appliedEndDate);
+  const otherFilterLocked = Boolean(selectedOtherFilterLabel);
+
+  const comboHint =
+    !otherFilterLocked && comboInput.trim()
+      ? favoriteLoading
+        ? "Searching..."
+        : favoriteError
+        ? favoriteError
+        : combinedOptions.length
+        ? `${combinedOptions.length} option${combinedOptions.length === 1 ? "" : "s"}`
+        : ""
+      : "";
 
   return (
     <main className="min-h-screen bg-slate-50">
-      <div className="border-b border-slate-200 bg-white/90 backdrop-blur">
-        <div className="mx-auto w-full max-w-md px-4 py-4 lg:max-w-4xl lg:px-6">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <BrandLogo />
-              <div className="min-w-0">
-                <div className="text-base font-black tracking-tight text-slate-900 sm:text-lg">
-                  Favorites Results
-                </div>
-                <div className="mt-0.5 truncate text-[11px] text-slate-600 sm:text-xs">
-                  {f1.label || "Favorites"}
-                </div>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => router.push("/")}
-              className="shrink-0 rounded-2xl bg-slate-900 px-3.5 py-2 text-[11px] font-extrabold text-white hover:bg-slate-800 sm:px-4 sm:py-2.5 sm:text-xs"
-              title="Search again"
-            >
-              Search Again
-            </button>
-          </div>
-        </div>
-      </div>
-
       <div className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
         <div className="mx-auto w-full max-w-md px-4 py-3 lg:max-w-4xl lg:px-6">
-          <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="text-[11px] font-semibold text-slate-700 sm:text-xs">{headerText}</div>
-
-            <div className="mt-4 grid gap-4 lg:grid-cols-2">
-              <ComboBox<FavoriteOption>
-                label="Add Favorite 2"
-                value={f2Input}
-                placeholder={selectedF2 ? "Replace Favorite 2…" : "Type a team or artist…"}
-                options={favoriteOptions}
-                onChange={(v) => {
-                  setF2Input(v);
-                  if (!v.trim()) {
-                    setSelectedF2(null);
-                    setFavoriteOptions([]);
-                    setFavoriteError("");
-                  }
-                }}
-                onPick={handlePickF2}
-                disabled={false}
-                rightHint={favoriteHint}
-              />
-
-              <ComboBox<GenreOption>
-                label="Add Genre"
-                value={genreInput}
-                placeholder={selectedGenres.length >= MAX_GENRES ? "Maximum reached" : "Type a genre…"}
-                options={availableGenreOptions}
-                onChange={setGenreInput}
-                onPick={(opt) => addGenre(opt.label)}
-                disabled={selectedGenres.length >= MAX_GENRES}
-                rightHint={`up to ${MAX_GENRES}`}
-              />
+          <div className="mt-2 rounded-3xl border border-slate-200 bg-slate-50 p-3">
+            <div className="text-[11px] font-black uppercase tracking-wide text-slate-700">
+              Optional Filters
             </div>
 
-            {(selectedF2 || selectedGenres.length > 0) && (
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                {selectedF2 ? (
-                  <SelectionChip text={`F2: ${selectedF2.label}`} onRemove={() => setSelectedF2(null)} />
-                ) : null}
+            <div className="mt-3 text-[10px] font-black uppercase tracking-wide text-slate-500">
+              By Date
+            </div>
 
-                {selectedGenres.map((genre, index) => (
-                  <SelectionChip
-                    key={`${genre}-${index}`}
-                    text={`G${index + 1}: ${genre}`}
-                    onRemove={() => removeGenreAtIndex(index)}
-                    disabled={index === 0 && selectedGenres.length > 1}
-                    title={index === 0 && selectedGenres.length > 1 ? "Remove Genre 2 first" : undefined}
-                  />
-                ))}
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-2 text-xs font-semibold leading-tight text-slate-700 sm:text-sm">
+              <span>Only include events after</span>
 
-                {selectedGenres.length > 1 ? (
-                  <div className="text-[11px] font-semibold text-slate-500">
-                    Remove Genre 2 before removing Genre 1.
-                  </div>
+              <DatePickerButton
+                value={startDateInput}
+                min={todayYMD()}
+                placeholder="Select date"
+                onChange={(next) => applyDateFilters(next, endDateInput)}
+              />
+
+              <span>and/or before</span>
+
+              <DatePickerButton
+                value={endDateInput}
+                placeholder="Select date"
+                onChange={(next) => applyDateFilters(startDateInput, next)}
+              />
+
+              {hasAppliedDateFilter ? (
+                <button
+                  type="button"
+                  onClick={handleClearDates}
+                  className="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-[11px] font-extrabold text-slate-700 hover:bg-slate-50"
+                >
+                  Clear
+                </button>
+              ) : null}
+            </div>
+
+            <div className="mt-3 text-[10px] font-black uppercase tracking-wide text-slate-500">
+              By Other Events
+            </div>
+
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-2 text-xs font-semibold leading-tight text-slate-700 sm:text-sm">
+              <span>Only include {f1.label || "Favorite 1"} events that also include</span>
+
+              <div className="inline-flex flex-col">
+                <ComboBox<CombinedOption>
+                  label="Nearby Event / Team / Artist / Genre"
+                  value={selectedOtherFilterLabel || comboInput}
+                  placeholder="Type an event, team, artist, or genre…"
+                  options={otherFilterLocked ? [] : combinedOptions}
+                  onChange={(v) => {
+                    if (otherFilterLocked) return;
+                    setComboInput(v);
+                    if (!v.trim()) {
+                      setFavoriteOptions([]);
+                      setFavoriteError("");
+                    }
+                  }}
+                  onPick={handlePickCombined}
+                  disabled={false}
+                  renderOption={(opt, active) => {
+                    if (opt.optionType === "favorite") {
+                      const sub = favoriteSubLabel(opt.favorite);
+                      return (
+                        <div className="flex flex-col">
+                          <span className="font-semibold">{opt.label}</span>
+                          {sub ? (
+                            <span className={cx("text-xs", active ? "text-slate-300" : "text-slate-500")}>
+                              {sub}
+                            </span>
+                          ) : null}
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="font-semibold">{opt.label}</span>
+                        <span
+                          className={cx(
+                            "text-[10px] font-black uppercase tracking-wide",
+                            active ? "text-slate-300" : "text-slate-400"
+                          )}
+                        >
+                          Genre
+                        </span>
+                      </div>
+                    );
+                  }}
+                />
+
+                {!otherFilterLocked && comboHint ? (
+                  <div className="mt-1 text-[11px] text-slate-500">{comboHint}</div>
                 ) : null}
               </div>
-            )}
 
-            {cardsStillChecking && (
-              <div className="mt-4 inline-flex items-center gap-2 text-[11px] font-semibold text-slate-500 sm:text-xs">
+              <span>nearby</span>
+
+              {otherFilterLocked ? (
+                <button
+                  type="button"
+                  onClick={clearOtherEventFilter}
+                  className="rounded-2xl border border-slate-300 bg-white px-3 py-2 text-[11px] font-extrabold text-slate-700 hover:bg-slate-50"
+                >
+                  Clear
+                </button>
+              ) : null}
+            </div>
+
+            {cardsStillChecking && needsContextCheck && (
+              <div className="mt-2 inline-flex items-center gap-2 text-[11px] font-semibold text-slate-500 sm:text-xs">
                 <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700" />
-                Updating trip matches…
+                Verifying anchor candidates…
               </div>
             )}
           </div>
@@ -1143,7 +1372,7 @@ export default function FavoritesResultsPage() {
       </div>
 
       <div className="mx-auto w-full max-w-md px-4 py-4 lg:max-w-4xl lg:px-6 lg:py-8">
-        {loading && (
+        {loading && !resp && (
           <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex items-center gap-3">
               <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700" />
@@ -1159,64 +1388,70 @@ export default function FavoritesResultsPage() {
           </section>
         )}
 
-        {!loading && !err && (
+        {!err && (
           <>
             <div className="space-y-3">
               {displayedCards.map((c) => {
                 const ctx = getCurrentCtx(c.id);
-                const tripLocation = getTripLocationLabel(c, ctx);
-                const tripDateRange = getTripDateRange(c, ctx);
-                const includesText = getTripIncludesText({
-                  card: c,
-                  ctx,
-                  f2: selectedF2,
-                  selectedGenres,
-                });
+                const matchSummary = getMatchSummary(c, ctx);
 
                 return (
                   <CardVisibilityTrigger key={c.id} cardId={c.id} onVisible={enqueueCardContext}>
-                    <section
-                      className="cursor-pointer overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
-                      onClick={() => openAreaResultsForCard(c)}
-                    >
-                      <div className="min-w-0">
-                        <div className="inline-block border-b border-r border-slate-300 bg-slate-100 px-2 py-1 text-[11px] font-black uppercase tracking-wide text-slate-600 sm:text-xs">
-                          {c.localDate && isYMD(c.localDate) ? fmtYMDPretty(c.localDate) : "Date TBD"}
+                    <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition hover:border-slate-300 hover:bg-slate-50">
+                      <button
+                        type="button"
+                        onClick={() => openAreaResultsForCard(c)}
+                        className="block w-full text-left"
+                      >
+                        <div className="border-b border-slate-200 bg-slate-100 px-4 py-2 sm:px-5">
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                            <div className="text-[11px] font-black uppercase tracking-wide text-slate-600 sm:text-xs">
+                              {c.localDate && isYMD(c.localDate) ? fmtYMDPretty(c.localDate) : "Date TBD"}
+                            </div>
+                            <div className="text-[11px] font-extrabold uppercase tracking-wide text-slate-500 sm:text-xs">
+                              {fmtTimeDisplay(c.localTime)}
+                            </div>
+                            {c.isCrossover ? (
+                              <div className="rounded-full bg-slate-900 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white sm:text-[11px]">
+                                Crossover
+                              </div>
+                            ) : null}
+                          </div>
                         </div>
 
-                        <div className="px-2 py-1.5 sm:px-3 sm:py-2">
-                          <div className="truncate text-base font-black leading-tight text-slate-900 sm:text-lg">
+                        <div className="px-4 py-3 sm:px-5 sm:py-4">
+                          <div className="text-base font-black leading-tight text-slate-900 sm:text-lg">
                             {c.name || "Event"}
                           </div>
 
                           <div className="mt-1 text-sm font-semibold leading-tight text-slate-600">
-                            {[c.city, c.region].filter(Boolean).join(", ") || tripLocation || "Location TBD"}
+                            {[c.city, c.region].filter(Boolean).join(", ") || "Location TBD"}
                           </div>
 
-                          <div className="mt-1 text-[11px] font-semibold text-slate-700 sm:text-xs">
-                            {tripDateRange}
-                          </div>
+                          {c.venueName ? (
+                            <div className="mt-1 text-sm font-semibold leading-tight text-slate-500">
+                              {c.venueName}
+                            </div>
+                          ) : null}
 
-                          {includesText ? (
-                            <div className="mt-1 text-[11px] font-extrabold uppercase tracking-wide text-slate-800 sm:text-xs">
-                              {includesText}
+                          {matchSummary ? (
+                            <div className="mt-2 inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide text-slate-800 sm:text-xs">
+                              {matchSummary}
                             </div>
                           ) : null}
                         </div>
-                      </div>
+                      </button>
                     </section>
                   </CardVisibilityTrigger>
                 );
               })}
             </div>
 
-            {!cardsStillChecking && displayedCards.length === 0 && (
+            {!cardsStillChecking && displayedCards.length === 0 && !loading && (
               <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-700 shadow-sm">
                 {cards.length === 0
-                  ? selectedF2
-                    ? "No F1 / F2 crossover trips found."
-                    : "No trips found."
-                  : "No trips match the selected favorite / genre filters."}
+                  ? "No Favorite 1 anchor events found."
+                  : "No anchor events match the selected filter."}
               </div>
             )}
           </>

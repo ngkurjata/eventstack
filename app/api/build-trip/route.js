@@ -1,5 +1,7 @@
 // FILE: app/api/build-trip/route.js
+
 import { NextResponse } from "next/server";
+import { normalizeTMEvent } from "@/lib/events/normalize";
 
 const TM_BASE = "https://app.ticketmaster.com/discovery/v2";
 const TM_KEY = process.env.TICKETMASTER_API_KEY;
@@ -32,59 +34,60 @@ function norm(s) {
   return String(s || "").trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-function safeCityStateFromVenue(v) {
-  const city = String(v?.city?.name || "").trim();
-  const region =
-    String(v?.state?.stateCode || v?.state?.name || "").trim() ||
-    String(v?.country?.countryCode || "").trim();
-  return [city, region].filter(Boolean).join(", ");
+function dedupeByIdPreserveOrder(ids) {
+  const seen = new Set();
+  const out = [];
+  for (const id of ids || []) {
+    const s = String(id || "").trim();
+    if (!s) continue;
+    if (seen.has(s)) continue;
+    seen.add(s);
+    out.push(s);
+  }
+  return out;
 }
 
-function eventLatLon(ev) {
-  const v = ev?._embedded?.venues?.[0];
-  const lat = v?.location?.latitude;
-  const lon = v?.location?.longitude;
-  const la = lat != null ? Number(lat) : NaN;
-  const lo = lon != null ? Number(lon) : NaN;
-  if (Number.isFinite(la) && Number.isFinite(lo)) return { lat: la, lon: lo };
-  return { lat: null, lon: null };
-}
+function canonicalGenresFromNormalized(normEv) {
+  const arr = Array.isArray(normEv?.canonicalGenres)
+    ? normEv.canonicalGenres
+    : normEv?.canonicalGenre
+      ? [normEv.canonicalGenre]
+      : [];
 
-function eventGenre(ev) {
-  const c0 = Array.isArray(ev?.classifications) ? ev.classifications[0] : null;
-  const sub = String(c0?.subGenre?.name || "").trim();
-  const gen = String(c0?.genre?.name || "").trim();
-  const seg = String(c0?.segment?.name || "").trim();
+  const seen = new Set();
+  const out = [];
 
-  const pick = sub || gen || seg;
-  if (!pick) return null;
+  for (const g of arr) {
+    const v = String(g || "").trim();
+    if (!v) continue;
 
-  const pl = pick.toLowerCase();
-  if (pl === "other" || pl === "miscellaneous") return null;
+    const key = v.toLowerCase();
+    if (key === "other") continue;
 
-  return pick;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(v);
+
+    if (out.length >= 2) break;
+  }
+
+  return out;
 }
 
 function toRowEvent(ev) {
-  const dates = ev?.dates?.start || {};
-  const localDate = dates?.localDate || null; // YYYY-MM-DD
-  const localTime = dates?.localTime || null; // HH:MM:SS
-  const v = ev?._embedded?.venues?.[0] || null;
-
-  const { lat, lon } = eventLatLon(ev);
+  const n = normalizeTMEvent(ev);
+  const genres = canonicalGenresFromNormalized(n);
 
   return {
-    // row-event shape used across your app
-    date: localDate,
-    name: String(ev?.name || "").trim() || "Event",
-    location: safeCityStateFromVenue(v),
-    genre: eventGenre(ev),
-    url: ev?.url || null,
-    lat,
-    lon,
-
-    // optional extras (handy for sorting/anchoring)
-    localTime,
+    date: n?.localDate || null,
+    name: String(n?.name || "").trim() || "Event",
+    location: [n?.city, n?.region].filter(Boolean).join(", "),
+    genre: genres[0] || null,
+    genres,
+    url: n?.url || null,
+    lat: Number.isFinite(n?.lat) ? n.lat : null,
+    lon: Number.isFinite(n?.lon) ? n.lon : null,
+    localTime: n?.localTime || null,
   };
 }
 
@@ -102,19 +105,6 @@ function sortRowEvents(list) {
   });
 }
 
-function dedupeByIdPreserveOrder(ids) {
-  const seen = new Set();
-  const out = [];
-  for (const id of ids || []) {
-    const s = String(id || "").trim();
-    if (!s) continue;
-    if (seen.has(s)) continue;
-    seen.add(s);
-    out.push(s);
-  }
-  return out;
-}
-
 async function fetchTMEventById(id) {
   const u = new URL(tmEventUrl(id));
   u.searchParams.set("apikey", TM_KEY);
@@ -125,13 +115,18 @@ async function fetchTMEventById(id) {
   try {
     const res = await fetch(u.toString(), {
       signal: controller.signal,
-      // let server cache policy handle it; can change to no-store during debugging
       next: { revalidate: 300 },
     });
 
     if (!res.ok) {
       const body = await res.text().catch(() => "");
-      return { ok: false, status: res.status, id, error: body || `TM event fetch failed (${res.status})`, ev: null };
+      return {
+        ok: false,
+        status: res.status,
+        id,
+        error: body || `TM event fetch failed (${res.status})`,
+        ev: null,
+      };
     }
 
     const ev = await res.json().catch(() => null);
@@ -141,7 +136,10 @@ async function fetchTMEventById(id) {
 
     return { ok: true, status: 200, id, error: null, ev };
   } catch (e) {
-    const msg = String(e?.name || "") === "AbortError" ? "TM request timed out" : String(e?.message || e);
+    const msg =
+      String(e?.name || "") === "AbortError"
+        ? "TM request timed out"
+        : String(e?.message || e);
     return { ok: false, status: 500, id, error: msg, ev: null };
   } finally {
     clearTimeout(t);
@@ -160,12 +158,20 @@ export async function POST(req) {
     body = null;
   }
 
-const tripStyle = String(body?.tripStyle || "A").toUpperCase();
-if (tripStyle !== "A" && tripStyle !== "B") {
-  return json({ error: "This /api/build-trip route supports tripStyle=A or tripStyle=B." }, 400);
-}
+  const tripStyle = String(body?.tripStyle || "A").trim().toUpperCase();
+  if (tripStyle !== "A" && tripStyle !== "B") {
+    return json(
+      { error: "This /api/build-trip route supports tripStyle=A or tripStyle=B." },
+      400
+    );
+  }
 
   const destIata = String(body?.destIata || "").trim().toUpperCase();
+
+  const cityLabel = String(body?.cityLabel || "").trim();
+  const lat = Number(body?.lat);
+  const lon = Number(body?.lon);
+
   const start = String(body?.start || "").trim();
   const end = String(body?.end || "").trim();
 
@@ -175,25 +181,33 @@ if (tripStyle !== "A" && tripStyle !== "B") {
   const rawIds = Array.isArray(body?.eventIds) ? body.eventIds : [];
   const eventIds = dedupeByIdPreserveOrder(rawIds);
 
-  if (!destIata || destIata.length !== 3) {
-    return json({ error: "Missing/invalid destIata (expected 3-letter IATA)." }, 400);
+  const hasDestIata = destIata.length === 3;
+  const hasCityAnchor = !!cityLabel || (Number.isFinite(lat) && Number.isFinite(lon));
+
+  if (!hasDestIata && !hasCityAnchor) {
+    return json(
+      { error: "Missing destination context. Provide destIata or cityLabel/lat/lon." },
+      400
+    );
   }
+
   if (!isYMD(start) || !isYMD(end)) {
     return json({ error: "Missing/invalid start/end (YYYY-MM-DD)." }, 400);
   }
+
   if (eventIds.length < 1) {
     return json({ error: "No eventIds provided." }, 400);
   }
 
-  // Safety caps (keep requests bounded)
   const MAX_EVENTS = 40;
   const idsCapped = eventIds.slice(0, MAX_EVENTS);
 
-  // Fetch details
   const results = await Promise.all(idsCapped.map((id) => fetchTMEventById(id)));
 
   const okEvents = results.filter((r) => r.ok && r.ev).map((r) => r.ev);
-  const failures = results.filter((r) => !r.ok).map((r) => ({ id: r.id, status: r.status, error: r.error }));
+  const failures = results
+    .filter((r) => !r.ok)
+    .map((r) => ({ id: r.id, status: r.status, error: r.error }));
 
   if (okEvents.length === 0) {
     return json(
@@ -209,22 +223,37 @@ if (tripStyle !== "A" && tripStyle !== "B") {
   const sorted = sortRowEvents(rowEvents);
 
   const anchor = sorted[0] || rowEvents[0];
-  const cityState = String(anchor?.location || "").trim() || "Your trip";
+  const derivedCityState = String(anchor?.location || "").trim() || "Your trip";
+  const finalCityState = cityLabel || derivedCityState;
 
-  const rowKey = `A_${destIata}_${start}_${end}_${radiusMiles}_${norm(countryCode)}`;
+  const rowKey = [
+    tripStyle,
+    hasDestIata ? destIata : "NOIATA",
+    start,
+    end,
+    radiusMiles,
+    norm(countryCode),
+    norm(finalCityState),
+  ].join("_");
 
   const payload = {
     rowKey,
     tripStyle,
 
-    destIata,
-    cityState,
+    destIata: hasDestIata ? destIata : "",
+    cityState: finalCityState,
 
     startYMD: start,
     endYMD: end,
 
     radiusMiles,
     countryCode,
+
+    destination: {
+      cityLabel: cityLabel || "",
+      lat: Number.isFinite(lat) ? lat : null,
+      lon: Number.isFinite(lon) ? lon : null,
+    },
 
     anchor,
     events: sorted,
@@ -241,12 +270,24 @@ if (tripStyle !== "A" && tripStyle !== "B") {
   });
 }
 
-// Optional: allow GET for quick testing in browser
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
-  const destIata = String(searchParams.get("destIata") || "").trim().toUpperCase();
+
+  const tripStyle = String(searchParams.get("tripStyle") || "A")
+    .trim()
+    .toUpperCase();
+
+  const destIata = String(searchParams.get("destIata") || "")
+    .trim()
+    .toUpperCase();
+
+  const cityLabel = String(searchParams.get("cityLabel") || "").trim();
+  const lat = searchParams.get("lat");
+  const lon = searchParams.get("lon");
+
   const start = String(searchParams.get("start") || "").trim();
   const end = String(searchParams.get("end") || "").trim();
+
   const radiusMiles = clampInt(searchParams.get("radiusMiles"), 10, 300, 120);
   const countryCode = String(searchParams.get("countryCode") || "US,CA").trim() || "US,CA";
 
@@ -260,14 +301,17 @@ export async function GET(req) {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-  tripStyle, // "A" or "B" from the query string
-  destIata,
-  start,
-  end,
-  radiusMiles,
-  countryCode,
-  eventIds: ids,
-}),
+        tripStyle,
+        destIata,
+        cityLabel,
+        lat,
+        lon,
+        start,
+        end,
+        radiusMiles,
+        countryCode,
+        eventIds: ids,
+      }),
     })
   );
 }

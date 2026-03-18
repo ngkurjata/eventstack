@@ -2,9 +2,8 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 export default function proxy(req: NextRequest) {
-  const { pathname } = req.nextUrl;
+  const { pathname, search } = req.nextUrl;
 
-  // Always allow:
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
@@ -19,7 +18,9 @@ export default function proxy(req: NextRequest) {
 
   if (!ok) {
     const url = req.nextUrl.clone();
+    const intended = `${pathname}${search || ""}`;
     url.pathname = "/pin";
+    url.searchParams.set("next", intended);
     return NextResponse.redirect(url);
   }
 

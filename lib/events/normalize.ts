@@ -1,8 +1,10 @@
-// FILE: lib/events/normalize.ts
-
 import type { TMEvent } from "@/lib/tm/client";
 import { canonicalMetroCity } from "@/lib/geo/metroOverrides";
-import { genreLabelFromRaw } from "@/lib/events/genres";
+import {
+  type GenreKey,
+  genreKeyToLabel,
+  normalizeGenreKeys,
+} from "@/lib/events/genres";
 
 export type NormEvent = {
   id: string;
@@ -24,8 +26,12 @@ export type NormEvent = {
   subGenre: string | null;
 
   canonicalGenre: string | null;
+  canonicalGenres: string[];
+  canonicalGenreKeys: GenreKey[];
+  pillLabel?: string | null;
 
   canonicalKey: string;
+  semanticKey: string;
   qualityScore: number;
 
   flags: {
@@ -36,6 +42,7 @@ export type NormEvent = {
 
   matched: {
     favorites: string[];
+    attractionIds: string[];
     genres: string[];
     defaultGenres: string[];
   };
@@ -72,21 +79,78 @@ function lowerAlnum(s: string): string {
     .trim();
 }
 
-function stripNoiseTokens(title: string): string {
+function normalizeMatchupText(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/\bversus\b/g, " vs ")
+    .replace(/\bvs\.?\b/g, " vs ")
+    .replace(/\bv\.?\b/g, " vs ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function stripBracketedContent(title: string): string {
+  return title
+    .replace(/\[[^\]]*\]/g, " ")
+    .replace(/\([^\)]*\)/g, " ");
+}
+
+function stripPromoNoise(title: string): string {
   let s = title;
 
-  s = s.replace(/\[[^\]]*\]/g, " ");
-  s = s.replace(/\([^\)]*\)/g, " ");
+  s = s.replace(/[*|•·]+/g, " ");
 
   s = s.replace(
-    /\b(vip|upgrade|package|packages|meet\s*and\s*greet|hospitality|club\s*level|suite|lounge)\b/gi,
+    /\b(pinstripe\s*pass|premium\s*seating|vip|upgrade|seat\s*upgrade|package|packages|meet\s*and\s*greet|hospitality|club\s*level|suite|lounge)\b/gi,
     " "
   );
 
   s = s.replace(/\b(parking|parkwhiz|garage|lot)\b/gi, " ");
-  s = s.replace(/\b(access\s*pass|pre[-\s]?party|post[-\s]?party|tailgate)\b/gi, " ");
+  s = s.replace(/\b(access\s*pass|pre[-\s]?party|post[-\s]?party|tailgate|add[-\s]?on)\b/gi, " ");
 
   return normalizeSpaces(s);
+}
+
+function stripSportsPromoSuffix(title: string, segment: string | null): string {
+  const seg = (segment || "").toLowerCase();
+  const looksSports =
+    seg.includes("sport") ||
+    /\b(vs|versus|v\.)\b/i.test(title);
+
+  if (!looksSports) return title;
+
+  const s = normalizeSpaces(title);
+
+  // For sports listings, keep the matchup portion when a promo suffix is appended.
+  // Example:
+  // "Predators v Kraken - Ford Military Week" -> "Predators v Kraken"
+  const parts = s.split(/\s[-–—|:]\s/);
+  if (parts.length <= 1) return s;
+
+  const first = normalizeSpaces(parts[0] || "");
+  if (!/\b(vs|versus|v\.)\b/i.test(first)) return s;
+
+  return first;
+}
+
+function stripNoiseTokens(title: string, segment: string | null): string {
+  let s = title;
+  s = stripBracketedContent(s);
+  s = stripPromoNoise(s);
+  s = stripSportsPromoSuffix(s, segment);
+  return normalizeSpaces(s);
+}
+
+function isCancelledLike(name: string): boolean {
+  const s = name.toLowerCase();
+
+  return (
+    /\bcancel+ed\b/.test(s) ||
+    /\bcanceled\b/.test(s) ||
+    /\bpostponed\b/.test(s) ||
+    /\brescheduled\b/.test(s)
+  );
 }
 
 function isNoiseLike(title: string): boolean {
@@ -100,10 +164,17 @@ function isNoiseLike(title: string): boolean {
     /\baccess\s*pass\b/,
     /\bvip\b/,
     /\bupgrade\b/,
+    /\bseat\s*upgrade\b/,
     /\bclub\s*level\b/,
     /\bsuite\b/,
     /\bhospitality\b/,
     /\bmeet\s*and\s*greet\b/,
+    /\bpremium\s*seating\b/,
+    /\bpinstripe\s*pass\b/,
+    /\bpre[-\s]?party\b/,
+    /\bpost[-\s]?party\b/,
+    /\btailgate\b/,
+    /\badd[-\s]?on\b/,
   ];
 
   return patterns.some((re) => re.test(t));
@@ -125,6 +196,14 @@ function qualityScoreFrom(tm: TMEvent): number {
   const lt = safeStr(tm?.dates?.start?.localTime);
   if (lt) score += 1;
 
+  // Make package/upsell variants lose against the primary event.
+  if (/pinstripe\s*pass/i.test(title)) score -= 4;
+  if (/premium\s*seating/i.test(title)) score -= 4;
+  if (/\bvip\b/i.test(title)) score -= 3;
+  if (/\bpackage\b/i.test(title)) score -= 2;
+  if (/\bupgrade\b/i.test(title)) score -= 2;
+  if (/\bparking\b|\bgarage\b|\blot\b/i.test(title)) score -= 5;
+
   return score;
 }
 
@@ -134,6 +213,18 @@ export function normalizeTMEvent(tm: TMEvent): NormEvent | null {
   const localDate = safeStr(tm?.dates?.start?.localDate);
 
   if (!id || !rawName || !localDate) return null;
+
+  if (isCancelledLike(rawName)) return null;
+
+  const status = safeStr(tm?.dates?.status?.code)?.toLowerCase();
+  if (
+    status === "cancelled" ||
+    status === "canceled" ||
+    status === "postponed" ||
+    status === "rescheduled"
+  ) {
+    return null;
+  }
 
   const localTime = safeStr(tm?.dates?.start?.localTime);
   const ts = Date.parse(`${localDate}T${localTime || "12:00:00"}`);
@@ -158,10 +249,13 @@ export function normalizeTMEvent(tm: TMEvent): NormEvent | null {
   const genre = pickFirstTruthy(cls?.genre?.name);
   const subGenre = pickFirstTruthy(cls?.subGenre?.name);
 
-  const canonicalGenre =
-    genreLabelFromRaw(subGenre) ||
-    genreLabelFromRaw(genre) ||
-    genreLabelFromRaw(segment);
+  const canonicalGenreKeys = normalizeGenreKeys([subGenre, genre, segment], 2);
+
+  const canonicalGenres = canonicalGenreKeys
+    .map((key) => genreKeyToLabel(key))
+    .filter((v): v is string => !!v);
+
+  const canonicalGenre = canonicalGenres[0] || null;
 
   const flags = {
     isUpsellLike: isNoiseLike(rawName),
@@ -169,8 +263,14 @@ export function normalizeTMEvent(tm: TMEvent): NormEvent | null {
     isResaleLike: /\bresale\b/i.test(rawName),
   };
 
-  const titleCore = stripNoiseTokens(rawName);
-  const canonicalKey = [localDate, lowerAlnum(titleCore), lowerAlnum(venueName || city)].join("|");
+  const titleCore = stripNoiseTokens(rawName, segment);
+  const canonicalTitle = normalizeMatchupText(titleCore);
+
+  const strictPlace = lowerAlnum(venueName || city);
+  const softPlace = lowerAlnum(city);
+
+  const canonicalKey = [localDate, canonicalTitle, strictPlace].join("|");
+  const semanticKey = [localDate, canonicalTitle, softPlace, localTime || ""].join("|");
 
   return {
     id,
@@ -192,14 +292,19 @@ export function normalizeTMEvent(tm: TMEvent): NormEvent | null {
     subGenre,
 
     canonicalGenre,
+    canonicalGenres,
+    canonicalGenreKeys,
+    pillLabel: canonicalGenre,
 
     canonicalKey,
+    semanticKey,
     qualityScore: qualityScoreFrom(tm),
 
     flags,
 
     matched: {
       favorites: [],
+      attractionIds: [],
       genres: [],
       defaultGenres: [],
     },

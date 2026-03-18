@@ -6,53 +6,38 @@ import TM from "@/lib/tm/client";
 import { normalizeTMEvent, type NormEvent } from "@/lib/events/normalize";
 import { dedupeEvents } from "@/lib/events/dedupe";
 import { isYMD, ymdToTmRangeInclusive } from "@/lib/time/window";
+import { uniqueStrings } from "@/lib/events/match";
+import { allVisibleGenreLabels, findGenreKeyByLabel } from "@/lib/events/genres";
 
 function json(payload: any, status = 200) {
   return NextResponse.json(payload, { status });
 }
 
-type Body = {
-  city: { label: string; lat: number; lon: number } | null;
-  startDate: string | null; // YYYY-MM-DD
-  endDate: string | null; // YYYY-MM-DD
-  radiusMiles?: number;
-  countryCode?: string; // "US,CA"
+type FavoriteInput = {
+  id?: string;
+  label?: string;
+  attractionId?: string;
+  defaultGenre?: string;
 };
 
-const BLOCKED_CLASSIFICATIONS = new Set(
-  [
-    "music",
-    "sports",
-    "arts & theatre",
-    "film",
-    "miscellaneous",
-    "undefined",
-    "mlb",
-    "milb",
-    "nba",
-    "wnba",
-    "nfl",
-    "cfl",
-    "nhl",
-    "ahl",
-    "echl",
-    "mls",
-    "nwsl",
-    "ufl",
-    "pga",
-    "lpga",
-    "atp",
-    "wta",
-    "ncaa",
-    "ncaa football",
-    "ncaa basketball",
-  ].map((x) => x.toLowerCase())
-);
+type Body = {
+  city: { label: string; lat: number; lon: number } | null;
+  startDate: string | null;
+  endDate: string | null;
+  radiusMiles?: number;
+  countryCode?: string;
+  favorites?: FavoriteInput[];
+  genres?: string[];
+};
 
 function safeStr(x: any): string | null {
   if (x === undefined || x === null) return null;
   const s = String(x).trim();
   return s ? s : null;
+}
+
+function normalizeToken(x: any): string {
+  return String(x || "").trim().toLowerCase();
 }
 
 function uniqCaseInsensitive(values: Array<string | null | undefined>): string[] {
@@ -73,58 +58,92 @@ function uniqCaseInsensitive(values: Array<string | null | undefined>): string[]
   return out;
 }
 
-function extractCanonicalClassNames(tm: any, ne: NormEvent): string[] {
-  const raw: Array<string | null> = [
-    ne.canonicalGenre,
-    safeStr(tm?.classifications?.[0]?.segment?.name),
-  ];
-
-  return uniqCaseInsensitive(raw);
+function collectResponseGenres(events: NormEvent[]): string[] {
+  return uniqueStrings(events.flatMap((e) => e.canonicalGenres || [])).sort((a, b) =>
+    a.localeCompare(b)
+  );
 }
 
-function filterMeaningfulClassNames(classNames: string[]): string[] {
-  const out: string[] = [];
+function sanitizeFavorites(input: any): FavoriteInput[] {
+  if (!Array.isArray(input)) return [];
+
+  return input
+    .map((f) => ({
+      id: safeStr(f?.id) || undefined,
+      label: safeStr(f?.label) || undefined,
+      attractionId: safeStr(f?.attractionId) || undefined,
+      defaultGenre: safeStr(f?.defaultGenre) || undefined,
+    }))
+    .filter((f) => f.label || f.attractionId);
+}
+
+function sanitizeGenres(input: any): string[] {
+  if (!Array.isArray(input)) return [];
+
+  const allowed = new Set(allVisibleGenreLabels().map((g) => g.toLowerCase()));
+
+  return uniqCaseInsensitive(input.map((g) => safeStr(g))).filter((g) =>
+    allowed.has(g.toLowerCase())
+  );
+}
+
+function extractTmAttractionLite(tm: any): Array<{ id: string; name: string }> {
+  const raw = Array.isArray(tm?._embedded?.attractions) ? tm._embedded.attractions : [];
+  const out: Array<{ id: string; name: string }> = [];
   const seen = new Set<string>();
 
-  for (const raw of classNames) {
-    const val = String(raw || "").trim();
-    if (!val) continue;
+  for (const a of raw) {
+    const id = safeStr(a?.id);
+    const name = safeStr(a?.name);
+    if (!id && !name) continue;
 
-    const key = val.toLowerCase();
-    if (BLOCKED_CLASSIFICATIONS.has(key)) continue;
-    if (seen.has(key)) continue;
+    const dedupeKey = `${normalizeToken(id)}__${normalizeToken(name)}`;
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
 
-    seen.add(key);
-    out.push(val);
+    out.push({
+      id: id || "",
+      name: name || "",
+    });
   }
 
   return out;
 }
 
-function pickPillLabel(classNames: string[]): string | null {
-  if (!Array.isArray(classNames) || classNames.length === 0) return null;
-  return classNames[0] || null;
-}
+function matchFavoritesForEvent(
+  attractions: Array<{ id: string; name: string }>,
+  favorites: FavoriteInput[]
+) {
+  const matchedFavorites: string[] = [];
+  const matchedAttractionIds: string[] = [];
+  const matchedDefaultGenres: string[] = [];
 
-function collectResponseGenres(events: NormEvent[]): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
+  const eventAttractionIdKeys = new Set(attractions.map((a) => normalizeToken(a.id)).filter(Boolean));
+  const eventAttractionNameKeys = new Set(attractions.map((a) => normalizeToken(a.name)).filter(Boolean));
 
-  for (const e of events) {
-    const arr = Array.isArray(e?.matched?.genres) ? e.matched.genres : [];
-    for (const g of arr) {
-      const val = String(g || "").trim();
-      if (!val) continue;
+  for (const fav of favorites) {
+    const favLabelKey = normalizeToken(fav.label);
+    const favAttractionIdKey = normalizeToken(fav.attractionId);
 
-      const key = val.toLowerCase();
-      if (seen.has(key)) continue;
+    const byAttractionId = !!favAttractionIdKey && eventAttractionIdKeys.has(favAttractionIdKey);
+    const byLabel = !!favLabelKey && eventAttractionNameKeys.has(favLabelKey);
 
-      seen.add(key);
-      out.push(val);
+    if (!byAttractionId && !byLabel) continue;
+
+    if (fav.label) matchedFavorites.push(fav.label);
+    if (fav.attractionId) matchedAttractionIds.push(fav.attractionId);
+
+    const defaultGenre = safeStr(fav.defaultGenre);
+    if (defaultGenre && findGenreKeyByLabel(defaultGenre)) {
+      matchedDefaultGenres.push(defaultGenre);
     }
   }
 
-  return out.sort((a, b) => a.localeCompare(b));
+  return {
+    favorites: uniqCaseInsensitive(matchedFavorites),
+    attractionIds: uniqCaseInsensitive(matchedAttractionIds),
+    defaultGenres: uniqCaseInsensitive(matchedDefaultGenres),
+  };
 }
 
 export async function POST(req: Request) {
@@ -153,6 +172,9 @@ export async function POST(req: Request) {
     if (diffDays < 0) return json({ error: "EndDate must be >= StartDate" }, 400);
     if (diffDays > 14) return json({ error: "Max window is 14 days" }, 400);
 
+    const favorites = sanitizeFavorites(body.favorites);
+    const requestedGenres = sanitizeGenres(body.genres);
+
     const { startDateTime, endDateTime } = ymdToTmRangeInclusive(body.startDate, body.endDate);
 
     const tmEvents = await TM.tmSearchEventsAll({
@@ -172,28 +194,33 @@ export async function POST(req: Request) {
       const ne = normalizeTMEvent(tm);
       if (!ne) continue;
       if (!ne.url) continue;
+      if (!Array.isArray(ne.canonicalGenres) || ne.canonicalGenres.length === 0) continue;
 
-      const classNames = filterMeaningfulClassNames(extractCanonicalClassNames(tm, ne));
-      if (classNames.length === 0) continue;
+      const attractions = extractTmAttractionLite(tm);
+      const favoriteMatches = matchFavoritesForEvent(attractions, favorites);
 
-      ne.matched = ne.matched || {
-        favorites: [],
-        genres: [],
-        defaultGenres: [],
+      ne.matched = {
+        favorites: favoriteMatches.favorites,
+        attractionIds: favoriteMatches.attractionIds,
+        defaultGenres: favoriteMatches.defaultGenres,
+        genres: ne.canonicalGenres,
       };
 
-      ne.matched.genres = classNames;
+      ne.pillLabel = ne.canonicalGenres[0] || null;
+
       normalized.push(ne);
     }
 
-    const events: NormEvent[] = dedupeEvents(normalized).map((e: any) => {
-      const classNames = Array.isArray(e?.matched?.genres) ? e.matched.genres : [];
+    const deduped = dedupeEvents(normalized);
 
-      return {
-        ...e,
-        pillLabel: pickPillLabel(classNames),
-      };
-    });
+    const events: NormEvent[] =
+      requestedGenres.length > 0
+        ? deduped.filter((e) =>
+            requestedGenres.some((g) =>
+              (e.canonicalGenres || []).some((cg) => cg.toLowerCase() === g.toLowerCase())
+            )
+          )
+        : deduped;
 
     const genres = collectResponseGenres(events);
 
@@ -203,6 +230,12 @@ export async function POST(req: Request) {
       startDate: body.startDate,
       endDate: body.endDate,
       genres,
+      requestedGenres,
+      requestedFavorites: favorites.map((f) => ({
+        label: f.label || null,
+        attractionId: f.attractionId || null,
+        defaultGenre: f.defaultGenre || null,
+      })),
       count: events.length,
       events,
     });
