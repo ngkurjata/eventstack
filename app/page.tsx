@@ -3,6 +3,12 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { loadSession, saveSession } from "@/lib/home/persist";
+import GroupedComboBox from "@/app/components/GroupedComboBox";
+import { buildHomeFavoriteRows } from "@/lib/filters/groupedCombobox";
+import { type FavoriteKind } from "@/lib/favorites/options";
+import { RESOLVED_FAVORITE_OPTIONS } from "@/lib/favorites/resolvedOptions";
+import DateField from "@/app/components/date/DateField";
+import { addDaysLocal, isYMD, tomorrowYMD } from "@/lib/date/ymd";
 
 type Mode = "area" | "favorites";
 
@@ -12,55 +18,15 @@ function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
 }
 
-function isYMD(s: string) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(String(s || ""));
-}
-
 function clamp(n: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, n));
 }
 
-function ymdFromLocalDate(dt: Date) {
-  const y = dt.getFullYear();
-  const m = String(dt.getMonth() + 1).padStart(2, "0");
-  const d = String(dt.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-function addDaysLocal(ymd: string, days: number) {
-  if (!isYMD(ymd)) return "";
-  const [yy, mm, dd] = ymd.split("-").map((x) => parseInt(x, 10));
-  const dt = new Date(yy, mm - 1, dd);
-  dt.setDate(dt.getDate() + days);
-  return ymdFromLocalDate(dt);
-}
-
-function tomorrowYMD() {
-  const dt = new Date();
-  dt.setDate(dt.getDate() + 1);
-  return ymdFromLocalDate(dt);
-}
-
-function norm(s: any) {
+function norm(s: unknown) {
   return String(s || "")
     .trim()
     .toLowerCase()
     .replace(/\s+/g, " ");
-}
-
-function fmtDateChip(ymd: string) {
-  if (!isYMD(ymd)) return "";
-  try {
-    const [y, m, d] = ymd.split("-").map(Number);
-    const dt = new Date(y, m - 1, d);
-    return dt.toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  } catch {
-    return ymd;
-  }
 }
 
 /* -------------------- data shapes -------------------- */
@@ -72,23 +38,6 @@ type CityOpt = {
   lon: number;
   country?: string;
   airportIata?: string;
-};
-
-type FavoriteOption = {
-  key: string;
-  label: string;
-  kind: "team" | "artist";
-  rawName: string;
-  attractionId?: string;
-  defaultGenre?: string;
-  league?: string;
-};
-
-type ResolveFavoriteResponse = {
-  ok: boolean;
-  q: string;
-  items: FavoriteOption[];
-  error?: string;
 };
 
 /* -------------------- lightweight combobox -------------------- */
@@ -104,7 +53,18 @@ function ComboBox<T extends { label: string }>(props: {
   rightHint?: string;
   renderOption?: (opt: T, active: boolean) => React.ReactNode;
 }) {
-  const { label, value, placeholder, options, onChange, onPick, disabled, rightHint, renderOption } = props;
+  const {
+    label,
+    value,
+    placeholder,
+    options,
+    onChange,
+    onPick,
+    disabled,
+    rightHint,
+    renderOption,
+  } = props;
+
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -117,7 +77,9 @@ function ComboBox<T extends { label: string }>(props: {
     if (!q) return base.slice(0, 20);
 
     const starts = base.filter((o) => norm(o.label).startsWith(q));
-    const contains = base.filter((o) => !norm(o.label).startsWith(q) && norm(o.label).includes(q));
+    const contains = base.filter(
+      (o) => !norm(o.label).startsWith(q) && norm(o.label).includes(q)
+    );
 
     return [...starts, ...contains].slice(0, 20);
   }, [options, value]);
@@ -137,17 +99,21 @@ function ComboBox<T extends { label: string }>(props: {
 
   useEffect(() => {
     if (!open || !listRef.current) return;
-    const activeEl = listRef.current.querySelector<HTMLElement>(`[data-option-idx="${active}"]`);
+    const activeEl = listRef.current.querySelector<HTMLElement>(
+      `[data-option-idx="${active}"]`
+    );
     activeEl?.scrollIntoView({ block: "nearest" });
   }, [active, open]);
 
   const showList = open && !disabled && value.trim().length > 0;
 
   return (
-    <div ref={wrapRef} className="overflow-visible">
+    <div ref={wrapRef} className="relative z-20 overflow-visible">
       <div className="flex items-end justify-between">
         <div className="text-xs font-semibold text-slate-700">{label}</div>
-        {rightHint ? <div className="text-[11px] text-slate-500">{rightHint}</div> : null}
+        {rightHint ? (
+          <div className="text-[11px] text-slate-500">{rightHint}</div>
+        ) : null}
       </div>
 
       <input
@@ -192,7 +158,7 @@ function ComboBox<T extends { label: string }>(props: {
       />
 
       {showList && (
-        <div className="mt-2 rounded-2xl border border-slate-200 bg-white">
+        <div className="absolute left-0 right-0 top-full z-[70] mt-2 rounded-2xl border border-slate-200 bg-white shadow-lg">
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2">
             <div className="text-[11px] font-semibold text-slate-500">
               {filtered.length > 0
@@ -223,7 +189,9 @@ function ComboBox<T extends { label: string }>(props: {
                     }}
                     className={cx(
                       "w-full border-b border-slate-100 px-4 py-3 text-left text-sm last:border-b-0",
-                      isActive ? "bg-slate-900 text-white" : "bg-white text-slate-900 hover:bg-slate-50"
+                      isActive
+                        ? "bg-slate-900 text-white"
+                        : "bg-white text-slate-900 hover:bg-slate-50"
                     )}
                   >
                     {renderOption ? renderOption(opt, isActive) : opt.label}
@@ -242,58 +210,6 @@ function ComboBox<T extends { label: string }>(props: {
   );
 }
 
-function DatePickerButton(props: {
-  value: string;
-  onChange: (next: string) => void;
-  min?: string;
-  placeholder: string;
-}) {
-  const { value, onChange, min, placeholder } = props;
-  const inputRef = useRef<HTMLInputElement | null>(null);
-
-  function openPicker() {
-    const el = inputRef.current;
-    if (!el) return;
-
-    const anyEl = el as HTMLInputElement & { showPicker?: () => void };
-    if (typeof anyEl.showPicker === "function") {
-      anyEl.showPicker();
-      return;
-    }
-
-    el.click();
-  }
-
-  return (
-    <span className="relative inline-flex w-full align-middle">
-      <input
-        ref={inputRef}
-        type="date"
-        value={value}
-        min={min}
-        onChange={(e) => onChange(e.target.value)}
-        className="pointer-events-none absolute inset-0 h-full w-full opacity-0"
-        tabIndex={-1}
-        aria-hidden="true"
-      />
-
-      <button
-        type="button"
-        onClick={openPicker}
-        className={cx(
-          "inline-flex h-11 w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none",
-          "hover:border-slate-300"
-        )}
-      >
-        <span>{value ? fmtDateChip(value) : placeholder}</span>
-        <span aria-hidden="true" className="text-base">
-          📅
-        </span>
-      </button>
-    </span>
-  );
-}
-
 /* -------------------- persisted state -------------------- */
 
 type AreaState = {
@@ -308,8 +224,9 @@ type AreaState = {
 
 type FavState = {
   f1Label: string;
-  f1Kind: "" | "team" | "artist";
+  f1Kind: "" | FavoriteKind;
   f1AttractionId: string;
+  f1SeriesKey: string;
   f1DefaultGenre: string;
 };
 
@@ -331,6 +248,7 @@ const DEFAULT_FAV: FavState = {
   f1Label: "",
   f1Kind: "",
   f1AttractionId: "",
+  f1SeriesKey: "",
   f1DefaultGenre: "",
 };
 
@@ -340,16 +258,31 @@ export default function HomePage() {
   const router = useRouter();
 
   const [mode, setMode] = useState<Mode>("area");
-  const [openPanel, setOpenPanel] = useState<Mode | null>("area");
+  const [openPanel, setOpenPanel] = useState<Mode | null>(null);
   const [area, setArea] = useState<AreaState>(DEFAULT_AREA);
   const [fav, setFav] = useState<FavState>(DEFAULT_FAV);
   const [hasLoadedSession, setHasLoadedSession] = useState(false);
 
   const [cities, setCities] = useState<CityOpt[]>([]);
 
-  const [favoriteOptions, setFavoriteOptions] = useState<FavoriteOption[]>([]);
-  const [favoriteLoading, setFavoriteLoading] = useState(false);
-  const [favoriteError, setFavoriteError] = useState<string>("");
+  const favoriteRows = useMemo(
+    () => buildHomeFavoriteRows(RESOLVED_FAVORITE_OPTIONS),
+    []
+  );
+
+  const hasPickedCity =
+    !!String(area.cityLabel).trim() &&
+    !!String(area.lat).trim() &&
+    !!String(area.lon).trim() &&
+    Number.isFinite(Number(area.lat)) &&
+    Number.isFinite(Number(area.lon));
+
+  const canSearchArea =
+    hasPickedCity && isYMD(area.startDate) && isYMD(area.endDate);
+
+  const canSearchFavorites =
+    !!fav.f1Label.trim() &&
+    (!!fav.f1AttractionId.trim() || !!fav.f1SeriesKey.trim());
 
   useEffect(() => {
     const m = loadSession<Mode>(KEY_MODE, "area");
@@ -358,7 +291,6 @@ export default function HomePage() {
 
     if (m === "area" || m === "favorites") {
       setMode(m);
-      setOpenPanel(m);
     }
 
     setArea({
@@ -371,6 +303,7 @@ export default function HomePage() {
       ...nextFav,
     });
 
+    setOpenPanel(null);
     setHasLoadedSession(true);
   }, []);
 
@@ -394,8 +327,8 @@ export default function HomePage() {
 
     async function loadCities() {
       try {
-        const citiesJ = await fetch("/cities.json", { cache: "force-cache" }).then((r) =>
-          r.ok ? r.json() : []
+        const citiesJ = await fetch("/cities.json", { cache: "force-cache" }).then(
+          (r) => (r.ok ? r.json() : [])
         );
 
         if (cancelled) return;
@@ -432,6 +365,8 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
+    if (!hasLoadedSession) return;
+
     if (!area.startDate) {
       const t = tomorrowYMD();
       setArea((s) => ({
@@ -451,7 +386,23 @@ export default function HomePage() {
         }));
       }
     }
-  }, [area.startDate, area.endDate, area.endTouched]);
+  }, [hasLoadedSession, area.startDate, area.endDate, area.endTouched]);
+
+  useEffect(() => {
+    if (!isYMD(area.startDate)) return;
+    if (!isYMD(area.endDate)) return;
+
+    const minEnd = area.startDate;
+    const maxEnd = addDaysLocal(area.startDate, 13);
+
+    if (area.endDate < minEnd || area.endDate > maxEnd) {
+      setArea((s) => ({
+        ...s,
+        endDate: "",
+        endTouched: false,
+      }));
+    }
+  }, [area.startDate, area.endDate]);
 
   useEffect(() => {
     const clamped = clamp(Number(area.radiusMiles) || 90, 10, 120);
@@ -462,55 +413,6 @@ export default function HomePage() {
       }));
     }
   }, [area.radiusMiles]);
-
-  useEffect(() => {
-    if (mode !== "favorites") return;
-
-    const q = fav.f1Label.trim();
-
-    if (!q) {
-      setFavoriteOptions([]);
-      setFavoriteLoading(false);
-      setFavoriteError("");
-      return;
-    }
-
-    const controller = new AbortController();
-
-    const t = window.setTimeout(async () => {
-      try {
-        setFavoriteLoading(true);
-        setFavoriteError("");
-
-        const res = await fetch(`/api/resolve/favorite?q=${encodeURIComponent(q)}`, {
-          method: "GET",
-          cache: "no-store",
-          signal: controller.signal,
-        });
-
-        const data: ResolveFavoriteResponse = await res.json();
-
-        if (!res.ok || !data?.ok) {
-          setFavoriteOptions([]);
-          setFavoriteError(data?.error || "Could not load favorites.");
-          return;
-        }
-
-        setFavoriteOptions(Array.isArray(data.items) ? data.items : []);
-      } catch (err: any) {
-        if (err?.name === "AbortError") return;
-        setFavoriteOptions([]);
-        setFavoriteError("Could not load favorites.");
-      } finally {
-        setFavoriteLoading(false);
-      }
-    }, 200);
-
-    return () => {
-      controller.abort();
-      window.clearTimeout(t);
-    };
-  }, [fav.f1Label, mode]);
 
   function onSearchArea() {
     const latN = Number(area.lat);
@@ -557,23 +459,35 @@ export default function HomePage() {
   }
 
   function onSearchFavorites() {
-    if (!fav.f1Label.trim() || !fav.f1AttractionId.trim()) {
+    const label = fav.f1Label.trim();
+    const attractionId = fav.f1AttractionId.trim();
+    const seriesKey = fav.f1SeriesKey.trim();
+    const kind = fav.f1Kind.trim();
+
+    if (!label || (!attractionId && !seriesKey)) {
       alert("Favorites search requires selecting a valid favorite.");
       return;
     }
 
     const params: Record<string, string> = {
       countryCode: "US,CA",
-      f1Label: fav.f1Label.trim(),
-      f1AttractionId: fav.f1AttractionId.trim(),
+      f1Label: label,
     };
+
+    if (attractionId) {
+      params.f1AttractionId = attractionId;
+    }
+
+    if (seriesKey) {
+      params.f1SeriesKey = seriesKey;
+    }
 
     if (fav.f1DefaultGenre.trim()) {
       params.f1DefaultGenre = fav.f1DefaultGenre.trim();
     }
 
-    if (fav.f1Kind.trim()) {
-      params.f1Kind = fav.f1Kind.trim();
+    if (kind) {
+      params.f1Kind = kind;
     }
 
     router.push(`/results/favorites?${new URLSearchParams(params).toString()}`);
@@ -588,82 +502,89 @@ export default function HomePage() {
     setOpenPanel(next);
   }
 
-  function favoriteSubLabel(opt: FavoriteOption) {
-    const parts =
-      opt.kind === "team"
-        ? [String(opt.defaultGenre || "").trim(), String(opt.league || "").trim()]
-        : [String(opt.defaultGenre || "").trim()];
-
-    return parts.filter(Boolean).join(" • ");
-  }
-
-  const favoriteHint = favoriteLoading ? "Searching..." : favoriteError ? favoriteError : "";
-
   return (
     <main className="min-h-screen bg-slate-50">
       <div className="mx-auto w-full max-w-md px-4 py-6 lg:max-w-4xl lg:py-10">
-        <div className="mb-6 text-center">
+        <div className="mb-10 text-center">
           <h1 className="text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
             Plan and build trips around live sports and concerts.
           </h1>
         </div>
 
         <div className="space-y-4">
-          <section className="overflow-visible rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <section
+            className={cx(
+              "relative overflow-visible rounded-3xl border border-slate-200 bg-white shadow-sm",
+              openPanel === "area" ? "z-30" : "z-10"
+            )}
+          >
             <button
               type="button"
               onClick={() => togglePanel("area")}
               className={cx(
                 "w-full px-5 py-4 text-left transition sm:px-7",
-                openPanel === "area" ? "bg-slate-900 text-white" : "bg-white text-slate-900 hover:bg-slate-50"
+                openPanel === "area"
+                  ? "bg-slate-900 text-white"
+                  : "bg-white text-slate-900 hover:bg-slate-50"
               )}
             >
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <div className="text-lg font-black">by City</div>
-                  <div className={cx("mt-1 text-xs", openPanel === "area" ? "text-slate-300" : "text-slate-600")}>
-                  </div>
+                  <div
+                    className={cx(
+                      "mt-1 text-xs",
+                      openPanel === "area" ? "text-slate-300" : "text-slate-600"
+                    )}
+                  />
                 </div>
-                <div className="text-2xl font-light leading-none">{openPanel === "area" ? "−" : "+"}</div>
+                <div className="text-2xl font-light leading-none">
+                  {openPanel === "area" ? "−" : "+"}
+                </div>
               </div>
             </button>
 
             <div
               className={cx(
                 "grid transition-all duration-500 ease-in-out",
-                openPanel === "area" ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                openPanel === "area"
+                  ? "grid-rows-[1fr] opacity-100 pointer-events-auto"
+                  : "grid-rows-[0fr] opacity-0 pointer-events-none"
               )}
+              aria-hidden={openPanel !== "area"}
             >
-              <div className="overflow-hidden">
-                <div className="border-t border-slate-200 p-5 sm:p-7">
+              <div className="min-h-0 overflow-visible">
+                <div className="overflow-visible border-t border-slate-200 p-5 sm:p-7">
                   <div className="mt-5 grid gap-4 sm:grid-cols-3">
-                    <ComboBox<CityOpt>
-                      label="City"
-                      value={area.cityLabel}
-                      placeholder="Type a city…"
-                      options={cities}
-                      onChange={(v) =>
-                        setArea((s) => ({
-                          ...s,
-                          cityLabel: v,
-                          lat: "",
-                          lon: "",
-                        }))
-                      }
-                      onPick={(opt) =>
-                        setArea((s) => ({
-                          ...s,
-                          cityLabel: opt.label,
-                          lat: String(opt.lat),
-                          lon: String(opt.lon),
-                        }))
-                      }
-                    />
+                    <div className="relative z-40">
+                      <ComboBox<CityOpt>
+                        label="City"
+                        value={area.cityLabel}
+                        placeholder="Type a city…"
+                        options={cities}
+                        onChange={(v) =>
+                          setArea((s) => ({
+                            ...s,
+                            cityLabel: v,
+                            lat: "",
+                            lon: "",
+                          }))
+                        }
+                        onPick={(opt) =>
+                          setArea((s) => ({
+                            ...s,
+                            cityLabel: opt.label,
+                            lat: String(opt.lat),
+                            lon: String(opt.lon),
+                          }))
+                        }
+                      />
+                    </div>
 
-                    <div>
+                    <div className="relative z-30">
                       <div className="text-xs font-semibold text-slate-700">Start Date</div>
                       <div className="mt-1">
-                        <DatePickerButton
+                        <DateField
                           value={area.startDate}
                           min={tomorrowYMD()}
                           placeholder="Select date"
@@ -677,12 +598,22 @@ export default function HomePage() {
                       </div>
                     </div>
 
-                    <div>
+                    <div className="relative z-10">
                       <div className="text-xs font-semibold text-slate-700">End Date</div>
                       <div className="mt-1">
-                        <DatePickerButton
+                        <DateField
                           value={area.endDate}
                           min={area.startDate && isYMD(area.startDate) ? area.startDate : undefined}
+                          max={
+                            area.startDate && isYMD(area.startDate)
+                              ? addDaysLocal(area.startDate, 13)
+                              : undefined
+                          }
+                          initialMonth={
+                            area.startDate && isYMD(area.startDate)
+                              ? area.startDate
+                              : undefined
+                          }
                           placeholder="Select date"
                           onChange={(next) =>
                             setArea((s) => ({
@@ -693,8 +624,9 @@ export default function HomePage() {
                           }
                         />
                       </div>
+
                       {!area.endTouched && isYMD(area.startDate) ? (
-                        <div className="mt-1 text-[11px] text-slate-500">
+                        <div className="mt-1 text-center text-[11px] text-slate-500">
                           Cannot be more than 14 days from start date.
                         </div>
                       ) : null}
@@ -707,7 +639,13 @@ export default function HomePage() {
                     <button
                       type="button"
                       onClick={onSearchArea}
-                      className="h-11 rounded-2xl bg-slate-900 px-8 text-sm font-extrabold text-white hover:bg-slate-800"
+                      disabled={!canSearchArea}
+                      className={cx(
+                        "h-11 rounded-2xl px-8 text-sm font-extrabold text-white",
+                        canSearchArea
+                          ? "bg-slate-900 hover:bg-slate-800"
+                          : "cursor-not-allowed bg-slate-300"
+                      )}
                     >
                       Search
                     </button>
@@ -717,80 +655,105 @@ export default function HomePage() {
             </div>
           </section>
 
-          <section className="overflow-visible rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex items-center justify-center py-3">
+            <div className="flex items-center gap-4">
+              <div className="h-px w-20 bg-slate-300" />
+              <div className="text-base font-extrabold tracking-widest text-slate-700">
+                OR
+              </div>
+              <div className="h-px w-20 bg-slate-300" />
+            </div>
+          </div>
+
+          <section
+            className={cx(
+              "relative overflow-visible rounded-3xl border border-slate-200 bg-white shadow-sm",
+              openPanel === "favorites" ? "z-30" : "z-10"
+            )}
+          >
             <button
               type="button"
               onClick={() => togglePanel("favorites")}
               className={cx(
                 "w-full px-5 py-4 text-left transition sm:px-7",
-                openPanel === "favorites" ? "bg-slate-900 text-white" : "bg-white text-slate-900 hover:bg-slate-50"
+                openPanel === "favorites"
+                  ? "bg-slate-900 text-white"
+                  : "bg-white text-slate-900 hover:bg-slate-50"
               )}
             >
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <div className="text-lg font-black">by Favorite Team or Band</div>
                   <div
-                    className={cx("mt-1 text-xs", openPanel === "favorites" ? "text-slate-300" : "text-slate-600")}
-                  >
-                  </div>
+                    className={cx(
+                      "mt-1 text-xs",
+                      openPanel === "favorites" ? "text-slate-300" : "text-slate-600"
+                    )}
+                  />
                 </div>
-                <div className="text-2xl font-light leading-none">{openPanel === "favorites" ? "−" : "+"}</div>
+                <div className="text-2xl font-light leading-none">
+                  {openPanel === "favorites" ? "−" : "+"}
+                </div>
               </div>
             </button>
 
             <div
               className={cx(
                 "grid transition-all duration-500 ease-in-out",
-                openPanel === "favorites" ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                openPanel === "favorites"
+                  ? "grid-rows-[1fr] opacity-100 pointer-events-auto"
+                  : "grid-rows-[0fr] opacity-0 pointer-events-none"
               )}
+              aria-hidden={openPanel !== "favorites"}
             >
-              <div className="overflow-hidden">
-                <div className="border-t border-slate-200 p-5 sm:p-7">
+              <div className="min-h-0 overflow-visible">
+                <div className="overflow-visible border-t border-slate-200 p-5 sm:p-7">
                   <div className="grid gap-5">
-                    <ComboBox<FavoriteOption>
-                      label="Favorite Team or Band"
-                      value={fav.f1Label}
-                      placeholder="Type a team or artist…"
-                      options={favoriteOptions}
-                      rightHint={favoriteHint}
-                      renderOption={(opt, active) => {
-                        const sub = favoriteSubLabel(opt);
-                        return (
-                          <div className="flex flex-col">
-                            <span className="font-semibold">{opt.label}</span>
-                            {sub ? (
-                              <span className={cx("text-xs", active ? "text-slate-300" : "text-slate-500")}>
-                                {sub}
-                              </span>
-                            ) : null}
-                          </div>
-                        );
-                      }}
-                      onChange={(v) =>
-                        setFav((s) => ({
-                          ...s,
-                          f1Label: v,
-                          f1Kind: "",
-                          f1AttractionId: "",
-                          f1DefaultGenre: "",
-                        }))
-                      }
-                      onPick={(opt) =>
-                        setFav((s) => ({
-                          ...s,
-                          f1Label: opt.rawName,
-                          f1Kind: opt.kind,
-                          f1AttractionId: String(opt.attractionId || "").trim(),
-                          f1DefaultGenre: String(opt.defaultGenre || "").trim(),
-                        }))
-                      }
-                    />
+                    <div className="relative z-20">
+                      <GroupedComboBox
+                        label="Favorite Team or Band"
+                        value={fav.f1Label}
+                        placeholder="Browse teams and artists, or type to narrow"
+                        rows={favoriteRows}
+                        onChange={(v) =>
+                          setFav((s) => ({
+                            ...s,
+                            f1Label: v,
+                            f1Kind: "",
+                            f1AttractionId: "",
+                            f1SeriesKey: "",
+                            f1DefaultGenre: "",
+                          }))
+                        }
+                        onPick={(row) => {
+                          if (row.optionType !== "favorite" || !row.favorite) return;
+
+                          const opt = row.favorite;
+
+                          setFav((s) => ({
+                            ...s,
+                            f1Label: opt.label,
+                            f1Kind: opt.kind,
+                            f1AttractionId: String(opt.attractionId || "").trim(),
+                            f1SeriesKey: String(opt.seriesKey || "").trim(),
+                            f1DefaultGenre: String(opt.defaultGenre || "").trim(),
+                          }));
+                        }}
+                        onClear={() => setFav(DEFAULT_FAV)}
+                      />
+                    </div>
 
                     <div className="flex justify-center">
                       <button
                         type="button"
                         onClick={onSearchFavorites}
-                        className="h-11 rounded-2xl bg-slate-900 px-8 text-sm font-extrabold text-white hover:bg-slate-800"
+                        disabled={!canSearchFavorites}
+                        className={cx(
+                          "h-11 rounded-2xl px-8 text-sm font-extrabold text-white",
+                          canSearchFavorites
+                            ? "bg-slate-900 hover:bg-slate-800"
+                            : "cursor-not-allowed bg-slate-300"
+                        )}
                       >
                         Search
                       </button>

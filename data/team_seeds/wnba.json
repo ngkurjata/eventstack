@@ -1,0 +1,137 @@
+[
+  {
+    "name": "Atlanta Dream",
+    "league": "WNBA",
+    "sport": "basketball",
+    "country": "US",
+    "region": "GA",
+    "city": "Atlanta",
+    "aliases": ["Dream", "Atlanta"]
+  },
+  {
+    "name": "Chicago Sky",
+    "league": "WNBA",
+    "sport": "basketball",
+    "country": "US",
+    "region": "IL",
+    "city": "Chicago",
+    "aliases": ["Sky", "Chicago"]
+  },
+  {
+    "name": "Connecticut Sun",
+    "league": "WNBA",
+    "sport": "basketball",
+    "country": "US",
+    "region": "CT",
+    "city": "Uncasville",
+    "aliases": ["Sun", "Connecticut"]
+  },
+  {
+    "name": "Dallas Wings",
+    "league": "WNBA",
+    "sport": "basketball",
+    "country": "US",
+    "region": "TX",
+    "city": "Dallas",
+    "aliases": ["Wings", "Dallas"]
+  },
+  {
+    "name": "Golden State Valkyries",
+    "league": "WNBA",
+    "sport": "basketball",
+    "country": "US",
+    "region": "CA",
+    "city": "San Francisco Bay Area",
+    "aliases": ["Valkyries", "Golden State", "GS Valkyries"]
+  },
+  {
+    "name": "Indiana Fever",
+    "league": "WNBA",
+    "sport": "basketball",
+    "country": "US",
+    "region": "IN",
+    "city": "Indianapolis",
+    "aliases": ["Fever", "Indiana"]
+  },
+  {
+    "name": "Las Vegas Aces",
+    "league": "WNBA",
+    "sport": "basketball",
+    "country": "US",
+    "region": "NV",
+    "city": "Las Vegas",
+    "aliases": ["Aces", "Vegas", "Las Vegas"]
+  },
+  {
+    "name": "Los Angeles Sparks",
+    "league": "WNBA",
+    "sport": "basketball",
+    "country": "US",
+    "region": "CA",
+    "city": "Los Angeles",
+    "aliases": ["Sparks", "LA Sparks", "Los Angeles"]
+  },
+  {
+    "name": "Minnesota Lynx",
+    "league": "WNBA",
+    "sport": "basketball",
+    "country": "US",
+    "region": "MN",
+    "city": "Minneapolis-Saint Paul",
+    "aliases": ["Lynx", "Minnesota"]
+  },
+  {
+    "name": "New York Liberty",
+    "league": "WNBA",
+    "sport": "basketball",
+    "country": "US",
+    "region": "NY",
+    "city": "New York",
+    "aliases": ["Liberty", "NY Liberty", "New York"]
+  },
+  {
+    "name": "Phoenix Mercury",
+    "league": "WNBA",
+    "sport": "basketball",
+    "country": "US",
+    "region": "AZ",
+    "city": "Phoenix",
+    "aliases": ["Mercury", "Phoenix"]
+  },
+  {
+    "name": "Portland Fire",
+    "league": "WNBA",
+    "sport": "basketball",
+    "country": "US",
+    "region": "OR",
+    "city": "Portland",
+    "aliases": ["Fire", "Portland"]
+  },
+  {
+    "name": "Seattle Storm",
+    "league": "WNBA",
+    "sport": "basketball",
+    "country": "US",
+    "region": "WA",
+    "city": "Seattle",
+    "aliases": ["Storm", "Seattle"]
+  },
+  {
+    "name": "Toronto Tempo",
+    "league": "WNBA",
+    "sport": "basketball",
+    "country": "CA",
+    "region": "ON",
+    "city": "Toronto",
+    "aliases": ["Tempo", "Toronto"]
+  },
+  {
+    "name": "Washington Mystics",
+    "league": "WNBA",
+    "sport": "basketball",
+    "country": "US",
+    "region": "DC",
+    "city": "Washington",
+    "aliases": ["Mystics", "Washington"]
+  }
+]

@@ -2,9 +2,11 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
+import type { SeriesKey } from "@/lib/favorites/types";
 import TM from "@/lib/tm/client";
 import { normalizeTMEvent, type NormEvent } from "@/lib/events/normalize";
 import { dedupeEvents } from "@/lib/events/dedupe";
+import { fetchSeriesTMEvents } from "@/lib/favorites/fetchSeriesEvents";
 import { isYMD, ymdToTmRangeInclusive } from "@/lib/time/window";
 
 function json(payload: any, status = 200) {
@@ -14,8 +16,9 @@ function json(payload: any, status = 200) {
 type FavoriteInput = {
   id?: string;
   label: string;
-  kind?: "team" | "artist";
-  attractionId: string;
+  kind?: "team" | "artist" | "series";
+  attractionId?: string;
+  seriesKey?: SeriesKey;
   defaultGenre?: string;
 };
 
@@ -25,7 +28,7 @@ type Body = {
   startDate?: string | null;
   endDate?: string | null;
   countryCode?: string;
-  genres?: string[]; // kept for wiring compatibility
+  genres?: string[];
 };
 
 type MatchBag = {
@@ -35,7 +38,7 @@ type MatchBag = {
   genres: string[];
 };
 
-type AttractionCacheEntry = {
+type FavoriteEventCacheEntry = {
   expiresAt: number;
   data: NormEvent[];
 };
@@ -48,27 +51,25 @@ type SearchCacheEntry = {
 type ResolvedFavorite = {
   id: string;
   label: string;
-  kind?: "team" | "artist";
-  attractionId: string;
+  kind: "team" | "artist" | "series";
+  attractionId?: string;
+  seriesKey?: SeriesKey;
   defaultGenre: string;
 };
 
-const ATTRACTION_TTL_MS = 10 * 60_000;
+const FAVORITE_EVENT_TTL_MS = 10 * 60_000;
 const SEARCH_TTL_MS = 5 * 60_000;
 const DEFAULT_COUNTRY_CODE = "US,CA";
 const DEFAULT_RADIUS_MILES = 90;
 const DEFAULT_DAYS_EACH_SIDE = 3;
 const MAX_GENRES = 4;
 
-// Progressive paging controls:
-// - max pages keeps quota bounded
-// - stall pages stops once deduped unique games stop growing
 const TM_PAGE_SIZE = 200;
 const TM_MAX_PAGES = 8;
 const TM_STALL_PAGES = 2;
 
-const attractionCache = new Map<string, AttractionCacheEntry>();
-const inflightAttractionFetches = new Map<string, Promise<NormEvent[]>>();
+const favoriteEventCache = new Map<string, FavoriteEventCacheEntry>();
+const inflightFavoriteFetches = new Map<string, Promise<NormEvent[]>>();
 
 const searchCache = new Map<string, SearchCacheEntry>();
 const inflightSearches = new Map<string, Promise<any>>();
@@ -92,38 +93,6 @@ async function withRateLimitRetry<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
-function isJunkNorm(ne: any): boolean {
-  const name = String(ne?.name ?? "").trim();
-  const city = String(ne?.city ?? ne?.location?.city ?? "").trim();
-  const venue = String(ne?.venueName ?? ne?.venue ?? "").trim();
-
-  if (!name) return true;
-  if (name.toLowerCase().includes("untitled")) return true;
-  if (!city || city.toLowerCase().includes("tbd")) return true;
-  if (!venue || venue.toLowerCase().includes("tbd")) return true;
-
-  return false;
-}
-
-function isJunkTM(tm: any): boolean {
-  const name = String(tm?.name ?? "").trim();
-  if (!name) return true;
-  if (name.toLowerCase().includes("untitled")) return true;
-
-  const v0 = tm?._embedded?.venues?.[0];
-  const vCity = String(v0?.city?.name ?? "").trim();
-  const vName = String(v0?.name ?? "").trim();
-
-  if (!vCity || vCity.toLowerCase().includes("tbd")) return true;
-  if (!vName || vName.toLowerCase().includes("tbd")) return true;
-  if (!tm?.url) return true;
-
-  const d = String(tm?.dates?.start?.localDate ?? "").trim();
-  if (!d || !isYMD(d)) return true;
-
-  return false;
-}
-
 function uniqueStrings(values: Array<string | null | undefined>) {
   const seen = new Set<string>();
   const out: string[] = [];
@@ -143,33 +112,53 @@ function normalizeGenresInput(values: string[] | null | undefined) {
   return uniqueStrings((values || []).map((g) => String(g || "").trim())).slice(0, MAX_GENRES);
 }
 
-function resolveFavorite(input: FavoriteInput | null | undefined, fallbackId: string): ResolvedFavorite | null {
+function resolveFavorite(
+  input: FavoriteInput | null | undefined,
+  fallbackId: string
+): ResolvedFavorite | null {
   if (!input) return null;
 
   const label = String(input.label || "").trim();
+  const kind = (String(input.kind || "").trim() || "team") as ResolvedFavorite["kind"];
   const attractionId = String(input.attractionId || "").trim();
+  const seriesKey = String(input.seriesKey || "").trim() as SeriesKey;
   const defaultGenre = String(input.defaultGenre || "").trim();
   const id = String(input.id || fallbackId).trim() || fallbackId;
 
-  if (!label || !attractionId) return null;
+  if (!label) return null;
+
+  if (kind === "series") {
+    if (!seriesKey) return null;
+    return {
+      id,
+      label,
+      kind,
+      seriesKey,
+      defaultGenre,
+    };
+  }
+
+  if (!attractionId) return null;
 
   return {
     id,
     label,
-    kind: input.kind,
+    kind,
     attractionId,
     defaultGenre,
   };
 }
 
-function makeAttractionKey(args: {
-  attractionId: string;
+function makeFavoriteEventKey(args: {
+  favorite: ResolvedFavorite;
   countryCode: string;
   startDateTime?: string;
   endDateTime?: string;
 }) {
   return [
-    args.attractionId,
+    args.favorite.kind,
+    args.favorite.attractionId || "",
+    args.favorite.seriesKey || "",
     args.countryCode,
     args.startDateTime || "",
     args.endDateTime || "",
@@ -188,16 +177,18 @@ function makeSearchKey(args: {
     f1: {
       id: args.favorite1.id,
       label: args.favorite1.label,
-      kind: args.favorite1.kind || "",
-      attractionId: args.favorite1.attractionId,
+      kind: args.favorite1.kind,
+      attractionId: args.favorite1.attractionId || "",
+      seriesKey: args.favorite1.seriesKey || "",
       defaultGenre: args.favorite1.defaultGenre,
     },
     f2: args.favorite2
       ? {
           id: args.favorite2.id,
           label: args.favorite2.label,
-          kind: args.favorite2.kind || "",
-          attractionId: args.favorite2.attractionId,
+          kind: args.favorite2.kind,
+          attractionId: args.favorite2.attractionId || "",
+          seriesKey: args.favorite2.seriesKey || "",
           defaultGenre: args.favorite2.defaultGenre,
         }
       : null,
@@ -269,6 +260,38 @@ function ensureMatched(ne: NormEvent): MatchBag {
   return normalized;
 }
 
+function isJunkNorm(ne: any): boolean {
+  const name = String(ne?.name ?? "").trim();
+  const city = String(ne?.city ?? ne?.location?.city ?? "").trim();
+  const venue = String(ne?.venueName ?? ne?.venue ?? "").trim();
+
+  if (!name) return true;
+  if (name.toLowerCase().includes("untitled")) return true;
+  if (!city || city.toLowerCase().includes("tbd")) return true;
+  if (!venue || venue.toLowerCase().includes("tbd")) return true;
+
+  return false;
+}
+
+function isJunkTM(tm: any): boolean {
+  const name = String(tm?.name ?? "").trim();
+  if (!name) return true;
+  if (name.toLowerCase().includes("untitled")) return true;
+
+  const v0 = tm?._embedded?.venues?.[0];
+  const vCity = String(v0?.city?.name ?? "").trim();
+  const vName = String(v0?.name ?? "").trim();
+
+  if (!vCity || vCity.toLowerCase().includes("tbd")) return true;
+  if (!vName || vName.toLowerCase().includes("tbd")) return true;
+  if (!tm?.url) return true;
+
+  const d = String(tm?.dates?.start?.localDate ?? "").trim();
+  if (!d || !isYMD(d)) return true;
+
+  return false;
+}
+
 function normalizeAndDedupeTMEvents(rawEvents: any[]): NormEvent[] {
   const normalized: NormEvent[] = [];
 
@@ -304,11 +327,11 @@ async function tmSearchByAttractionUncached(args: {
         ...(args.startDateTime ? { startDateTime: args.startDateTime } : {}),
         ...(args.endDateTime ? { endDateTime: args.endDateTime } : {}),
         sort: "date,asc",
-        size: 200,
+        size: TM_PAGE_SIZE,
       },
       {
-        hardCap: 1000,
-        maxPages: 8,
+        hardCap: TM_PAGE_SIZE * TM_MAX_PAGES,
+        maxPages: TM_MAX_PAGES,
         onPage(eventsSoFar) {
           const dedupedSoFar = normalizeAndDedupeTMEvents(eventsSoFar);
           const uniqueCount = dedupedSoFar.length;
@@ -320,7 +343,7 @@ async function tmSearchByAttractionUncached(args: {
             stallPages = 0;
           }
 
-          return stallPages >= 2;
+          return stallPages >= TM_STALL_PAGES;
         },
       }
     )
@@ -329,38 +352,57 @@ async function tmSearchByAttractionUncached(args: {
   return normalizeAndDedupeTMEvents(tmEvents);
 }
 
-async function tmSearchByAttraction(args: {
-  attractionId: string;
+async function fetchFavoriteEvents(args: {
+  favorite: ResolvedFavorite;
   countryCode: string;
   startDateTime?: string;
   endDateTime?: string;
 }) {
-  const key = makeAttractionKey(args);
+  const key = makeFavoriteEventKey(args);
   const now = Date.now();
 
-  const cached = attractionCache.get(key);
+  const cached = favoriteEventCache.get(key);
   if (cached && cached.expiresAt > now) {
     return cached.data;
   }
 
-  const inflight = inflightAttractionFetches.get(key);
+  const inflight = inflightFavoriteFetches.get(key);
   if (inflight) {
     return inflight;
   }
 
-  const promise = tmSearchByAttractionUncached(args)
+  const promise = (async () => {
+    if (args.favorite.kind === "series") {
+      if (!args.favorite.seriesKey) return [] as NormEvent[];
+      return fetchSeriesTMEvents({
+        seriesKey: args.favorite.seriesKey,
+        countryCode: args.countryCode,
+        startDateTime: args.startDateTime,
+        endDateTime: args.endDateTime,
+      });
+    }
+
+    if (!args.favorite.attractionId) return [] as NormEvent[];
+
+    return tmSearchByAttractionUncached({
+      attractionId: args.favorite.attractionId,
+      countryCode: args.countryCode,
+      startDateTime: args.startDateTime,
+      endDateTime: args.endDateTime,
+    });
+  })()
     .then((data) => {
-      attractionCache.set(key, {
-        expiresAt: Date.now() + ATTRACTION_TTL_MS,
+      favoriteEventCache.set(key, {
+        expiresAt: Date.now() + FAVORITE_EVENT_TTL_MS,
         data,
       });
       return data;
     })
     .finally(() => {
-      inflightAttractionFetches.delete(key);
+      inflightFavoriteFetches.delete(key);
     });
 
-  inflightAttractionFetches.set(key, promise);
+  inflightFavoriteFetches.set(key, promise);
   return promise;
 }
 
@@ -377,7 +419,7 @@ async function runSearch(body: Body) {
   const favorite1 = resolveFavorite(body.favorite1, "F1");
   const favorite2 = resolveFavorite(body.favorite2 || null, "F2");
 
-  if (!favorite1?.attractionId) {
+  if (!favorite1) {
     return { error: "Favorite 1 is required", status: 400 };
   }
 
@@ -431,15 +473,15 @@ async function runSearch(body: Body) {
   }
 
   const [f1Anchors, f2Events] = await Promise.all([
-    tmSearchByAttraction({
-      attractionId: favorite1.attractionId,
+    fetchFavoriteEvents({
+      favorite: favorite1,
       countryCode,
       startDateTime,
       endDateTime,
     }),
-    favorite2?.attractionId
-      ? tmSearchByAttraction({
-          attractionId: favorite2.attractionId,
+    favorite2
+      ? fetchFavoriteEvents({
+          favorite: favorite2,
           countryCode,
           startDateTime,
           endDateTime,
@@ -450,7 +492,7 @@ async function runSearch(body: Body) {
   for (const anchor of f1Anchors) {
     const matched = ensureMatched(anchor);
     matched.favorites = uniqueStrings([favorite1.id, favorite1.label]);
-    matched.attractionIds = uniqueStrings([favorite1.attractionId]);
+    matched.attractionIds = uniqueStrings([favorite1.attractionId || ""]);
     matched.defaultGenres = uniqueStrings([favorite1.defaultGenre]);
     matched.genres = [];
   }
@@ -468,7 +510,7 @@ async function runSearch(body: Body) {
       return false;
     }
 
-    if (!favorite2?.attractionId) {
+    if (!favorite2) {
       return true;
     }
 
@@ -476,7 +518,7 @@ async function runSearch(body: Body) {
   });
 
   const candidateMeta = candidateAnchors.map((anchor) => {
-    const nearbyF2Events = favorite2?.attractionId
+    const nearbyF2Events = favorite2
       ? f2Events.filter((f2e) => isNearbyAnchorMatch(anchor, f2e, radiusMiles, daysEachSide))
       : [];
 
@@ -486,7 +528,7 @@ async function runSearch(body: Body) {
     };
   });
 
-  const filteredMeta = favorite2?.attractionId
+  const filteredMeta = favorite2
     ? candidateMeta.filter((item) => item.nearbyF2Events.length > 0)
     : candidateMeta;
 
@@ -498,8 +540,8 @@ async function runSearch(body: Body) {
     ]);
 
     const presentAttractionIds = uniqueStrings([
-      favorite1.attractionId,
-      ...(nearbyF2Events.length > 0 && favorite2 ? [favorite2.attractionId] : []),
+      favorite1.attractionId || "",
+      ...(nearbyF2Events.length > 0 && favorite2 ? [favorite2.attractionId || ""] : []),
     ]);
 
     const presentDefaultGenres = uniqueStrings([
@@ -522,14 +564,14 @@ async function runSearch(body: Body) {
 
   return {
     mode: "favorites",
-    favorites: [favorite1, ...(favorite2?.attractionId ? [favorite2] : [])].map((fav) => ({
+    favorites: [favorite1, ...(favorite2 ? [favorite2] : [])].map((fav) => ({
       id: fav.id,
       label: fav.label,
       defaultGenre: fav.defaultGenre,
     })),
     genres,
     requiredInputs: {
-      favorites: [favorite1, ...(favorite2?.attractionId ? [favorite2] : [])].map((fav) => fav.id),
+      favorites: [favorite1, ...(favorite2 ? [favorite2] : [])].map((fav) => fav.id),
       genres,
     },
     startDate,
@@ -546,7 +588,7 @@ export async function POST(req: Request) {
     const favorite1 = resolveFavorite(body.favorite1, "F1");
     const favorite2 = resolveFavorite(body.favorite2 || null, "F2");
 
-    if (!favorite1?.attractionId) {
+    if (!favorite1) {
       return json({ error: "Favorite 1 is required" }, 400);
     }
 

@@ -1,0 +1,475 @@
+[
+  {
+    "label": "(G)I-DLE",
+    "kind": "artist",
+    "category": "Music",
+    "primaryGenre": "K-Pop",
+    "searchText": "(g)i-dle",
+    "rank": 9598,
+    "reason": "no_confident_match",
+    "topCandidates": []
+  },
+  {
+    "label": "Agust D",
+    "kind": "artist",
+    "category": "Music",
+    "primaryGenre": "K-Pop",
+    "searchText": "agust d",
+    "rank": 9232,
+    "reason": "no_confident_match",
+    "topCandidates": []
+  },
+  {
+    "label": "Death From Above 1979",
+    "kind": "artist",
+    "category": "Music",
+    "primaryGenre": "Alternative/Indie",
+    "searchText": "death from above 1979",
+    "rank": 9433,
+    "reason": "no_confident_match",
+    "topCandidates": [
+      {
+        "id": "K8vZ9175lu0",
+        "name": "Death From Above",
+        "segment": "Music",
+        "genre": "Rock",
+        "subGenre": "Pop",
+        "score": 40
+      }
+    ]
+  },
+  {
+    "label": "JISOO",
+    "kind": "artist",
+    "category": "Music",
+    "primaryGenre": "K-Pop",
+    "searchText": "jisoo",
+    "rank": 9609,
+    "reason": "no_confident_match",
+    "topCandidates": []
+  },
+  {
+    "label": "Lady A",
+    "kind": "artist",
+    "category": "Music",
+    "primaryGenre": "Country",
+    "searchText": "lady a",
+    "rank": 9390,
+    "reason": "no_confident_match",
+    "topCandidates": [
+      {
+        "id": "K8vZ917Q-J0",
+        "name": "14 Red Ladies m. Daimi og Jytte Abildstrøm",
+        "segment": "Music",
+        "genre": "Undefined",
+        "subGenre": "Undefined",
+        "score": 40
+      },
+      {
+        "id": "K8vZ917jYd0",
+        "name": "80's Ladies",
+        "segment": "Music",
+        "genre": "Rock",
+        "subGenre": "Pop",
+        "score": 40
+      },
+      {
+        "id": "Z7r9jZaGVr",
+        "name": "Abby the Spoon Lady",
+        "segment": "Music",
+        "genre": "Other",
+        "subGenre": "Other",
+        "score": 40
+      },
+      {
+        "id": "K8vZ917C7DV",
+        "name": "Ag Ag Lady",
+        "segment": "Music",
+        "genre": "Dance/Electronic",
+        "subGenre": "Club Dance",
+        "score": 40
+      },
+      {
+        "id": "K8vZ917jpM0",
+        "name": "AmaZing Hengelo Ladies Choir",
+        "segment": "Music",
+        "genre": "Pop",
+        "subGenre": "Pop Rock",
+        "score": 40
+      }
+    ]
+  },
+  {
+    "label": "Mammoth WVH",
+    "kind": "artist",
+    "category": "Music",
+    "primaryGenre": "Rock",
+    "searchText": "mammoth wvh",
+    "rank": 9452,
+    "reason": "no_confident_match",
+    "topCandidates": []
+  },
+  {
+    "label": "Marcus King",
+    "kind": "artist",
+    "category": "Music",
+    "primaryGenre": "Blues",
+    "searchText": "marcus king",
+    "rank": 9193,
+    "reason": "no_confident_match",
+    "topCandidates": [
+      {
+        "id": "K8vZ917fIUf",
+        "name": "Marcus King Band",
+        "segment": "Music",
+        "genre": "Rock",
+        "subGenre": "Psychedelic",
+        "score": 160
+      },
+      {
+        "id": "K8vZ9175DTf",
+        "name": "Niki King & Marcus Ford",
+        "segment": "Music",
+        "genre": "Rock",
+        "subGenre": "Pop",
+        "score": 40
+      }
+    ]
+  },
+  {
+    "label": "RM",
+    "kind": "artist",
+    "category": "Music",
+    "primaryGenre": "K-Pop",
+    "searchText": "rm",
+    "rank": 9233,
+    "reason": "no_confident_match",
+    "topCandidates": [
+      {
+        "id": "K8vZ917quJ7",
+        "name": "RM Bilebändi",
+        "segment": "Music",
+        "genre": "Rock",
+        "subGenre": "Pop",
+        "score": 160
+      },
+      {
+        "id": "K8vZ9178Vaf",
+        "name": "RM Hubbert",
+        "segment": "Music",
+        "genre": "Pop",
+        "subGenre": "Adult Contemporary",
+        "score": 160
+      },
+      {
+        "id": "K8vZ917jgif",
+        "name": "RM47",
+        "segment": "Music",
+        "genre": "R&B",
+        "subGenre": "Pop-Soul",
+        "score": 160
+      },
+      {
+        "id": "K8vZ917q2qf",
+        "name": "azel rm",
+        "segment": "Music",
+        "genre": "Alternative",
+        "subGenre": "Alternative Rock",
+        "score": 120
+      },
+      {
+        "id": "K8vZ917uOt0",
+        "name": "El RM",
+        "segment": "Music",
+        "genre": "World",
+        "subGenre": "Latin",
+        "score": 120
+      }
+    ]
+  },
+  {
+    "label": "The Cure",
+    "kind": "artist",
+    "category": "Music",
+    "primaryGenre": "Alternative/Indie",
+    "searchText": "the cure",
+    "rank": 9427,
+    "reason": "no_confident_match",
+    "topCandidates": [
+      {
+        "id": "K8vZ917K2H0",
+        "name": "Aziza & the Cure",
+        "segment": "Music",
+        "genre": "R&B",
+        "subGenre": "Soul",
+        "score": 120
+      },
+      {
+        "id": "K8vZ917bYPV",
+        "name": "Carissa Johnson & the Cure-Alls",
+        "segment": "Music",
+        "genre": "Rock",
+        "subGenre": "Rock",
+        "score": 120
+      },
+      {
+        "id": "K8vZ917LKo7",
+        "name": "DARKADE (The Cure Forever)",
+        "segment": "Music",
+        "genre": "Alternative",
+        "subGenre": "Alternative",
+        "score": 120
+      },
+      {
+        "id": "K8vZ917Gc00",
+        "name": "Dead From the Cure",
+        "segment": "Music",
+        "genre": "Metal",
+        "subGenre": "Heavy Metal",
+        "score": 120
+      },
+      {
+        "id": "Z7r9jZaGcW",
+        "name": "Rock the Cure",
+        "segment": "Music",
+        "genre": "Other",
+        "subGenre": "Other",
+        "score": 120
+      }
+    ]
+  },
+  {
+    "label": "The Killers",
+    "kind": "artist",
+    "category": "Music",
+    "primaryGenre": "Rock",
+    "searchText": "the killers",
+    "rank": 9900,
+    "reason": "no_confident_match",
+    "topCandidates": [
+      {
+        "id": "K8vZ91793b7",
+        "name": "A Killer's Confession",
+        "segment": "Music",
+        "genre": "Metal",
+        "subGenre": "Metal",
+        "score": 41,
+        "ticketmasterEvents": 1
+      },
+      {
+        "id": "K8vZ9171rcf",
+        "name": "Dave Chappelle",
+        "segment": "Arts & Theatre",
+        "genre": "Comedy",
+        "subGenre": "Comedy",
+        "score": 2,
+        "ticketmasterEvents": 2
+      },
+      {
+        "id": "K8vZ917GkLV",
+        "name": "All Killer No Filler",
+        "segment": "Music",
+        "genre": "Rock",
+        "subGenre": "Pop",
+        "score": -125,
+        "ticketmasterEvents": 0
+      },
+      {
+        "id": "K8vZ9173Kf7",
+        "name": "Black River Killers",
+        "segment": "Music",
+        "genre": "Rock",
+        "subGenre": "Alternative Rock",
+        "score": -125,
+        "ticketmasterEvents": 0
+      },
+      {
+        "id": "K8vZ917fEvV",
+        "name": "Brolle",
+        "segment": "Music",
+        "genre": "Rock",
+        "subGenre": "Pop",
+        "score": -125,
+        "ticketmasterEvents": 0
+      }
+    ]
+  },
+  {
+    "label": "The National",
+    "kind": "artist",
+    "category": "Music",
+    "primaryGenre": "Rock",
+    "searchText": "the national",
+    "rank": 9906,
+    "reason": "no_confident_match",
+    "topCandidates": [
+      {
+        "id": "K8vZ917bEGf",
+        "name": "10th National Chopin Piano Competition Finals",
+        "segment": "Music",
+        "genre": "Classical",
+        "subGenre": "Classical/Vocal",
+        "score": 40
+      },
+      {
+        "id": "K8vZ917bEG7",
+        "name": "10th National Chopin Piano Competition Special Concert",
+        "segment": "Music",
+        "genre": "Classical",
+        "subGenre": "Classical/Vocal",
+        "score": 40
+      },
+      {
+        "id": "K8vZ917GuE0",
+        "name": "A National Treasure 2",
+        "segment": "Music",
+        "genre": "Folk",
+        "subGenre": "Folk",
+        "score": 40
+      },
+      {
+        "id": "K8vZ917G4Ff",
+        "name": "A National Treasure 3",
+        "segment": "Music",
+        "genre": "Folk",
+        "subGenre": "Folk",
+        "score": 40
+      },
+      {
+        "id": "K8vZ917QJIf",
+        "name": "Académie de l’Opéra National de Paris",
+        "segment": "Music",
+        "genre": "Classical",
+        "subGenre": "Classical/Vocal",
+        "score": 40
+      }
+    ]
+  },
+  {
+    "label": "The Rose",
+    "kind": "artist",
+    "category": "Music",
+    "primaryGenre": "K-Pop",
+    "searchText": "the rose",
+    "rank": 9222,
+    "reason": "no_confident_match",
+    "topCandidates": [
+      {
+        "id": "K8vZ917oED0",
+        "name": "Absinthe Rose",
+        "segment": "Music",
+        "genre": "Folk",
+        "subGenre": "Folk",
+        "score": 120
+      },
+      {
+        "id": "K8vZ9172tt7",
+        "name": "Ariana and the Rose",
+        "segment": "Music",
+        "genre": "Rock",
+        "subGenre": "Pop",
+        "score": 120
+      },
+      {
+        "id": "Z7r9jZaeId",
+        "name": "A Dozen Red Roses",
+        "segment": "Music",
+        "genre": "Other",
+        "subGenre": "Other",
+        "score": 40
+      },
+      {
+        "id": "K8vZ917Cvjf",
+        "name": "A Plastic Rose",
+        "segment": "Music",
+        "genre": "Rock",
+        "subGenre": "Pop",
+        "score": 40
+      },
+      {
+        "id": "K8vZ917CLO7",
+        "name": "A Rose By Any Other Name",
+        "segment": "Music",
+        "genre": "Rock",
+        "subGenre": "Alternative Rock",
+        "score": 40
+      }
+    ]
+  },
+  {
+    "label": "The Who",
+    "kind": "artist",
+    "category": "Music",
+    "primaryGenre": "Rock",
+    "searchText": "the who",
+    "rank": 9486,
+    "reason": "no_confident_match",
+    "topCandidates": [
+      {
+        "id": "K8vZ9173HE0",
+        "name": "An Evening of Who Music In Aid of Teenage Cancer Trust",
+        "segment": "Music",
+        "genre": "Rock",
+        "subGenre": "Pop",
+        "score": 75
+      },
+      {
+        "id": "K8vZ917o6wV",
+        "name": "Betty Who",
+        "segment": "Music",
+        "genre": "Rock",
+        "subGenre": "Alternative Rock",
+        "score": 75
+      },
+      {
+        "id": "K8vZ9172-m7",
+        "name": "Boys Who Say No",
+        "segment": "Music",
+        "genre": "Rock",
+        "subGenre": "Pop",
+        "score": 75
+      },
+      {
+        "id": "K8vZ917Gnh7",
+        "name": "Docs Who Rock",
+        "segment": "Music",
+        "genre": "Rock",
+        "subGenre": "Pop",
+        "score": 75
+      },
+      {
+        "id": "K8vZ917jRf0",
+        "name": "Excuse Me, Who Are You?",
+        "segment": "Music",
+        "genre": "Rock",
+        "subGenre": "Emo",
+        "score": 75
+      }
+    ]
+  },
+  {
+    "label": "Too Short",
+    "kind": "artist",
+    "category": "Music",
+    "primaryGenre": "Hip-Hop/Rap",
+    "searchText": "too short",
+    "rank": 9377,
+    "reason": "no_confident_match",
+    "topCandidates": [
+      {
+        "id": "K8vZ9171pGV",
+        "name": "Arms Too Short To Box with God",
+        "segment": "Music",
+        "genre": "Religious",
+        "subGenre": "Gospel",
+        "score": 120
+      },
+      {
+        "id": "Z7r9jZa3HM",
+        "name": "A Little Too Short To Be Stormtroopers",
+        "segment": "Undefined",
+        "score": -9999
+      }
+    ]
+  }
+]

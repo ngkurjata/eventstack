@@ -37,7 +37,7 @@ const TEAMS = [
   // NHL
   // =====================
   { "league": "NHL", "team": "Anaheim Ducks", "attractionId": "" },
-  { "league": "NHL", "team": "Arizona Coyotes", "attractionId": "" },
+  { "league": "NHL", "team": "Utah Mammoth", "attractionId": "" },
   { "league": "NHL", "team": "Boston Bruins", "attractionId": "" },
   { "league": "NHL", "team": "Buffalo Sabres", "attractionId": "" },
   { "league": "NHL", "team": "Calgary Flames", "attractionId": "" },

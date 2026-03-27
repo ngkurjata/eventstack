@@ -1,0 +1,1529 @@
+[
+  {
+    "id": "ncaa_hockey_div1_men_air_force",
+    "schoolKey": "air_force",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Air Force Falcons",
+    "brandName": "Air Force",
+    "mascot": "Falcons",
+    "displayName": "Air Force Falcons Hockey",
+    "city": "USAF Academy",
+    "state": "CO",
+    "country": "US",
+    "aliases": [
+      "Air Force hockey",
+      "Air Force Falcons hockey",
+      "Falcons hockey"
+    ],
+    "tmSearch": [
+      "Air Force Falcons hockey",
+      "Air Force hockey",
+      "USAF Academy Air Force Falcons"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_army_west_point",
+    "schoolKey": "army_west_point",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Army West Point Black Knights",
+    "brandName": "Army West Point",
+    "mascot": "Black Knights",
+    "displayName": "Army West Point Black Knights Hockey",
+    "city": "West Point",
+    "state": "NY",
+    "country": "US",
+    "aliases": [
+      "Army hockey",
+      "Army West Point hockey",
+      "Black Knights hockey",
+      "Army Black Knights hockey"
+    ],
+    "tmSearch": [
+      "Army West Point Black Knights hockey",
+      "Army West Point hockey",
+      "West Point Army West Point Black Knights"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_bentley",
+    "schoolKey": "bentley",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Bentley Falcons",
+    "brandName": "Bentley",
+    "mascot": "Falcons",
+    "displayName": "Bentley Falcons Hockey",
+    "city": "Waltham",
+    "state": "MA",
+    "country": "US",
+    "aliases": [
+      "Bentley hockey",
+      "Bentley Falcons hockey",
+      "Falcons hockey"
+    ],
+    "tmSearch": [
+      "Bentley Falcons hockey",
+      "Bentley hockey",
+      "Waltham Bentley Falcons"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_canisius",
+    "schoolKey": "canisius",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Canisius Golden Griffins",
+    "brandName": "Canisius",
+    "mascot": "Golden Griffins",
+    "displayName": "Canisius Golden Griffins Hockey",
+    "city": "Buffalo",
+    "state": "NY",
+    "country": "US",
+    "aliases": [
+      "Canisius hockey",
+      "Canisius Golden Griffins hockey",
+      "Golden Griffins hockey"
+    ],
+    "tmSearch": [
+      "Canisius Golden Griffins hockey",
+      "Canisius hockey",
+      "Buffalo Canisius Golden Griffins"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_holy_cross",
+    "schoolKey": "holy_cross",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Holy Cross Crusaders",
+    "brandName": "Holy Cross",
+    "mascot": "Crusaders",
+    "displayName": "Holy Cross Crusaders Hockey",
+    "city": "Worcester",
+    "state": "MA",
+    "country": "US",
+    "aliases": [
+      "Holy Cross hockey",
+      "Holy Cross Crusaders hockey",
+      "Crusaders hockey"
+    ],
+    "tmSearch": [
+      "Holy Cross Crusaders hockey",
+      "Holy Cross hockey",
+      "Worcester Holy Cross Crusaders"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_mercyhurst",
+    "schoolKey": "mercyhurst",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Mercyhurst Lakers",
+    "brandName": "Mercyhurst",
+    "mascot": "Lakers",
+    "displayName": "Mercyhurst Lakers Hockey",
+    "city": "Erie",
+    "state": "PA",
+    "country": "US",
+    "aliases": [
+      "Mercyhurst hockey",
+      "Mercyhurst Lakers hockey",
+      "Lakers hockey"
+    ],
+    "tmSearch": [
+      "Mercyhurst Lakers hockey",
+      "Mercyhurst hockey",
+      "Erie Mercyhurst Lakers"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_niagara",
+    "schoolKey": "niagara",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Niagara Purple Eagles",
+    "brandName": "Niagara",
+    "mascot": "Purple Eagles",
+    "displayName": "Niagara Purple Eagles Hockey",
+    "city": "Lewiston",
+    "state": "NY",
+    "country": "US",
+    "aliases": [
+      "Niagara hockey",
+      "Niagara Purple Eagles hockey",
+      "Purple Eagles hockey"
+    ],
+    "tmSearch": [
+      "Niagara Purple Eagles hockey",
+      "Niagara hockey",
+      "Lewiston Niagara Purple Eagles"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_robert_morris",
+    "schoolKey": "robert_morris",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Robert Morris Colonials",
+    "brandName": "Robert Morris",
+    "mascot": "Colonials",
+    "displayName": "Robert Morris Colonials Hockey",
+    "city": "Moon Township",
+    "state": "PA",
+    "country": "US",
+    "aliases": [
+      "Robert Morris hockey",
+      "Robert Morris Colonials hockey",
+      "Colonials hockey"
+    ],
+    "tmSearch": [
+      "Robert Morris Colonials hockey",
+      "Robert Morris hockey",
+      "Moon Township Robert Morris Colonials"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_rit",
+    "schoolKey": "rit",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "RIT Tigers",
+    "brandName": "RIT",
+    "mascot": "Tigers",
+    "displayName": "RIT Tigers Hockey",
+    "city": "Rochester",
+    "state": "NY",
+    "country": "US",
+    "aliases": [
+      "RIT hockey",
+      "RIT Tigers hockey",
+      "Rochester Institute of Technology hockey",
+      "Tigers hockey"
+    ],
+    "tmSearch": [
+      "RIT Tigers hockey",
+      "RIT hockey",
+      "Rochester RIT Tigers"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_sacred_heart",
+    "schoolKey": "sacred_heart",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Sacred Heart Pioneers",
+    "brandName": "Sacred Heart",
+    "mascot": "Pioneers",
+    "displayName": "Sacred Heart Pioneers Hockey",
+    "city": "Fairfield",
+    "state": "CT",
+    "country": "US",
+    "aliases": [
+      "Sacred Heart hockey",
+      "Sacred Heart Pioneers hockey",
+      "Pioneers hockey"
+    ],
+    "tmSearch": [
+      "Sacred Heart Pioneers hockey",
+      "Sacred Heart hockey",
+      "Fairfield Sacred Heart Pioneers"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_michigan",
+    "schoolKey": "michigan",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Michigan Wolverines",
+    "brandName": "Michigan",
+    "mascot": "Wolverines",
+    "displayName": "Michigan Wolverines Hockey",
+    "city": "Ann Arbor",
+    "state": "MI",
+    "country": "US",
+    "aliases": [
+      "Michigan hockey",
+      "Michigan Wolverines hockey",
+      "Wolverines hockey"
+    ],
+    "tmSearch": [
+      "Michigan Wolverines hockey",
+      "Michigan hockey",
+      "Ann Arbor Michigan Wolverines"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_michigan_state",
+    "schoolKey": "michigan_state",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Michigan State Spartans",
+    "brandName": "Michigan State",
+    "mascot": "Spartans",
+    "displayName": "Michigan State Spartans Hockey",
+    "city": "East Lansing",
+    "state": "MI",
+    "country": "US",
+    "aliases": [
+      "Michigan State hockey",
+      "Michigan State Spartans hockey",
+      "Spartans hockey"
+    ],
+    "tmSearch": [
+      "Michigan State Spartans hockey",
+      "Michigan State hockey",
+      "East Lansing Michigan State Spartans"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_minnesota",
+    "schoolKey": "minnesota",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Minnesota Golden Gophers",
+    "brandName": "Minnesota",
+    "mascot": "Golden Gophers",
+    "displayName": "Minnesota Golden Gophers Hockey",
+    "city": "Minneapolis",
+    "state": "MN",
+    "country": "US",
+    "aliases": [
+      "Minnesota hockey",
+      "Minnesota Golden Gophers hockey",
+      "Golden Gophers hockey"
+    ],
+    "tmSearch": [
+      "Minnesota Golden Gophers hockey",
+      "Minnesota hockey",
+      "Minneapolis Minnesota Golden Gophers"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_notre_dame",
+    "schoolKey": "notre_dame",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Notre Dame Fighting Irish",
+    "brandName": "Notre Dame",
+    "mascot": "Fighting Irish",
+    "displayName": "Notre Dame Fighting Irish Hockey",
+    "city": "Notre Dame",
+    "state": "IN",
+    "country": "US",
+    "aliases": [
+      "Notre Dame hockey",
+      "Notre Dame Fighting Irish hockey",
+      "Fighting Irish hockey"
+    ],
+    "tmSearch": [
+      "Notre Dame Fighting Irish hockey",
+      "Notre Dame hockey",
+      "Notre Dame Notre Dame Fighting Irish"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_ohio_state",
+    "schoolKey": "ohio_state",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Ohio State Buckeyes",
+    "brandName": "Ohio State",
+    "mascot": "Buckeyes",
+    "displayName": "Ohio State Buckeyes Hockey",
+    "city": "Columbus",
+    "state": "OH",
+    "country": "US",
+    "aliases": [
+      "Ohio State hockey",
+      "Ohio State Buckeyes hockey",
+      "Buckeyes hockey"
+    ],
+    "tmSearch": [
+      "Ohio State Buckeyes hockey",
+      "Ohio State hockey",
+      "Columbus Ohio State Buckeyes"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_penn_state",
+    "schoolKey": "penn_state",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Penn State Nittany Lions",
+    "brandName": "Penn State",
+    "mascot": "Nittany Lions",
+    "displayName": "Penn State Nittany Lions Hockey",
+    "city": "University Park",
+    "state": "PA",
+    "country": "US",
+    "aliases": [
+      "Penn State hockey",
+      "Penn State Nittany Lions hockey",
+      "Nittany Lions hockey"
+    ],
+    "tmSearch": [
+      "Penn State Nittany Lions hockey",
+      "Penn State hockey",
+      "University Park Penn State Nittany Lions"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_wisconsin",
+    "schoolKey": "wisconsin",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Wisconsin Badgers",
+    "brandName": "Wisconsin",
+    "mascot": "Badgers",
+    "displayName": "Wisconsin Badgers Hockey",
+    "city": "Madison",
+    "state": "WI",
+    "country": "US",
+    "aliases": [
+      "Wisconsin hockey",
+      "Wisconsin Badgers hockey",
+      "Badgers hockey"
+    ],
+    "tmSearch": [
+      "Wisconsin Badgers hockey",
+      "Wisconsin hockey",
+      "Madison Wisconsin Badgers"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_augustana",
+    "schoolKey": "augustana",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Augustana Vikings",
+    "brandName": "Augustana",
+    "mascot": "Vikings",
+    "displayName": "Augustana Vikings Hockey",
+    "city": "Sioux Falls",
+    "state": "SD",
+    "country": "US",
+    "aliases": [
+      "Augustana hockey",
+      "Augustana Vikings hockey",
+      "Vikings hockey"
+    ],
+    "tmSearch": [
+      "Augustana Vikings hockey",
+      "Augustana hockey",
+      "Sioux Falls Augustana Vikings"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_bemidji_state",
+    "schoolKey": "bemidji_state",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Bemidji State Beavers",
+    "brandName": "Bemidji State",
+    "mascot": "Beavers",
+    "displayName": "Bemidji State Beavers Hockey",
+    "city": "Bemidji",
+    "state": "MN",
+    "country": "US",
+    "aliases": [
+      "Bemidji State hockey",
+      "Bemidji State Beavers hockey",
+      "Beavers hockey"
+    ],
+    "tmSearch": [
+      "Bemidji State Beavers hockey",
+      "Bemidji State hockey",
+      "Bemidji Bemidji State Beavers"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_bowling_green",
+    "schoolKey": "bowling_green",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Bowling Green Falcons",
+    "brandName": "Bowling Green",
+    "mascot": "Falcons",
+    "displayName": "Bowling Green Falcons Hockey",
+    "city": "Bowling Green",
+    "state": "OH",
+    "country": "US",
+    "aliases": [
+      "Bowling Green hockey",
+      "Bowling Green Falcons hockey",
+      "Falcons hockey"
+    ],
+    "tmSearch": [
+      "Bowling Green Falcons hockey",
+      "Bowling Green hockey",
+      "Bowling Green Bowling Green Falcons"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_ferris_state",
+    "schoolKey": "ferris_state",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Ferris State Bulldogs",
+    "brandName": "Ferris State",
+    "mascot": "Bulldogs",
+    "displayName": "Ferris State Bulldogs Hockey",
+    "city": "Big Rapids",
+    "state": "MI",
+    "country": "US",
+    "aliases": [
+      "Ferris State hockey",
+      "Ferris State Bulldogs hockey",
+      "Bulldogs hockey"
+    ],
+    "tmSearch": [
+      "Ferris State Bulldogs hockey",
+      "Ferris State hockey",
+      "Big Rapids Ferris State Bulldogs"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_lake_superior_state",
+    "schoolKey": "lake_superior_state",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Lake Superior State Lakers",
+    "brandName": "Lake Superior State",
+    "mascot": "Lakers",
+    "displayName": "Lake Superior State Lakers Hockey",
+    "city": "Sault Ste. Marie",
+    "state": "MI",
+    "country": "US",
+    "aliases": [
+      "Lake Superior State hockey",
+      "Lake Superior State Lakers hockey",
+      "Lakers hockey"
+    ],
+    "tmSearch": [
+      "Lake Superior State Lakers hockey",
+      "Lake Superior State hockey",
+      "Sault Ste. Marie Lake Superior State Lakers"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_michigan_tech",
+    "schoolKey": "michigan_tech",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Michigan Tech Huskies",
+    "brandName": "Michigan Tech",
+    "mascot": "Huskies",
+    "displayName": "Michigan Tech Huskies Hockey",
+    "city": "Houghton",
+    "state": "MI",
+    "country": "US",
+    "aliases": [
+      "Michigan Tech hockey",
+      "Michigan Tech Huskies hockey",
+      "Huskies hockey"
+    ],
+    "tmSearch": [
+      "Michigan Tech Huskies hockey",
+      "Michigan Tech hockey",
+      "Houghton Michigan Tech Huskies"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_minnesota_state",
+    "schoolKey": "minnesota_state",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Minnesota State Mavericks",
+    "brandName": "Minnesota State",
+    "mascot": "Mavericks",
+    "displayName": "Minnesota State Mavericks Hockey",
+    "city": "Mankato",
+    "state": "MN",
+    "country": "US",
+    "aliases": [
+      "Minnesota State hockey",
+      "Minnesota State Mavericks hockey",
+      "Mankato hockey",
+      "Mavericks hockey"
+    ],
+    "tmSearch": [
+      "Minnesota State Mavericks hockey",
+      "Minnesota State hockey",
+      "Mankato Minnesota State Mavericks"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_northern_michigan",
+    "schoolKey": "northern_michigan",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Northern Michigan Wildcats",
+    "brandName": "Northern Michigan",
+    "mascot": "Wildcats",
+    "displayName": "Northern Michigan Wildcats Hockey",
+    "city": "Marquette",
+    "state": "MI",
+    "country": "US",
+    "aliases": [
+      "Northern Michigan hockey",
+      "Northern Michigan Wildcats hockey",
+      "Wildcats hockey"
+    ],
+    "tmSearch": [
+      "Northern Michigan Wildcats hockey",
+      "Northern Michigan hockey",
+      "Marquette Northern Michigan Wildcats"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_st_thomas",
+    "schoolKey": "st_thomas",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "St. Thomas Tommies",
+    "brandName": "St. Thomas",
+    "mascot": "Tommies",
+    "displayName": "St. Thomas Tommies Hockey",
+    "city": "Saint Paul",
+    "state": "MN",
+    "country": "US",
+    "aliases": [
+      "St. Thomas hockey",
+      "Saint Thomas hockey",
+      "Tommies hockey"
+    ],
+    "tmSearch": [
+      "St. Thomas Tommies hockey",
+      "Saint Thomas hockey",
+      "Saint Paul St. Thomas Tommies"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_brown",
+    "schoolKey": "brown",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Brown Bears",
+    "brandName": "Brown",
+    "mascot": "Bears",
+    "displayName": "Brown Bears Hockey",
+    "city": "Providence",
+    "state": "RI",
+    "country": "US",
+    "aliases": [
+      "Brown hockey",
+      "Brown Bears hockey",
+      "Bears hockey"
+    ],
+    "tmSearch": [
+      "Brown Bears hockey",
+      "Brown hockey",
+      "Providence Brown Bears"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_clarkson",
+    "schoolKey": "clarkson",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Clarkson Golden Knights",
+    "brandName": "Clarkson",
+    "mascot": "Golden Knights",
+    "displayName": "Clarkson Golden Knights Hockey",
+    "city": "Potsdam",
+    "state": "NY",
+    "country": "US",
+    "aliases": [
+      "Clarkson hockey",
+      "Clarkson Golden Knights hockey",
+      "Golden Knights hockey"
+    ],
+    "tmSearch": [
+      "Clarkson Golden Knights hockey",
+      "Clarkson hockey",
+      "Potsdam Clarkson Golden Knights"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_colgate",
+    "schoolKey": "colgate",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Colgate Raiders",
+    "brandName": "Colgate",
+    "mascot": "Raiders",
+    "displayName": "Colgate Raiders Hockey",
+    "city": "Hamilton",
+    "state": "NY",
+    "country": "US",
+    "aliases": [
+      "Colgate hockey",
+      "Colgate Raiders hockey",
+      "Raiders hockey"
+    ],
+    "tmSearch": [
+      "Colgate Raiders hockey",
+      "Colgate hockey",
+      "Hamilton Colgate Raiders"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_cornell",
+    "schoolKey": "cornell",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Cornell Big Red",
+    "brandName": "Cornell",
+    "mascot": "Big Red",
+    "displayName": "Cornell Big Red Hockey",
+    "city": "Ithaca",
+    "state": "NY",
+    "country": "US",
+    "aliases": [
+      "Cornell hockey",
+      "Cornell Big Red hockey",
+      "Big Red hockey"
+    ],
+    "tmSearch": [
+      "Cornell Big Red hockey",
+      "Cornell hockey",
+      "Ithaca Cornell Big Red"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_dartmouth",
+    "schoolKey": "dartmouth",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Dartmouth Big Green",
+    "brandName": "Dartmouth",
+    "mascot": "Big Green",
+    "displayName": "Dartmouth Big Green Hockey",
+    "city": "Hanover",
+    "state": "NH",
+    "country": "US",
+    "aliases": [
+      "Dartmouth hockey",
+      "Dartmouth Big Green hockey",
+      "Big Green hockey"
+    ],
+    "tmSearch": [
+      "Dartmouth Big Green hockey",
+      "Dartmouth hockey",
+      "Hanover Dartmouth Big Green"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_harvard",
+    "schoolKey": "harvard",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Harvard Crimson",
+    "brandName": "Harvard",
+    "mascot": "Crimson",
+    "displayName": "Harvard Crimson Hockey",
+    "city": "Cambridge",
+    "state": "MA",
+    "country": "US",
+    "aliases": [
+      "Harvard hockey",
+      "Harvard Crimson hockey",
+      "Crimson hockey"
+    ],
+    "tmSearch": [
+      "Harvard Crimson hockey",
+      "Harvard hockey",
+      "Cambridge Harvard Crimson"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_princeton",
+    "schoolKey": "princeton",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Princeton Tigers",
+    "brandName": "Princeton",
+    "mascot": "Tigers",
+    "displayName": "Princeton Tigers Hockey",
+    "city": "Princeton",
+    "state": "NJ",
+    "country": "US",
+    "aliases": [
+      "Princeton hockey",
+      "Princeton Tigers hockey",
+      "Tigers hockey"
+    ],
+    "tmSearch": [
+      "Princeton Tigers hockey",
+      "Princeton hockey",
+      "Princeton Princeton Tigers"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_quinnipiac",
+    "schoolKey": "quinnipiac",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Quinnipiac Bobcats",
+    "brandName": "Quinnipiac",
+    "mascot": "Bobcats",
+    "displayName": "Quinnipiac Bobcats Hockey",
+    "city": "Hamden",
+    "state": "CT",
+    "country": "US",
+    "aliases": [
+      "Quinnipiac hockey",
+      "Quinnipiac Bobcats hockey",
+      "Bobcats hockey"
+    ],
+    "tmSearch": [
+      "Quinnipiac Bobcats hockey",
+      "Quinnipiac hockey",
+      "Hamden Quinnipiac Bobcats"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_rpi",
+    "schoolKey": "rpi",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "RPI Engineers",
+    "brandName": "RPI",
+    "mascot": "Engineers",
+    "displayName": "RPI Engineers Hockey",
+    "city": "Troy",
+    "state": "NY",
+    "country": "US",
+    "aliases": [
+      "RPI hockey",
+      "RPI Engineers hockey",
+      "Rensselaer hockey",
+      "Engineers hockey"
+    ],
+    "tmSearch": [
+      "RPI Engineers hockey",
+      "Rensselaer hockey",
+      "Troy RPI Engineers"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_st_lawrence",
+    "schoolKey": "st_lawrence",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "St. Lawrence Saints",
+    "brandName": "St. Lawrence",
+    "mascot": "Saints",
+    "displayName": "St. Lawrence Saints Hockey",
+    "city": "Canton",
+    "state": "NY",
+    "country": "US",
+    "aliases": [
+      "St. Lawrence hockey",
+      "Saint Lawrence hockey",
+      "Saints hockey"
+    ],
+    "tmSearch": [
+      "St. Lawrence Saints hockey",
+      "Saint Lawrence hockey",
+      "Canton St. Lawrence Saints"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_union",
+    "schoolKey": "union",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Union Garnet Chargers",
+    "brandName": "Union",
+    "mascot": "Garnet Chargers",
+    "displayName": "Union Garnet Chargers Hockey",
+    "city": "Schenectady",
+    "state": "NY",
+    "country": "US",
+    "aliases": [
+      "Union hockey",
+      "Union Garnet Chargers hockey",
+      "Garnet Chargers hockey"
+    ],
+    "tmSearch": [
+      "Union Garnet Chargers hockey",
+      "Union hockey",
+      "Schenectady Union Garnet Chargers"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_yale",
+    "schoolKey": "yale",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Yale Bulldogs",
+    "brandName": "Yale",
+    "mascot": "Bulldogs",
+    "displayName": "Yale Bulldogs Hockey",
+    "city": "New Haven",
+    "state": "CT",
+    "country": "US",
+    "aliases": [
+      "Yale hockey",
+      "Yale Bulldogs hockey",
+      "Bulldogs hockey"
+    ],
+    "tmSearch": [
+      "Yale Bulldogs hockey",
+      "Yale hockey",
+      "New Haven Yale Bulldogs"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_boston_college",
+    "schoolKey": "boston_college",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Boston College Eagles",
+    "brandName": "Boston College",
+    "mascot": "Eagles",
+    "displayName": "Boston College Eagles Hockey",
+    "city": "Chestnut Hill",
+    "state": "MA",
+    "country": "US",
+    "aliases": [
+      "Boston College hockey",
+      "Boston College Eagles hockey",
+      "BC hockey",
+      "Eagles hockey"
+    ],
+    "tmSearch": [
+      "Boston College Eagles hockey",
+      "Boston College hockey",
+      "Chestnut Hill Boston College Eagles"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_boston_university",
+    "schoolKey": "boston_university",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Boston University Terriers",
+    "brandName": "Boston University",
+    "mascot": "Terriers",
+    "displayName": "Boston University Terriers Hockey",
+    "city": "Boston",
+    "state": "MA",
+    "country": "US",
+    "aliases": [
+      "Boston University hockey",
+      "Boston University Terriers hockey",
+      "BU hockey",
+      "Terriers hockey"
+    ],
+    "tmSearch": [
+      "Boston University Terriers hockey",
+      "Boston University hockey",
+      "Boston Boston University Terriers"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_uconn",
+    "schoolKey": "uconn",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "UConn Huskies",
+    "brandName": "UConn",
+    "mascot": "Huskies",
+    "displayName": "UConn Huskies Hockey",
+    "city": "Storrs",
+    "state": "CT",
+    "country": "US",
+    "aliases": [
+      "UConn hockey",
+      "Connecticut hockey",
+      "UConn Huskies hockey",
+      "Huskies hockey"
+    ],
+    "tmSearch": [
+      "UConn Huskies hockey",
+      "Connecticut hockey",
+      "Storrs UConn Huskies"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_maine",
+    "schoolKey": "maine",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Maine Black Bears",
+    "brandName": "Maine",
+    "mascot": "Black Bears",
+    "displayName": "Maine Black Bears Hockey",
+    "city": "Orono",
+    "state": "ME",
+    "country": "US",
+    "aliases": [
+      "Maine hockey",
+      "Maine Black Bears hockey",
+      "Black Bears hockey"
+    ],
+    "tmSearch": [
+      "Maine Black Bears hockey",
+      "Maine hockey",
+      "Orono Maine Black Bears"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_merrimack",
+    "schoolKey": "merrimack",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Merrimack Warriors",
+    "brandName": "Merrimack",
+    "mascot": "Warriors",
+    "displayName": "Merrimack Warriors Hockey",
+    "city": "North Andover",
+    "state": "MA",
+    "country": "US",
+    "aliases": [
+      "Merrimack hockey",
+      "Merrimack Warriors hockey",
+      "Warriors hockey"
+    ],
+    "tmSearch": [
+      "Merrimack Warriors hockey",
+      "Merrimack hockey",
+      "North Andover Merrimack Warriors"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_new_hampshire",
+    "schoolKey": "new_hampshire",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "New Hampshire Wildcats",
+    "brandName": "New Hampshire",
+    "mascot": "Wildcats",
+    "displayName": "New Hampshire Wildcats Hockey",
+    "city": "Durham",
+    "state": "NH",
+    "country": "US",
+    "aliases": [
+      "New Hampshire hockey",
+      "New Hampshire Wildcats hockey",
+      "UNH hockey",
+      "Wildcats hockey"
+    ],
+    "tmSearch": [
+      "New Hampshire Wildcats hockey",
+      "New Hampshire hockey",
+      "Durham New Hampshire Wildcats"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_northeastern",
+    "schoolKey": "northeastern",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Northeastern Huskies",
+    "brandName": "Northeastern",
+    "mascot": "Huskies",
+    "displayName": "Northeastern Huskies Hockey",
+    "city": "Boston",
+    "state": "MA",
+    "country": "US",
+    "aliases": [
+      "Northeastern hockey",
+      "Northeastern Huskies hockey",
+      "Huskies hockey"
+    ],
+    "tmSearch": [
+      "Northeastern Huskies hockey",
+      "Northeastern hockey",
+      "Boston Northeastern Huskies"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_providence",
+    "schoolKey": "providence",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Providence Friars",
+    "brandName": "Providence",
+    "mascot": "Friars",
+    "displayName": "Providence Friars Hockey",
+    "city": "Providence",
+    "state": "RI",
+    "country": "US",
+    "aliases": [
+      "Providence hockey",
+      "Providence Friars hockey",
+      "Friars hockey"
+    ],
+    "tmSearch": [
+      "Providence Friars hockey",
+      "Providence hockey",
+      "Providence Providence Friars"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_umass",
+    "schoolKey": "umass",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "UMass Minutemen",
+    "brandName": "UMass",
+    "mascot": "Minutemen",
+    "displayName": "UMass Minutemen Hockey",
+    "city": "Amherst",
+    "state": "MA",
+    "country": "US",
+    "aliases": [
+      "UMass hockey",
+      "Massachusetts hockey",
+      "UMass Minutemen hockey",
+      "Minutemen hockey"
+    ],
+    "tmSearch": [
+      "UMass Minutemen hockey",
+      "Massachusetts hockey",
+      "Amherst UMass Minutemen"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_umass_lowell",
+    "schoolKey": "umass_lowell",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "UMass Lowell River Hawks",
+    "brandName": "UMass Lowell",
+    "mascot": "River Hawks",
+    "displayName": "UMass Lowell River Hawks Hockey",
+    "city": "Lowell",
+    "state": "MA",
+    "country": "US",
+    "aliases": [
+      "UMass Lowell hockey",
+      "Massachusetts Lowell hockey",
+      "River Hawks hockey"
+    ],
+    "tmSearch": [
+      "UMass Lowell hockey",
+      "Massachusetts Lowell hockey",
+      "Lowell UMass Lowell River Hawks"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_vermont",
+    "schoolKey": "vermont",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Vermont Catamounts",
+    "brandName": "Vermont",
+    "mascot": "Catamounts",
+    "displayName": "Vermont Catamounts Hockey",
+    "city": "Burlington",
+    "state": "VT",
+    "country": "US",
+    "aliases": [
+      "Vermont hockey",
+      "Vermont Catamounts hockey",
+      "Catamounts hockey",
+      "UVM hockey"
+    ],
+    "tmSearch": [
+      "Vermont Catamounts hockey",
+      "Vermont hockey",
+      "Burlington Vermont Catamounts"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_arizona_state",
+    "schoolKey": "arizona_state",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Arizona State Sun Devils",
+    "brandName": "Arizona State",
+    "mascot": "Sun Devils",
+    "displayName": "Arizona State Sun Devils Hockey",
+    "city": "Tempe",
+    "state": "AZ",
+    "country": "US",
+    "aliases": [
+      "Arizona State hockey",
+      "Arizona State Sun Devils hockey",
+      "Sun Devils hockey"
+    ],
+    "tmSearch": [
+      "Arizona State Sun Devils hockey",
+      "Arizona State hockey",
+      "Tempe Arizona State Sun Devils"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_colorado_college",
+    "schoolKey": "colorado_college",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Colorado College Tigers",
+    "brandName": "Colorado College",
+    "mascot": "Tigers",
+    "displayName": "Colorado College Tigers Hockey",
+    "city": "Colorado Springs",
+    "state": "CO",
+    "country": "US",
+    "aliases": [
+      "Colorado College hockey",
+      "Colorado College Tigers hockey",
+      "Tigers hockey"
+    ],
+    "tmSearch": [
+      "Colorado College Tigers hockey",
+      "Colorado College hockey",
+      "Colorado Springs Colorado College Tigers"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_denver",
+    "schoolKey": "denver",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Denver Pioneers",
+    "brandName": "Denver",
+    "mascot": "Pioneers",
+    "displayName": "Denver Pioneers Hockey",
+    "city": "Denver",
+    "state": "CO",
+    "country": "US",
+    "aliases": [
+      "Denver hockey",
+      "Denver Pioneers hockey",
+      "Pioneers hockey"
+    ],
+    "tmSearch": [
+      "Denver Pioneers hockey",
+      "Denver hockey",
+      "Denver Denver Pioneers"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_miami_oh",
+    "schoolKey": "miami_oh",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Miami (OH) RedHawks",
+    "brandName": "Miami (OH)",
+    "mascot": "RedHawks",
+    "displayName": "Miami (OH) RedHawks Hockey",
+    "city": "Oxford",
+    "state": "OH",
+    "country": "US",
+    "aliases": [
+      "Miami OH hockey",
+      "Miami Ohio hockey",
+      "Miami RedHawks hockey",
+      "RedHawks hockey"
+    ],
+    "tmSearch": [
+      "Miami RedHawks hockey",
+      "Miami OH hockey",
+      "Oxford Miami RedHawks"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_minnesota_duluth",
+    "schoolKey": "minnesota_duluth",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Minnesota Duluth Bulldogs",
+    "brandName": "Minnesota Duluth",
+    "mascot": "Bulldogs",
+    "displayName": "Minnesota Duluth Bulldogs Hockey",
+    "city": "Duluth",
+    "state": "MN",
+    "country": "US",
+    "aliases": [
+      "Minnesota Duluth hockey",
+      "Minnesota Duluth Bulldogs hockey",
+      "UMD hockey",
+      "Bulldogs hockey"
+    ],
+    "tmSearch": [
+      "Minnesota Duluth Bulldogs hockey",
+      "Minnesota Duluth hockey",
+      "Duluth Minnesota Duluth Bulldogs"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_north_dakota",
+    "schoolKey": "north_dakota",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "North Dakota Fighting Hawks",
+    "brandName": "North Dakota",
+    "mascot": "Fighting Hawks",
+    "displayName": "North Dakota Fighting Hawks Hockey",
+    "city": "Grand Forks",
+    "state": "ND",
+    "country": "US",
+    "aliases": [
+      "North Dakota hockey",
+      "North Dakota Fighting Hawks hockey",
+      "UND hockey",
+      "Fighting Hawks hockey"
+    ],
+    "tmSearch": [
+      "North Dakota Fighting Hawks hockey",
+      "North Dakota hockey",
+      "Grand Forks North Dakota Fighting Hawks"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_omaha",
+    "schoolKey": "omaha",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Omaha Mavericks",
+    "brandName": "Omaha",
+    "mascot": "Mavericks",
+    "displayName": "Omaha Mavericks Hockey",
+    "city": "Omaha",
+    "state": "NE",
+    "country": "US",
+    "aliases": [
+      "Omaha hockey",
+      "Omaha Mavericks hockey",
+      "Nebraska Omaha hockey",
+      "Mavericks hockey"
+    ],
+    "tmSearch": [
+      "Omaha Mavericks hockey",
+      "Nebraska Omaha hockey",
+      "Omaha Omaha Mavericks"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_st_cloud_state",
+    "schoolKey": "st_cloud_state",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "St. Cloud State Huskies",
+    "brandName": "St. Cloud State",
+    "mascot": "Huskies",
+    "displayName": "St. Cloud State Huskies Hockey",
+    "city": "Saint Cloud",
+    "state": "MN",
+    "country": "US",
+    "aliases": [
+      "St. Cloud State hockey",
+      "St. Cloud State Huskies hockey",
+      "Huskies hockey"
+    ],
+    "tmSearch": [
+      "St. Cloud State Huskies hockey",
+      "St. Cloud State hockey",
+      "Saint Cloud St. Cloud State Huskies"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_western_michigan",
+    "schoolKey": "western_michigan",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Western Michigan Broncos",
+    "brandName": "Western Michigan",
+    "mascot": "Broncos",
+    "displayName": "Western Michigan Broncos Hockey",
+    "city": "Kalamazoo",
+    "state": "MI",
+    "country": "US",
+    "aliases": [
+      "Western Michigan hockey",
+      "Western Michigan Broncos hockey",
+      "Broncos hockey"
+    ],
+    "tmSearch": [
+      "Western Michigan Broncos hockey",
+      "Western Michigan hockey",
+      "Kalamazoo Western Michigan Broncos"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_alaska",
+    "schoolKey": "alaska",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Alaska Nanooks",
+    "brandName": "Alaska",
+    "mascot": "Nanooks",
+    "displayName": "Alaska Nanooks Hockey",
+    "city": "Fairbanks",
+    "state": "AK",
+    "country": "US",
+    "aliases": [
+      "Alaska hockey",
+      "Alaska Nanooks hockey",
+      "Nanooks hockey"
+    ],
+    "tmSearch": [
+      "Alaska Nanooks hockey",
+      "Alaska hockey",
+      "Fairbanks Alaska Nanooks"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_alaska_anchorage",
+    "schoolKey": "alaska_anchorage",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Alaska Anchorage Seawolves",
+    "brandName": "Alaska Anchorage",
+    "mascot": "Seawolves",
+    "displayName": "Alaska Anchorage Seawolves Hockey",
+    "city": "Anchorage",
+    "state": "AK",
+    "country": "US",
+    "aliases": [
+      "Alaska Anchorage hockey",
+      "Anchorage hockey",
+      "Seawolves hockey"
+    ],
+    "tmSearch": [
+      "Alaska Anchorage Seawolves hockey",
+      "Alaska Anchorage hockey",
+      "Anchorage Alaska Anchorage Seawolves"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_liu",
+    "schoolKey": "liu",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "LIU Sharks",
+    "brandName": "LIU",
+    "mascot": "Sharks",
+    "displayName": "LIU Sharks Hockey",
+    "city": "Brookville",
+    "state": "NY",
+    "country": "US",
+    "aliases": [
+      "LIU hockey",
+      "Long Island hockey",
+      "LIU Sharks hockey",
+      "Sharks hockey"
+    ],
+    "tmSearch": [
+      "LIU Sharks hockey",
+      "Long Island hockey",
+      "Brookville LIU Sharks"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_lindenwood",
+    "schoolKey": "lindenwood",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Lindenwood Lions",
+    "brandName": "Lindenwood",
+    "mascot": "Lions",
+    "displayName": "Lindenwood Lions Hockey",
+    "city": "Saint Charles",
+    "state": "MO",
+    "country": "US",
+    "aliases": [
+      "Lindenwood hockey",
+      "Lindenwood Lions hockey",
+      "Lions hockey"
+    ],
+    "tmSearch": [
+      "Lindenwood Lions hockey",
+      "Lindenwood hockey",
+      "Saint Charles Lindenwood Lions"
+    ]
+  },
+  {
+    "id": "ncaa_hockey_div1_men_stonehill",
+    "schoolKey": "stonehill",
+    "sport": "hockey",
+    "gender": "men",
+    "ncaaDivision": "I",
+    "teamName": "Stonehill Skyhawks",
+    "brandName": "Stonehill",
+    "mascot": "Skyhawks",
+    "displayName": "Stonehill Skyhawks Hockey",
+    "city": "Easton",
+    "state": "MA",
+    "country": "US",
+    "aliases": [
+      "Stonehill hockey",
+      "Stonehill Skyhawks hockey",
+      "Skyhawks hockey"
+    ],
+    "tmSearch": [
+      "Stonehill Skyhawks hockey",
+      "Stonehill hockey",
+      "Easton Stonehill Skyhawks"
+    ]
+  }
+]

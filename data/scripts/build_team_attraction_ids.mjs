@@ -1,331 +1,571 @@
-// FILE: scripts/build_team_attraction_ids.mjs
-//
-// Usage (PowerShell, from repo root):
-//   $env:TICKETMASTER_API_KEY="YOUR_KEY_HERE"
-//   node .\scripts\build_team_attraction_ids.mjs
-//
-// Output:
-//   data/team_attraction_ids.json
-//   data/team_attraction_misses.json
-//   data/team_attraction_throttled.json
-//
-// Notes:
-// - Designed to be resumable: it loads existing data/team_attraction_ids.json and skips filled teams.
-// - Distinguishes TRUE misses from throttling (429).
-// - Uses backoff + Retry-After handling.
+import fs from "node:fs/promises";
+import path from "node:path";
+import process from "node:process";
 
-import fs from "fs/promises";
-import path from "path";
+const ROOT = process.cwd();
+const DATA_DIR = path.join(ROOT, "data");
+const SEEDS_DIR = path.join(DATA_DIR, "team_seeds");
+const OUT_DIR = path.join(DATA_DIR, "team_attraction_ids");
+const OUT_IDS = path.join(DATA_DIR, "team_attraction_ids.json");
+const OUT_MISSES = path.join(DATA_DIR, "team_attraction_misses.json");
 
-const TM_BASE = "https://app.ticketmaster.com/discovery/v2";
-const TM_ATTRACTIONS = `${TM_BASE}/attractions.json`;
-const TM_KEY = process.env.TICKETMASTER_API_KEY;
+const TM_API_BASE = "https://app.ticketmaster.com/discovery/v2/attractions.json";
+const REQUEST_DELAY_MS = 300;
+const RETRY_DELAY_MS = 1250;
+const MAX_RETRIES = 4;
+const PAGE_SIZE = 50;
+const MIN_CONFIDENCE = 250;
 
-if (!TM_KEY) {
-  console.error("Missing TICKETMASTER_API_KEY in environment.");
-  process.exit(1);
-}
+const SUPPORTED_LEAGUES = new Set([
+  "NHL",
+  "NBA",
+  "MLB",
+  "NFL",
+  "CFL",
+  "MLS",
+  "WNBA",
+  "NWSL",
+  "PWHL",
+  "AHL",
+  "ECHL",
+  "WHL",
+  "OHL",
+  "QMJHL",
+  "MiLB",
+  "NCAA Football",
+  "NCAA Basketball",
+  "NCAA Baseball",
+  "NCAA Hockey",
+  "NCAA Soccer",
+]);
 
-/* -------------------- Teams (canonical rosters) -------------------- */
-
-const TEAMS_BY_LEAGUE = {
-  NHL: [
-    "Anaheim Ducks","Arizona Coyotes","Boston Bruins","Buffalo Sabres","Calgary Flames","Carolina Hurricanes",
-    "Chicago Blackhawks","Colorado Avalanche","Columbus Blue Jackets","Dallas Stars","Detroit Red Wings",
-    "Edmonton Oilers","Florida Panthers","Los Angeles Kings","Minnesota Wild","Montreal Canadiens",
-    "Nashville Predators","New Jersey Devils","New York Islanders","New York Rangers","Ottawa Senators",
-    "Philadelphia Flyers","Pittsburgh Penguins","San Jose Sharks","Seattle Kraken","St. Louis Blues",
-    "Tampa Bay Lightning","Toronto Maple Leafs","Vancouver Canucks","Vegas Golden Knights","Washington Capitals",
-    "Winnipeg Jets"
-  ],
-  NBA: [
-    "Atlanta Hawks","Boston Celtics","Brooklyn Nets","Charlotte Hornets","Chicago Bulls","Cleveland Cavaliers",
-    "Dallas Mavericks","Denver Nuggets","Detroit Pistons","Golden State Warriors","Houston Rockets","Indiana Pacers",
-    "LA Clippers","Los Angeles Lakers","Memphis Grizzlies","Miami Heat","Milwaukee Bucks","Minnesota Timberwolves",
-    "New Orleans Pelicans","New York Knicks","Oklahoma City Thunder","Orlando Magic","Philadelphia 76ers",
-    "Phoenix Suns","Portland Trail Blazers","Sacramento Kings","San Antonio Spurs","Toronto Raptors",
-    "Utah Jazz","Washington Wizards"
-  ],
-  MLB: [
-    "Arizona Diamondbacks","Atlanta Braves","Baltimore Orioles","Boston Red Sox","Chicago Cubs","Chicago White Sox",
-    "Cincinnati Reds","Cleveland Guardians","Colorado Rockies","Detroit Tigers","Houston Astros","Kansas City Royals",
-    "Los Angeles Angels","Los Angeles Dodgers","Miami Marlins","Milwaukee Brewers","Minnesota Twins","New York Mets",
-    "New York Yankees","Oakland Athletics","Philadelphia Phillies","Pittsburgh Pirates","San Diego Padres",
-    "San Francisco Giants","Seattle Mariners","St. Louis Cardinals","Tampa Bay Rays","Texas Rangers",
-    "Toronto Blue Jays","Washington Nationals"
-  ],
-  NFL: [
-    "Arizona Cardinals","Atlanta Falcons","Baltimore Ravens","Buffalo Bills","Carolina Panthers","Chicago Bears",
-    "Cincinnati Bengals","Cleveland Browns","Dallas Cowboys","Denver Broncos","Detroit Lions","Green Bay Packers",
-    "Houston Texans","Indianapolis Colts","Jacksonville Jaguars","Kansas City Chiefs","Las Vegas Raiders",
-    "Los Angeles Chargers","Los Angeles Rams","Miami Dolphins","Minnesota Vikings","New England Patriots",
-    "New Orleans Saints","New York Giants","New York Jets","Philadelphia Eagles","Pittsburgh Steelers",
-    "San Francisco 49ers","Seattle Seahawks","Tampa Bay Buccaneers","Tennessee Titans","Washington Commanders"
-  ],
-  MLS: [
-    "Atlanta United","Austin FC","CF Montréal","Charlotte FC","Chicago Fire FC","Colorado Rapids","Columbus Crew",
-    "D.C. United","FC Cincinnati","FC Dallas","Houston Dynamo FC","Inter Miami CF","LA Galaxy",
-    "Los Angeles Football Club","Minnesota United FC","Nashville SC","New England Revolution",
-    "New York City FC","New York Red Bulls","Orlando City SC","Philadelphia Union","Portland Timbers",
-    "Real Salt Lake","San Diego FC","San Jose Earthquakes","Seattle Sounders FC","Sporting Kansas City",
-    "St. Louis CITY SC","Toronto FC","Vancouver Whitecaps FC"
-  ],
-  CFL: [
-    "BC Lions","Calgary Stampeders","Edmonton Elks","Saskatchewan Roughriders","Winnipeg Blue Bombers",
-    "Hamilton Tiger-Cats","Toronto Argonauts","Ottawa Redblacks","Montreal Alouettes"
-  ],
+const EXPECTED_SPORT_GENRE_BY_LEAGUE = {
+  NHL: "Hockey",
+  NBA: "Basketball",
+  MLB: "Baseball",
+  NFL: "Football",
+  CFL: "Football",
+  MLS: "Soccer",
+  WNBA: "Basketball",
+  NWSL: "Soccer",
+  PWHL: "Hockey",
+  AHL: "Hockey",
+  ECHL: "Hockey",
+  WHL: "Hockey",
+  OHL: "Hockey",
+  QMJHL: "Hockey",
+  MiLB: "Baseball",
+  "NCAA Football": "Football",
+  "NCAA Basketball": "Basketball",
+  "NCAA Baseball": "Baseball",
+  "NCAA Hockey": "Hockey",
+  "NCAA Soccer": "Soccer",
 };
 
-/* -------------------- Small utilities -------------------- */
+const LEAGUE_ALIASES = {
+  nhl: "NHL",
+  nba: "NBA",
+  mlb: "MLB",
+  nfl: "NFL",
+  cfl: "CFL",
+  mls: "MLS",
+  wnba: "WNBA",
+  nwsl: "NWSL",
+  pwhl: "PWHL",
+  ahl: "AHL",
+  echl: "ECHL",
+  whl: "WHL",
+  ohl: "OHL",
+  qmjhl: "QMJHL",
+  milb: "MiLB",
+  "minor-league-baseball": "MiLB",
+  minorleaguebaseball: "MiLB",
+  "ncaa-football": "NCAA Football",
+  ncaafootball: "NCAA Football",
+  "ncaa-basketball": "NCAA Basketball",
+  ncaabasketball: "NCAA Basketball",
+  "ncaa-baseball": "NCAA Baseball",
+  ncaabaseball: "NCAA Baseball",
+  "ncaa-hockey": "NCAA Hockey",
+  ncaahockey: "NCAA Hockey",
+  "ncaa-soccer": "NCAA Soccer",
+  ncaasoccer: "NCAA Soccer",
+};
 
 function sleep(ms) {
-  return new Promise((r) => setTimeout(r, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function dataPath(rel) {
-  return path.join(process.cwd(), "data", rel);
+function norm(value) {
+  return String(value || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/&/g, " and ")
+    .replace(/[^a-zA-Z0-9]+/g, " ")
+    .trim()
+    .toLowerCase();
 }
 
-async function readJsonIfExists(p, fallback) {
+function slug(value) {
+  return norm(value).replace(/\s+/g, "-");
+}
+
+function canonicalLeague(input) {
+  const raw = String(input || "").trim();
+  if (!raw) return null;
+  if (SUPPORTED_LEAGUES.has(raw)) return raw;
+
+  const compact = norm(raw).replace(/\s+/g, "");
+  const dashed = slug(raw);
+
+  return (
+    LEAGUE_ALIASES[compact] ||
+    LEAGUE_ALIASES[dashed] ||
+    LEAGUE_ALIASES[raw.toLowerCase()] ||
+    null
+  );
+}
+
+function titleFromFilename(filename) {
+  const base = path.basename(filename, path.extname(filename));
+  return canonicalLeague(base);
+}
+
+async function ensureDir(dirPath) {
+  await fs.mkdir(dirPath, { recursive: true });
+}
+
+async function readJson(filePath) {
+  return JSON.parse(await fs.readFile(filePath, "utf8"));
+}
+
+async function writeJsonAtomic(filePath, value) {
+  const tmp = `${filePath}.tmp`;
+  await fs.writeFile(tmp, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+  await fs.rename(tmp, filePath);
+}
+
+function uniqueStrings(values) {
+  const seen = new Set();
+  const out = [];
+  for (const value of values) {
+    const raw = String(value || "").trim();
+    if (!raw) continue;
+    const key = raw.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(raw);
+  }
+  return out;
+}
+
+function uniqueObjectsByKey(values, keyFn) {
+  const seen = new Set();
+  const out = [];
+  for (const value of values) {
+    const key = keyFn(value);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(value);
+  }
+  return out;
+}
+
+async function readEnvLocalFallback() {
   try {
-    const raw = await fs.readFile(p, "utf8");
-    const j = JSON.parse(raw);
-    return j ?? fallback;
+    const raw = await fs.readFile(path.join(ROOT, ".env.local"), "utf8");
+    const out = {};
+    for (const line of raw.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const idx = trimmed.indexOf("=");
+      if (idx < 0) continue;
+      const key = trimmed.slice(0, idx).trim();
+      let value = trimmed.slice(idx + 1).trim();
+      if (
+        (value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))
+      ) {
+        value = value.slice(1, -1);
+      }
+      out[key] = value;
+    }
+    return out;
   } catch {
-    return fallback;
+    return {};
   }
 }
 
-async function writeJson(p, obj) {
-  await fs.mkdir(path.dirname(p), { recursive: true });
-  await fs.writeFile(p, JSON.stringify(obj, null, 2) + "\n", "utf8");
+async function getApiKey() {
+  if (process.env.TICKETMASTER_API_KEY) {
+    return process.env.TICKETMASTER_API_KEY.trim();
+  }
+  const env = await readEnvLocalFallback();
+  return String(env.TICKETMASTER_API_KEY || "").trim();
 }
 
-/* -------------------- Normalization + scoring -------------------- */
+async function loadSeedFiles() {
+  await ensureDir(SEEDS_DIR);
+  const entries = await fs.readdir(SEEDS_DIR, { withFileTypes: true });
+  const out = {};
 
-function norm(s) {
-  return String(s || "")
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "") // remove diacritics
-    .replace(/&/g, "and")
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(/\b(vs|versus|v)\b/g, " ")
-    .replace(/\b(hockey|basketball|baseball|football|soccer|fc|sc|club)\b/g, " ")
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.toLowerCase().endsWith(".json")) continue;
+
+    const fullPath = path.join(SEEDS_DIR, entry.name);
+    const json = await readJson(fullPath);
+
+    if (Array.isArray(json)) {
+  const league = titleFromFilename(entry.name);
+  if (!league) {
+    throw new Error(`Could not infer league from filename: ${entry.name}`);
+  }
+
+  const teamNames = json.map((team) => {
+    if (typeof team === "string") return team;
+    if (team && typeof team === "object" && typeof team.name === "string") {
+      return team.name.trim();
+    }
+    throw new Error(`Invalid team entry in ${entry.name}: ${JSON.stringify(team)}`);
+  });
+
+  out[league] = uniqueStrings([...(out[league] || []), ...teamNames]);
+  continue;
+}
+
+    if (json && typeof json === "object" && typeof json.league === "string" && Array.isArray(json.teams)) {
+      const league = canonicalLeague(json.league);
+      if (!league) {
+        throw new Error(`Unsupported league in ${entry.name}: ${json.league}`);
+      }
+      out[league] = uniqueStrings([...(out[league] || []), ...json.teams]);
+      continue;
+    }
+
+    if (json && typeof json === "object") {
+      for (const [rawLeague, teams] of Object.entries(json)) {
+        const league = canonicalLeague(rawLeague);
+        if (!league) {
+          throw new Error(`Unsupported league key in ${entry.name}: ${rawLeague}`);
+        }
+        if (!Array.isArray(teams)) {
+          throw new Error(`Expected array of team names for ${rawLeague} in ${entry.name}`);
+        }
+        out[league] = uniqueStrings([...(out[league] || []), ...teams]);
+      }
+      continue;
+    }
+
+    throw new Error(`Unsupported JSON shape in ${entry.name}`);
+  }
+
+  const ordered = {};
+  for (const league of Object.keys(out).sort()) {
+    ordered[league] = out[league].sort((a, b) => a.localeCompare(b));
+  }
+  return ordered;
+}
+
+async function loadExistingIds() {
+  try {
+    const json = await readJson(OUT_IDS);
+    return json && typeof json === "object" ? json : {};
+  } catch {
+    return {};
+  }
+}
+
+function buildSearchVariants(teamName, league) {
+  const raw = String(teamName || "").trim();
+  const variants = new Set([raw]);
+
+  const cleaned = raw
+    .replace(/\bFC\b/gi, "")
+    .replace(/\bCF\b/gi, "")
+    .replace(/\bSC\b/gi, "")
+    .replace(/\bHC\b/gi, "")
+    .replace(/\bClub\b/gi, "")
+    .replace(/\bFootball Club\b/gi, "")
+    .replace(/\bHockey Club\b/gi, "")
     .replace(/\s+/g, " ")
     .trim();
+
+  if (cleaned && cleaned.toLowerCase() !== raw.toLowerCase()) {
+    variants.add(cleaned);
+  }
+
+  if (league.startsWith("NCAA")) {
+    variants.add(`${raw} athletics`);
+    variants.add(`${raw} ${EXPECTED_SPORT_GENRE_BY_LEAGUE[league]}`);
+    variants.add(
+      raw
+        .replace(/\bUniversity\b/gi, "U")
+        .replace(/\bState University\b/gi, "State")
+        .replace(/\bCollege\b/gi, "")
+        .replace(/\s+/g, " ")
+        .trim()
+    );
+  }
+
+  if (["MLS", "NWSL"].includes(league)) variants.add(`${raw} soccer`);
+  if (["NBA", "WNBA", "NCAA Basketball"].includes(league)) variants.add(`${raw} basketball`);
+  if (["NFL", "CFL", "NCAA Football"].includes(league)) variants.add(`${raw} football`);
+  if (["MLB", "MiLB", "NCAA Baseball"].includes(league)) variants.add(`${raw} baseball`);
+  if (["NHL", "PWHL", "AHL", "ECHL", "WHL", "OHL", "QMJHL", "NCAA Hockey"].includes(league)) {
+    variants.add(`${raw} hockey`);
+  }
+
+  return uniqueStrings([...variants]);
 }
 
-function leagueHint(league) {
-  const L = String(league || "").toUpperCase();
-  if (L === "MLS") return "soccer";
-  if (L === "CFL") return "football";
-  return L; // NHL/NFL/NBA/MLB
+async function fetchJson(url, attempt = 1) {
+  const res = await fetch(url, { headers: { accept: "application/json" } });
+
+  if (res.status === 429 || res.status >= 500) {
+    if (attempt >= MAX_RETRIES) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`TM fetch failed (${res.status}): ${text}`);
+    }
+    await sleep(RETRY_DELAY_MS * attempt);
+    return fetchJson(url, attempt + 1);
+  }
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`TM fetch failed (${res.status}): ${text}`);
+  }
+
+  return res.json();
 }
 
-function scoreCandidate(c, teamName, league) {
-  const candName = String(c?.name || "");
-  const nCand = norm(candName);
-  const nTarget = norm(teamName);
+async function searchAttractions(apiKey, keyword) {
+  const url = new URL(TM_API_BASE);
+  url.searchParams.set("apikey", apiKey);
+  url.searchParams.set("keyword", keyword);
+  url.searchParams.set("size", String(PAGE_SIZE));
+  url.searchParams.set("sort", "name,asc");
+  const json = await fetchJson(url.toString());
+  return Array.isArray(json?._embedded?.attractions) ? json._embedded.attractions : [];
+}
 
+function getClassifications(attraction) {
+  const list = Array.isArray(attraction?.classifications) ? attraction.classifications : [];
+  return list.map((c) => ({
+    segment: String(c?.segment?.name || "").trim(),
+    genre: String(c?.genre?.name || "").trim(),
+    subGenre: String(c?.subGenre?.name || "").trim(),
+  }));
+}
+
+function isSportsAttraction(attraction) {
+  return getClassifications(attraction).some((c) => norm(c.segment) === "sports");
+}
+
+function matchesExpectedGenre(attraction, expectedGenre) {
+  if (!expectedGenre) return true;
+  const wanted = norm(expectedGenre);
+  return getClassifications(attraction).some((c) => {
+    const genre = norm(c.genre);
+    const subGenre = norm(c.subGenre);
+    return genre === wanted || subGenre === wanted;
+  });
+}
+
+function candidateDisplay(attraction) {
+  return {
+    name: String(attraction?.name || "").trim(),
+    id: String(attraction?.id || "").trim(),
+    classifications: getClassifications(attraction)
+      .map((c) => [c.segment, c.genre, c.subGenre].filter(Boolean).join(" / "))
+      .filter(Boolean)
+      .join(" | "),
+  };
+}
+
+function scoreCandidate(attraction, teamName, league, expectedGenre) {
   let score = 0;
+  const attractionName = String(attraction?.name || "").trim();
+  const attractionNorm = norm(attractionName);
+  const teamNorm = norm(teamName);
 
-  if (nCand === nTarget) score += 220;
-  if (nCand.includes(nTarget)) score += 140;
+  if (!attraction?.id) score -= 1000;
+  if (!isSportsAttraction(attraction)) score -= 500;
+  if (matchesExpectedGenre(attraction, expectedGenre)) score += 250;
+  else score -= 250;
 
-  // token overlap
-  const tSet = new Set(nTarget.split(" ").filter(Boolean));
-  const cSet = new Set(nCand.split(" ").filter(Boolean));
+  if (attractionNorm === teamNorm) score += 1000;
+  if (attractionNorm.includes(teamNorm)) score += 300;
+  if (teamNorm.includes(attractionNorm)) score += 120;
+
+  const teamTokens = new Set(teamNorm.split(" ").filter(Boolean));
+  const attractionTokens = new Set(attractionNorm.split(" ").filter(Boolean));
   let overlap = 0;
-  for (const t of tSet) if (cSet.has(t)) overlap += 1;
-  score += overlap * 18;
+  for (const token of teamTokens) {
+    if (attractionTokens.has(token)) overlap += 1;
+  }
+  score += overlap * 40;
 
-  // classifications hints
-  const classes = c?.classifications?.[0] || {};
-  const segment = String(classes?.segment?.name || "").toLowerCase();
-  const genre = String(classes?.genre?.name || "").toLowerCase();
-  const subGenre = String(classes?.subGenre?.name || "").toLowerCase();
-
-  if (segment.includes("sports")) score += 35;
-  if (genre.includes(league.toLowerCase())) score += 20;
-  if (subGenre.includes(league.toLowerCase())) score += 10;
-
-  const type = String(c?.type || "").toLowerCase();
-  if (type.includes("attraction")) score += 8;
-
-  // Penalize obvious non-sports/music collisions (rare, but helps w/ names like "Giants")
-  if (segment && !segment.includes("sports")) score -= 40;
+  if (league.startsWith("NCAA")) {
+    if (/\bcollege\b|\buniversity\b|\bathletics\b|\bstate\b/i.test(attractionName)) {
+      score += 25;
+    }
+  }
 
   return score;
 }
 
-/* -------------------- 429 backoff -------------------- */
+async function searchCandidates(apiKey, teamName, league) {
+  const variants = buildSearchVariants(teamName, league);
+  const all = [];
 
-function parseRetryAfterMs(res) {
-  try {
-    const ra = res.headers.get("retry-after");
-    if (!ra) return null;
-
-    const s = String(ra).trim();
-    if (/^\d+$/.test(s)) return Number(s) * 1000;
-
-    const dt = new Date(s);
-    if (!Number.isNaN(dt.getTime())) {
-      const ms = dt.getTime() - Date.now();
-      return ms > 0 ? ms : 0;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-async function fetchWithBackoff(url, { tries = 8, baseDelayMs = 1500 } = {}) {
-  for (let i = 0; i < tries; i += 1) {
-    const res = await fetch(url, { cache: "no-store" });
-
-    if (res.status !== 429) return res;
-
-    const raMs = parseRetryAfterMs(res);
-    const jitter = Math.floor(Math.random() * 450);
-    const exp = Math.min(60_000, Math.floor(baseDelayMs * Math.pow(1.6, i))) + jitter;
-    const waitMs = raMs != null ? Math.max(raMs, 1500) : exp;
-
-    console.log(`429 rate limit. Backing off ${Math.ceil(waitMs / 1000)}s…`);
-    await sleep(waitMs);
+  for (const variant of variants) {
+    await sleep(REQUEST_DELAY_MS);
+    const rows = await searchAttractions(apiKey, variant);
+    all.push(...rows);
   }
 
-  // final attempt
-  return fetch(url, { cache: "no-store" });
+  return uniqueObjectsByKey(all, (row) => String(row?.id || row?.name || ""));
 }
 
-/* -------------------- Ticketmaster fetch -------------------- */
+function chooseBestCandidate(candidates, teamName, league) {
+  const expectedGenre = EXPECTED_SPORT_GENRE_BY_LEAGUE[league] || null;
 
-async function fetchAttractions(keyword) {
-  const u = new URL(TM_ATTRACTIONS);
-  u.searchParams.set("apikey", TM_KEY);
-  u.searchParams.set("keyword", keyword);
-  u.searchParams.set("size", "30");
+  const sportsOnly = candidates.filter(isSportsAttraction);
+  const genreFiltered = sportsOnly.filter((row) => matchesExpectedGenre(row, expectedGenre));
+  const pool = genreFiltered.length ? genreFiltered : sportsOnly.length ? sportsOnly : candidates;
 
-  const res = await fetchWithBackoff(u.toString(), { tries: 8, baseDelayMs: 1500 });
+  const scored = pool
+    .map((row) => ({
+      row,
+      score: scoreCandidate(row, teamName, league, expectedGenre),
+    }))
+    .sort((a, b) => b.score - a.score);
 
-  if (res.status === 429) return { items: [], status: 429 };
+  return {
+    best: scored[0] || null,
+    top: scored.slice(0, 5).map((item) => ({
+      score: item.score,
+      ...candidateDisplay(item.row),
+    })),
+  };
+}
 
-  if (!res.ok) {
-    // Capture short error for debugging (don’t spam)
-    const txt = await res.text().catch(() => "");
-    console.error(`TM attractions failed: HTTP ${res.status} keyword="${keyword}"`);
-    if (txt) console.error(txt.slice(0, 240));
+function makeMissRow(league, teamName, reason, top = []) {
+  return { league, teamName, reason, topCandidates: top };
+}
 
-    if (res.status === 401 || res.status === 403) {
-      throw new Error(`TM auth failed (${res.status}). Check/rotate API key.`);
-    }
-    return { items: [], status: res.status };
+async function writePerLeagueFiles(allIds) {
+  await ensureDir(OUT_DIR);
+  for (const [league, map] of Object.entries(allIds)) {
+    const filePath = path.join(OUT_DIR, `${slug(league)}.json`);
+    await writeJsonAtomic(filePath, { [league]: map });
   }
-
-  const json = await res.json().catch(() => ({}));
-  const items = json?._embedded?.attractions || [];
-  return { items: Array.isArray(items) ? items : [], status: 200 };
 }
-
-async function searchAttraction(teamName, league) {
-  const tries = [teamName, `${teamName} ${leagueHint(league)}`];
-
-  let best = null;
-  let bestScore = -Infinity;
-
-  for (const kw of tries) {
-    const { items, status } = await fetchAttractions(kw);
-    if (status === 429) return { throttled: true };
-
-    for (const c of items) {
-      const s = scoreCandidate(c, teamName, league);
-      if (s > bestScore) {
-        bestScore = s;
-        best = c;
-      }
-    }
-
-    // brief pause between keyword tries
-    await sleep(200);
-  }
-
-  const id = best?.id ? String(best.id).trim() : "";
-  if (!id) return null;
-
-  // threshold to avoid obviously wrong matches; tune if needed
-  if (bestScore < 80) return null;
-
-  return { id, bestName: best?.name || null, bestScore };
-}
-
-/* -------------------- Progress persistence -------------------- */
-
-async function writeProgress(out, misses, throttled) {
-  await writeJson(dataPath("team_attraction_ids.json"), out);
-  await writeJson(dataPath("team_attraction_misses.json"), misses);
-  await writeJson(dataPath("team_attraction_throttled.json"), throttled);
-}
-
-/* -------------------- Main -------------------- */
 
 async function main() {
-  console.log("Starting team attractionId build…");
-
-  // Load existing so this is resumable
-  const out = await readJsonIfExists(dataPath("team_attraction_ids.json"), {});
-  const misses = await readJsonIfExists(dataPath("team_attraction_misses.json"), []);
-  const throttled = await readJsonIfExists(dataPath("team_attraction_throttled.json"), []);
-
-  // Ensure league objects exist
-  for (const league of Object.keys(TEAMS_BY_LEAGUE)) {
-    if (!out[league] || typeof out[league] !== "object") out[league] = {};
+  const apiKey = await getApiKey();
+  if (!apiKey) {
+    throw new Error("Missing TICKETMASTER_API_KEY in environment or .env.local");
   }
 
-  // Conservative spacing to avoid 429 (you can increase once stable)
-  const PER_TEAM_SPACING_MS = 1400;
+  await ensureDir(DATA_DIR);
+  await ensureDir(SEEDS_DIR);
+  await ensureDir(OUT_DIR);
 
-  for (const league of Object.keys(TEAMS_BY_LEAGUE)) {
-    const teams = TEAMS_BY_LEAGUE[league];
+  const seedsByLeague = await loadSeedFiles();
+  const existingIds = await loadExistingIds();
 
-    for (const teamName of teams) {
-      // Skip if already resolved
-      if (out[league]?.[teamName]) continue;
+  const output = {};
+  const misses = [];
 
-      await sleep(PER_TEAM_SPACING_MS);
+  for (const league of Object.keys(seedsByLeague).sort()) {
+    output[league] = { ...(existingIds[league] || {}) };
+    const teams = seedsByLeague[league];
 
-      const r = await searchAttraction(teamName, league);
+    console.log(`\n=== ${league} (${teams.length}) ===`);
 
-      if (r?.throttled) {
-        console.log(`THROTTLED  ${league}  ${teamName}`);
-        throttled.push({ league, teamName, at: new Date().toISOString() });
-        await writeProgress(out, misses, throttled);
+    for (let i = 0; i < teams.length; i += 1) {
+      const teamName = teams[i];
+      const already = String(output[league]?.[teamName] || "").trim();
 
-        // Cooling off hard after throttling
-        await sleep(30_000);
+      if (already) {
+        console.log(`[${league}] ${i + 1}/${teams.length} keep ${teamName} -> ${already}`);
         continue;
       }
 
-      if (!r?.id) {
-        console.log(`MISS       ${league}  ${teamName}`);
-        misses.push({ league, teamName, at: new Date().toISOString() });
-        await writeProgress(out, misses, throttled);
-        continue;
-      }
+      try {
+        console.log(`[${league}] ${i + 1}/${teams.length} resolving ${teamName}`);
+        const candidates = await searchCandidates(apiKey, teamName, league);
 
-      out[league][teamName] = r.id;
-      console.log(`OK         ${league}  ${teamName}  -> ${r.id} (score ${r.bestScore})`);
-      await writeProgress(out, misses, throttled);
+        if (!candidates.length) {
+          misses.push(makeMissRow(league, teamName, "no_candidates", []));
+          console.log("  miss: no candidates");
+          continue;
+        }
+
+        const { best, top } = chooseBestCandidate(candidates, teamName, league);
+
+        if (!best?.row?.id) {
+          misses.push(makeMissRow(league, teamName, "no_viable_match", top));
+          console.log("  miss: no viable match");
+          continue;
+        }
+
+        const bestId = String(best.row.id).trim();
+        const bestScore = Number(best.score || 0);
+
+        if (bestScore < MIN_CONFIDENCE) {
+          misses.push(makeMissRow(league, teamName, "low_confidence", top));
+          console.log(`  miss: low confidence (${bestScore})`);
+          continue;
+        }
+
+        output[league][teamName] = bestId;
+        console.log(`  ok: ${teamName} -> ${bestId} (${bestScore})`);
+
+        await writeJsonAtomic(OUT_IDS, output);
+        await writeJsonAtomic(OUT_MISSES, misses);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        misses.push(makeMissRow(league, teamName, `error: ${message}`, []));
+        console.log(`  error: ${message}`);
+        await writeJsonAtomic(OUT_MISSES, misses);
+        await sleep(RETRY_DELAY_MS);
+      }
     }
   }
 
-  console.log("\nDone.");
-  console.log(`Wrote ${dataPath("team_attraction_ids.json")}`);
-  console.log(`Wrote ${dataPath("team_attraction_misses.json")}`);
-  console.log(`Wrote ${dataPath("team_attraction_throttled.json")}`);
+  const orderedOutput = {};
+  for (const league of Object.keys(output).sort()) {
+    orderedOutput[league] = {};
+    for (const teamName of Object.keys(output[league]).sort((a, b) => a.localeCompare(b))) {
+      orderedOutput[league][teamName] = output[league][teamName];
+    }
+  }
+
+  const orderedMisses = misses.sort((a, b) =>
+    `${a.league} ${a.teamName}`.toLowerCase().localeCompare(`${b.league} ${b.teamName}`.toLowerCase())
+  );
+
+  await writeJsonAtomic(OUT_IDS, orderedOutput);
+  await writeJsonAtomic(OUT_MISSES, orderedMisses);
+  await writePerLeagueFiles(orderedOutput);
+
+  const resolvedCount = Object.values(orderedOutput).reduce(
+    (sum, leagueMap) => sum + Object.keys(leagueMap).length,
+    0
+  );
+
+  console.log(`\nDone.`);
+  console.log(`Resolved: ${resolvedCount}`);
+  console.log(`Misses:   ${orderedMisses.length}`);
+  console.log(`Wrote:    ${path.relative(ROOT, OUT_IDS)}`);
+  console.log(`Wrote:    ${path.relative(ROOT, OUT_MISSES)}`);
+  console.log(`Wrote:    ${path.relative(ROOT, OUT_DIR)}/`);
 }
 
-main().catch((e) => {
-  console.error(e);
+main().catch((err) => {
+  console.error("\nFatal error:");
+  console.error(err);
   process.exit(1);
 });

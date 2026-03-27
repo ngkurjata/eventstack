@@ -1,0 +1,155 @@
+[
+  {
+    "name": "Acadie-Bathurst Titan",
+    "league": "QMJHL",
+    "sport": "hockey",
+    "country": "CA",
+    "region": "NB",
+    "city": "Bathurst",
+    "aliases": ["Titan", "Bathurst"]
+  },
+  {
+    "name": "Baie-Comeau Drakkar",
+    "league": "QMJHL",
+    "sport": "hockey",
+    "country": "CA",
+    "region": "QC",
+    "city": "Baie-Comeau",
+    "aliases": ["Drakkar", "Baie Comeau"]
+  },
+  {
+    "name": "Blainville-Boisbriand Armada",
+    "league": "QMJHL",
+    "sport": "hockey",
+    "country": "CA",
+    "region": "QC",
+    "city": "Boisbriand",
+    "aliases": ["Armada", "Blainville", "Boisbriand"]
+  },
+  {
+    "name": "Cape Breton Eagles",
+    "league": "QMJHL",
+    "sport": "hockey",
+    "country": "CA",
+    "region": "NS",
+    "city": "Sydney",
+    "aliases": ["Eagles", "Cape Breton"]
+  },
+  {
+    "name": "Charlottetown Islanders",
+    "league": "QMJHL",
+    "sport": "hockey",
+    "country": "CA",
+    "region": "PE",
+    "city": "Charlottetown",
+    "aliases": ["Islanders", "Charlottetown"]
+  },
+  {
+    "name": "Chicoutimi Saguenéens",
+    "league": "QMJHL",
+    "sport": "hockey",
+    "country": "CA",
+    "region": "QC",
+    "city": "Saguenay",
+    "aliases": ["Sagueneens", "Saguenay", "Chicoutimi"]
+  },
+  {
+    "name": "Drummondville Voltigeurs",
+    "league": "QMJHL",
+    "sport": "hockey",
+    "country": "CA",
+    "region": "QC",
+    "city": "Drummondville",
+    "aliases": ["Voltigeurs", "Drummondville"]
+  },
+  {
+    "name": "Gatineau Olympiques",
+    "league": "QMJHL",
+    "sport": "hockey",
+    "country": "CA",
+    "region": "QC",
+    "city": "Gatineau",
+    "aliases": ["Olympiques", "Gatineau"]
+  },
+  {
+    "name": "Halifax Mooseheads",
+    "league": "QMJHL",
+    "sport": "hockey",
+    "country": "CA",
+    "region": "NS",
+    "city": "Halifax",
+    "aliases": ["Mooseheads", "Halifax"]
+  },
+  {
+    "name": "Moncton Wildcats",
+    "league": "QMJHL",
+    "sport": "hockey",
+    "country": "CA",
+    "region": "NB",
+    "city": "Moncton",
+    "aliases": ["Wildcats", "Moncton"]
+  },
+  {
+    "name": "Québec Remparts",
+    "league": "QMJHL",
+    "sport": "hockey",
+    "country": "CA",
+    "region": "QC",
+    "city": "Quebec City",
+    "aliases": ["Remparts", "Quebec Remparts", "Quebec"]
+  },
+  {
+    "name": "Rimouski Océanic",
+    "league": "QMJHL",
+    "sport": "hockey",
+    "country": "CA",
+    "region": "QC",
+    "city": "Rimouski",
+    "aliases": ["Oceanic", "Rimouski"]
+  },
+  {
+    "name": "Rouyn-Noranda Huskies",
+    "league": "QMJHL",
+    "sport": "hockey",
+    "country": "CA",
+    "region": "QC",
+    "city": "Rouyn-Noranda",
+    "aliases": ["Huskies", "Rouyn", "Rouyn Noranda"]
+  },
+  {
+    "name": "Saint John Sea Dogs",
+    "league": "QMJHL",
+    "sport": "hockey",
+    "country": "CA",
+    "region": "NB",
+    "city": "Saint John",
+    "aliases": ["Sea Dogs", "Saint John"]
+  },
+  {
+    "name": "Sherbrooke Phoenix",
+    "league": "QMJHL",
+    "sport": "hockey",
+    "country": "CA",
+    "region": "QC",
+    "city": "Sherbrooke",
+    "aliases": ["Phoenix", "Sherbrooke"]
+  },
+  {
+    "name": "Val-d'Or Foreurs",
+    "league": "QMJHL",
+    "sport": "hockey",
+    "country": "CA",
+    "region": "QC",
+    "city": "Val-d'Or",
+    "aliases": ["Foreurs", "Val d'Or"]
+  },
+  {
+    "name": "Victoriaville Tigres",
+    "league": "QMJHL",
+    "sport": "hockey",
+    "country": "CA",
+    "region": "QC",
+    "city": "Victoriaville",
+    "aliases": ["Tigres", "Victoriaville"]
+  }
+]

@@ -1,7 +1,9 @@
 // FILE: scripts/build-artist-options.ts
 /* eslint-disable no-console */
 
-import "dotenv/config";
+import dotenv from "dotenv";
+dotenv.config({ path: ".env.local" });
+
 import fs from "node:fs";
 import path from "node:path";
 import { normalizeGenres } from "../lib/events/genres";
@@ -73,6 +75,7 @@ const SEED_INDEX_PATH = path.join(DATA_DIR, "artist_seed_index.json");
 const ENRICH_QUEUE_PATH = path.join(DATA_DIR, "artist_enrich_queue.json");
 
 const API_KEY = process.env.TM_API_KEY || process.env.TICKETMASTER_API_KEY;
+console.log("Has API key:", Boolean(API_KEY));
 const TM_BASE = "https://app.ticketmaster.com/discovery/v2/attractions.json";
 const DEFAULT_COUNTRY_CODE = "US,CA";
 

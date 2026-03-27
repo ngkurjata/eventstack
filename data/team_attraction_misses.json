@@ -1,1 +1,62 @@
-[]
+[
+  {
+    "league": "MiLB",
+    "teamName": "Binghamton Rumble Ponies",
+    "reason": "no_candidates",
+    "topCandidates": []
+  },
+  {
+    "league": "MiLB",
+    "teamName": "Kannapolis Cannon Ballers",
+    "reason": "no_candidates",
+    "topCandidates": []
+  },
+  {
+    "league": "MiLB",
+    "teamName": "Oklahoma City Baseball Club",
+    "reason": "no_candidates",
+    "topCandidates": []
+  },
+  {
+    "league": "MiLB",
+    "teamName": "Reading Fightin Phils",
+    "reason": "no_candidates",
+    "topCandidates": []
+  },
+  {
+    "league": "MiLB",
+    "teamName": "St. Paul Saints",
+    "reason": "no_candidates",
+    "topCandidates": []
+  },
+  {
+    "league": "NCAA Basketball",
+    "teamName": "Kennesaw State Owls",
+    "reason": "error: TM fetch failed (429): {\"fault\":{\"faultstring\":\"Rate limit quota violation. Quota limit  exceeded. Identifier : CrZBYXSG2dqNSLE1yhTFS16t5w2TW0xD\",\"detail\":{\"errorcode\":\"policies.ratelimit.QuotaViolation\"}}}",
+    "topCandidates": []
+  },
+  {
+    "league": "NCAA Basketball",
+    "teamName": "Kent State Golden Flashes",
+    "reason": "error: TM fetch failed (429): {\"fault\":{\"faultstring\":\"Rate limit quota violation. Quota limit  exceeded. Identifier : CrZBYXSG2dqNSLE1yhTFS16t5w2TW0xD\",\"detail\":{\"errorcode\":\"policies.ratelimit.QuotaViolation\"}}}",
+    "topCandidates": []
+  },
+  {
+    "league": "NCAA Basketball",
+    "teamName": "Kentucky Wildcats",
+    "reason": "error: TM fetch failed (429): {\"fault\":{\"faultstring\":\"Rate limit quota violation. Quota limit  exceeded. Identifier : CrZBYXSG2dqNSLE1yhTFS16t5w2TW0xD\",\"detail\":{\"errorcode\":\"policies.ratelimit.QuotaViolation\"}}}",
+    "topCandidates": []
+  },
+  {
+    "league": "NCAA Basketball",
+    "teamName": "La Salle Explorers",
+    "reason": "error: TM fetch failed (429): {\"fault\":{\"faultstring\":\"Rate limit quota violation. Quota limit  exceeded. Identifier : CrZBYXSG2dqNSLE1yhTFS16t5w2TW0xD\",\"detail\":{\"errorcode\":\"policies.ratelimit.QuotaViolation\"}}}",
+    "topCandidates": []
+  },
+  {
+    "league": "NCAA Basketball",
+    "teamName": "Lafayette Leopards",
+    "reason": "error: TM fetch failed (429): {\"fault\":{\"faultstring\":\"Rate limit quota violation. Quota limit  exceeded. Identifier : CrZBYXSG2dqNSLE1yhTFS16t5w2TW0xD\",\"detail\":{\"errorcode\":\"policies.ratelimit.QuotaViolation\"}}}",
+    "topCandidates": []
+  }
+]

@@ -1,0 +1,130 @@
+{
+  "Arizona Cardinals": {
+    "teamName": "Arizona Cardinals",
+    "attractionId": "K8vZ917198f"
+  },
+  "Atlanta Falcons": {
+    "teamName": "Atlanta Falcons",
+    "attractionId": "K8vZ9171ou0"
+  },
+  "Baltimore Ravens": {
+    "teamName": "Baltimore Ravens",
+    "attractionId": "K8vZ91719eV"
+  },
+  "Buffalo Bills": {
+    "teamName": "Buffalo Bills",
+    "attractionId": "K8vZ9171oGf"
+  },
+  "Carolina Panthers": {
+    "teamName": "Carolina Panthers",
+    "attractionId": "K8vZ9171oPf"
+  },
+  "Chicago Bears": {
+    "teamName": "Chicago Bears",
+    "attractionId": "K8vZ9171ou7"
+  },
+  "Cincinnati Bengals": {
+    "teamName": "Cincinnati Bengals",
+    "attractionId": "K8vZ9171ovV"
+  },
+  "Cleveland Browns": {
+    "teamName": "Cleveland Browns",
+    "attractionId": "K8vZ9171oV7"
+  },
+  "Dallas Cowboys": {
+    "teamName": "Dallas Cowboys",
+    "attractionId": "K8vZ9171oG0"
+  },
+  "Denver Broncos": {
+    "teamName": "Denver Broncos",
+    "attractionId": "K8vZ9171og7"
+  },
+  "Detroit Lions": {
+    "teamName": "Detroit Lions",
+    "attractionId": "K8vZ9171oUf"
+  },
+  "Green Bay Packers": {
+    "teamName": "Green Bay Packers",
+    "attractionId": "K8vZ9171oC7"
+  },
+  "Houston Texans": {
+    "teamName": "Houston Texans",
+    "attractionId": "K8vZ91756Kf"
+  },
+  "Indianapolis Colts": {
+    "teamName": "Indianapolis Colts",
+    "attractionId": "K8vZ9171oV0"
+  },
+  "Jacksonville Jaguars": {
+    "teamName": "Jacksonville Jaguars",
+    "attractionId": "K8vZ9171poV"
+  },
+  "Kansas City Chiefs": {
+    "teamName": "Kansas City Chiefs",
+    "attractionId": "K8vZ9171oMf"
+  },
+  "Las Vegas Raiders": {
+    "teamName": "Las Vegas Raiders",
+    "attractionId": "K8vZ9171oVV"
+  },
+  "Los Angeles Chargers": {
+    "teamName": "Los Angeles Chargers",
+    "attractionId": "K8vZ9171og0"
+  },
+  "Los Angeles Rams": {
+    "teamName": "Los Angeles Rams",
+    "attractionId": "K8vZ91719t0"
+  },
+  "Miami Dolphins": {
+    "teamName": "Miami Dolphins",
+    "attractionId": "K8vZ9171ogf"
+  },
+  "Minnesota Vikings": {
+    "teamName": "Minnesota Vikings",
+    "attractionId": "K8vZ9171oM7"
+  },
+  "New England Patriots": {
+    "teamName": "New England Patriots",
+    "attractionId": "K8vZ9171ouf"
+  },
+  "New Orleans Saints": {
+    "teamName": "New Orleans Saints",
+    "attractionId": "K8vZ9171ouV"
+  },
+  "New York Giants": {
+    "teamName": "New York Giants",
+    "attractionId": "K8vZ9171oCf"
+  },
+  "New York Jets": {
+    "teamName": "New York Jets",
+    "attractionId": "K8vZ9171oGV"
+  },
+  "Philadelphia Eagles": {
+    "teamName": "Philadelphia Eagles",
+    "attractionId": "K8vZ9171oU0"
+  },
+  "Pittsburgh Steelers": {
+    "teamName": "Pittsburgh Steelers",
+    "attractionId": "K8vZ9171ogV"
+  },
+  "San Francisco 49ers": {
+    "teamName": "San Francisco 49ers",
+    "attractionId": "K8vZ9171oMV"
+  },
+  "Seattle Seahawks": {
+    "teamName": "Seattle Seahawks",
+    "attractionId": "K8vZ9171oU7"
+  },
+  "Tampa Bay Buccaneers": {
+    "teamName": "Tampa Bay Buccaneers",
+    "attractionId": "K8vZ9171oCV"
+  },
+  "Tennessee Titans": {
+    "teamName": "Tennessee Titans",
+    "attractionId": "K8vZ91719u7"
+  },
+  "Washington Commanders": {
+    "teamName": "Washington Commanders",
+    "attractionId": "K8vZ9171oM0"
+  }
+}

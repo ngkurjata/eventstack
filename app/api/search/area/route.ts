@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
+import type { SeriesKey } from "@/lib/favorites/types";
 import TM from "@/lib/tm/client";
 import { normalizeTMEvent, type NormEvent } from "@/lib/events/normalize";
 import { dedupeEvents } from "@/lib/events/dedupe";
@@ -13,10 +14,14 @@ function json(payload: any, status = 200) {
   return NextResponse.json(payload, { status });
 }
 
+type FavoriteKind = "team" | "artist" | "series";
+
 type FavoriteInput = {
   id?: string;
   label?: string;
+  kind?: FavoriteKind;
   attractionId?: string;
+  seriesKey?: SeriesKey;
   defaultGenre?: string;
 };
 
@@ -71,10 +76,12 @@ function sanitizeFavorites(input: any): FavoriteInput[] {
     .map((f) => ({
       id: safeStr(f?.id) || undefined,
       label: safeStr(f?.label) || undefined,
+      kind: (safeStr(f?.kind)?.toLowerCase() as FavoriteKind | null) || undefined,
       attractionId: safeStr(f?.attractionId) || undefined,
+      seriesKey: (safeStr(f?.seriesKey) as SeriesKey | null) || undefined,
       defaultGenre: safeStr(f?.defaultGenre) || undefined,
     }))
-    .filter((f) => f.label || f.attractionId);
+    .filter((f) => f.label || f.attractionId || f.seriesKey);
 }
 
 function sanitizeGenres(input: any): string[] {
@@ -110,7 +117,67 @@ function extractTmAttractionLite(tm: any): Array<{ id: string; name: string }> {
   return out;
 }
 
+function seriesKeywords(seriesKey: SeriesKey): string[] {
+  switch (seriesKey) {
+    case "f1":
+      return ["Formula 1", "F1", "Grand Prix"];
+    case "nascar":
+      return ["NASCAR"];
+    case "indy":
+      return ["IndyCar", "Indycar", "NTT IndyCar Series"];
+    case "pga":
+      return ["PGA Tour", "PGA"];
+    case "lpga":
+      return ["LPGA"];
+    case "liv":
+      return ["LIV Golf", "LIV"];
+    case "tgl":
+      return ["TGL"];
+    case "ufc":
+      return ["UFC"];
+    case "atp":
+      return ["ATP Tour", "ATP"];
+    case "wta":
+      return ["WTA Tour", "WTA"];
+    default:
+      return [];
+  }
+}
+
+function eventMatchesSeriesKeyword(
+  tm: any,
+  seriesKey: SeriesKey | undefined
+): boolean {
+  if (!seriesKey) return false;
+
+  const haystack = [
+    safeStr(tm?.name),
+    safeStr(tm?.info),
+    safeStr(tm?.pleaseNote),
+    ...(Array.isArray(tm?._embedded?.attractions)
+      ? tm._embedded.attractions.flatMap((a: any) => [safeStr(a?.name)])
+      : []),
+    ...(Array.isArray(tm?.classifications)
+      ? tm.classifications.flatMap((c: any) => [
+          safeStr(c?.segment?.name),
+          safeStr(c?.genre?.name),
+          safeStr(c?.subGenre?.name),
+          safeStr(c?.type?.name),
+          safeStr(c?.subType?.name),
+        ])
+      : []),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return seriesKeywords(seriesKey).some((kw) =>
+    haystack.includes(String(kw).trim().toLowerCase())
+  );
+}
+
 function matchFavoritesForEvent(
+  tm: any,
   attractions: Array<{ id: string; name: string }>,
   favorites: FavoriteInput[]
 ) {
@@ -118,17 +185,24 @@ function matchFavoritesForEvent(
   const matchedAttractionIds: string[] = [];
   const matchedDefaultGenres: string[] = [];
 
-  const eventAttractionIdKeys = new Set(attractions.map((a) => normalizeToken(a.id)).filter(Boolean));
-  const eventAttractionNameKeys = new Set(attractions.map((a) => normalizeToken(a.name)).filter(Boolean));
+  const eventAttractionIdKeys = new Set(
+    attractions.map((a) => normalizeToken(a.id)).filter(Boolean)
+  );
+  const eventAttractionNameKeys = new Set(
+    attractions.map((a) => normalizeToken(a.name)).filter(Boolean)
+  );
 
   for (const fav of favorites) {
     const favLabelKey = normalizeToken(fav.label);
     const favAttractionIdKey = normalizeToken(fav.attractionId);
 
-    const byAttractionId = !!favAttractionIdKey && eventAttractionIdKeys.has(favAttractionIdKey);
+    const byAttractionId =
+      !!favAttractionIdKey && eventAttractionIdKeys.has(favAttractionIdKey);
     const byLabel = !!favLabelKey && eventAttractionNameKeys.has(favLabelKey);
+    const bySeries =
+      fav.kind === "series" && !!fav.seriesKey && eventMatchesSeriesKeyword(tm, fav.seriesKey);
 
-    if (!byAttractionId && !byLabel) continue;
+    if (!byAttractionId && !byLabel && !bySeries) continue;
 
     if (fav.label) matchedFavorites.push(fav.label);
     if (fav.attractionId) matchedAttractionIds.push(fav.attractionId);
@@ -197,7 +271,7 @@ export async function POST(req: Request) {
       if (!Array.isArray(ne.canonicalGenres) || ne.canonicalGenres.length === 0) continue;
 
       const attractions = extractTmAttractionLite(tm);
-      const favoriteMatches = matchFavoritesForEvent(attractions, favorites);
+      const favoriteMatches = matchFavoritesForEvent(tm, attractions, favorites);
 
       ne.matched = {
         favorites: favoriteMatches.favorites,
@@ -233,7 +307,9 @@ export async function POST(req: Request) {
       requestedGenres,
       requestedFavorites: favorites.map((f) => ({
         label: f.label || null,
+        kind: f.kind || null,
         attractionId: f.attractionId || null,
+        seriesKey: f.seriesKey || null,
         defaultGenre: f.defaultGenre || null,
       })),
       count: events.length,

@@ -1,0 +1,6343 @@
+[
+  {
+    "id": "ncaa_football_fbs_air_force",
+    "schoolKey": "air_force",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Air Force Falcons",
+    "brandName": "Air Force",
+    "mascot": "Falcons",
+    "displayName": "Air Force Falcons Football",
+    "city": "USAF Academy",
+    "state": "CO",
+    "country": "US",
+    "aliases": [
+      "Air Force Falcons football",
+      "Air Force football",
+      "Falcons football"
+    ],
+    "tmSearch": [
+      "Air Force Falcons football",
+      "Air Force football",
+      "USAF Academy Air Force Falcons"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_akron",
+    "schoolKey": "akron",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Akron Zips",
+    "brandName": "Akron",
+    "mascot": "Zips",
+    "displayName": "Akron Zips Football",
+    "city": "Akron",
+    "state": "OH",
+    "country": "US",
+    "aliases": [
+      "Akron Zips football",
+      "Akron football",
+      "Zips football"
+    ],
+    "tmSearch": [
+      "Akron Zips football",
+      "Akron football",
+      "Akron Ohio Zips football"    ]
+  },
+  {
+    "id": "ncaa_football_fbs_alabama",
+    "schoolKey": "alabama",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Alabama Crimson Tide",
+    "brandName": "Alabama",
+    "mascot": "Crimson Tide",
+    "displayName": "Alabama Crimson Tide Football",
+    "city": "Tuscaloosa",
+    "state": "AL",
+    "country": "US",
+    "aliases": [
+      "Alabama Crimson Tide football",
+      "Alabama football",
+      "Bama football",
+      "Crimson Tide football"
+    ],
+    "tmSearch": [
+      "Alabama Crimson Tide football",
+      "Alabama football",
+      "Tuscaloosa Alabama Crimson Tide"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_appalachian_state",
+    "schoolKey": "appalachian_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Appalachian State Mountaineers",
+    "brandName": "Appalachian State",
+    "mascot": "Mountaineers",
+    "displayName": "Appalachian State Mountaineers Football",
+    "city": "Boone",
+    "state": "NC",
+    "country": "US",
+    "aliases": [
+      "Appalachian State Mountaineers football",
+      "Appalachian State football",
+      "Mountaineers football"
+    ],
+    "tmSearch": [
+      "Appalachian State Mountaineers football",
+      "Appalachian State football",
+      "Boone Appalachian State Mountaineers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_arizona",
+    "schoolKey": "arizona",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Arizona Wildcats",
+    "brandName": "Arizona",
+    "mascot": "Wildcats",
+    "displayName": "Arizona Wildcats Football",
+    "city": "Tucson",
+    "state": "AZ",
+    "country": "US",
+    "aliases": [
+      "Arizona Wildcats football",
+      "Arizona football",
+      "Wildcats football"
+    ],
+    "tmSearch": [
+      "Arizona Wildcats football",
+      "Arizona football",
+      "Tucson Arizona Wildcats"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_arizona_state",
+    "schoolKey": "arizona_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Arizona State Sun Devils",
+    "brandName": "Arizona State",
+    "mascot": "Sun Devils",
+    "displayName": "Arizona State Sun Devils Football",
+    "city": "Tempe",
+    "state": "AZ",
+    "country": "US",
+    "aliases": [
+      "Arizona State Sun Devils football",
+      "Arizona State football",
+      "Sun Devils football"
+    ],
+    "tmSearch": [
+      "Arizona State Sun Devils football",
+      "Arizona State football",
+      "Tempe Arizona State Sun Devils"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_arkansas",
+    "schoolKey": "arkansas",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Arkansas Razorbacks",
+    "brandName": "Arkansas",
+    "mascot": "Razorbacks",
+    "displayName": "Arkansas Razorbacks Football",
+    "city": "Fayetteville",
+    "state": "AR",
+    "country": "US",
+    "aliases": [
+      "Arkansas Razorbacks football",
+      "Arkansas football",
+      "Razorbacks football"
+    ],
+    "tmSearch": [
+      "Arkansas Razorbacks football",
+      "Arkansas football",
+      "Fayetteville Arkansas Razorbacks"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_arkansas_state",
+    "schoolKey": "arkansas_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Arkansas State Red Wolves",
+    "brandName": "Arkansas State",
+    "mascot": "Red Wolves",
+    "displayName": "Arkansas State Red Wolves Football",
+    "city": "Jonesboro",
+    "state": "AR",
+    "country": "US",
+    "aliases": [
+      "Arkansas State Red Wolves football",
+      "Arkansas State football",
+      "Red Wolves football"
+    ],
+    "tmSearch": [
+      "Arkansas State Red Wolves football",
+      "Arkansas State football",
+      "Jonesboro Arkansas State Red Wolves"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_army",
+    "schoolKey": "army",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Army Black Knights",
+    "brandName": "Army",
+    "mascot": "Black Knights",
+    "displayName": "Army Black Knights Football",
+    "city": "West Point",
+    "state": "NY",
+    "country": "US",
+    "aliases": [
+      "Army Black Knights football",
+      "Army football",
+      "Black Knights football",
+      "West Point football"
+    ],
+    "tmSearch": [
+      "Army Black Knights football",
+      "Army football",
+      "West Point Army Black Knights"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_auburn",
+    "schoolKey": "auburn",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Auburn Tigers",
+    "brandName": "Auburn",
+    "mascot": "Tigers",
+    "displayName": "Auburn Tigers Football",
+    "city": "Auburn",
+    "state": "AL",
+    "country": "US",
+    "aliases": [
+      "Auburn Tigers football",
+      "Auburn football",
+      "Tigers football"
+    ],
+    "tmSearch": [
+      "Auburn Tigers football",
+      "Auburn football",
+      "Auburn Auburn Tigers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_ball_state",
+    "schoolKey": "ball_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Ball State Cardinals",
+    "brandName": "Ball State",
+    "mascot": "Cardinals",
+    "displayName": "Ball State Cardinals Football",
+    "city": "Muncie",
+    "state": "IN",
+    "country": "US",
+    "aliases": [
+      "Ball State Cardinals football",
+      "Ball State football",
+      "Cardinals football"
+    ],
+    "tmSearch": [
+      "Ball State Cardinals football",
+      "Ball State football",
+      "Muncie Ball State Cardinals"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_baylor",
+    "schoolKey": "baylor",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Baylor Bears",
+    "brandName": "Baylor",
+    "mascot": "Bears",
+    "displayName": "Baylor Bears Football",
+    "city": "Waco",
+    "state": "TX",
+    "country": "US",
+    "aliases": [
+      "Baylor Bears football",
+      "Baylor football",
+      "Bears football"
+    ],
+    "tmSearch": [
+      "Baylor Bears football",
+      "Baylor football",
+      "Waco Baylor Bears"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_boise_state",
+    "schoolKey": "boise_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Boise State Broncos",
+    "brandName": "Boise State",
+    "mascot": "Broncos",
+    "displayName": "Boise State Broncos Football",
+    "city": "Boise",
+    "state": "ID",
+    "country": "US",
+    "aliases": [
+      "Boise State Broncos football",
+      "Boise State football",
+      "Broncos football"
+    ],
+    "tmSearch": [
+      "Boise State Broncos football",
+      "Boise State football",
+      "Boise Boise State Broncos"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_boston_college",
+    "schoolKey": "boston_college",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Boston College Eagles",
+    "brandName": "Boston College",
+    "mascot": "Eagles",
+    "displayName": "Boston College Eagles Football",
+    "city": "Chestnut Hill",
+    "state": "MA",
+    "country": "US",
+    "aliases": [
+      "Boston College Eagles football",
+      "Boston College football",
+      "Eagles football"
+    ],
+    "tmSearch": [
+      "Boston College Eagles football",
+      "Boston College football",
+      "Chestnut Hill Boston College Eagles"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_bowling_green",
+    "schoolKey": "bowling_green",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Bowling Green Falcons",
+    "brandName": "Bowling Green",
+    "mascot": "Falcons",
+    "displayName": "Bowling Green Falcons Football",
+    "city": "Bowling Green",
+    "state": "OH",
+    "country": "US",
+    "aliases": [
+      "Bowling Green Falcons football",
+      "Bowling Green football",
+      "Falcons football"
+    ],
+    "tmSearch": [
+      "Bowling Green Falcons football",
+      "Bowling Green football",
+      "Bowling Green Bowling Green Falcons"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_buffalo",
+    "schoolKey": "buffalo",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Buffalo Bulls",
+    "brandName": "Buffalo",
+    "mascot": "Bulls",
+    "displayName": "Buffalo Bulls Football",
+    "city": "Buffalo",
+    "state": "NY",
+    "country": "US",
+    "aliases": [
+      "Buffalo Bulls football",
+      "Buffalo football",
+      "Bulls football"
+    ],
+    "tmSearch": [
+      "Buffalo Bulls football",
+      "Buffalo football",
+      "Buffalo Buffalo Bulls"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_byu",
+    "schoolKey": "byu",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "BYU Cougars",
+    "brandName": "BYU",
+    "mascot": "Cougars",
+    "displayName": "BYU Cougars Football",
+    "city": "Provo",
+    "state": "UT",
+    "country": "US",
+    "aliases": [
+      "BYU Cougars football",
+      "BYU football",
+      "Cougars football"
+    ],
+    "tmSearch": [
+      "BYU Cougars football",
+      "BYU football",
+      "Provo BYU Cougars"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_california",
+    "schoolKey": "california",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "California Golden Bears",
+    "brandName": "California",
+    "mascot": "Golden Bears",
+    "displayName": "California Golden Bears Football",
+    "city": "Berkeley",
+    "state": "CA",
+    "country": "US",
+    "aliases": [
+      "California Golden Bears football",
+      "Cal football",
+      "California football",
+      "Golden Bears football"
+    ],
+    "tmSearch": [
+      "California Golden Bears football",
+      "Cal football",
+      "Berkeley California Golden Bears"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_central_michigan",
+    "schoolKey": "central_michigan",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Central Michigan Chippewas",
+    "brandName": "Central Michigan",
+    "mascot": "Chippewas",
+    "displayName": "Central Michigan Chippewas Football",
+    "city": "Mount Pleasant",
+    "state": "MI",
+    "country": "US",
+    "aliases": [
+      "Central Michigan Chippewas football",
+      "Central Michigan football",
+      "Chippewas football"
+    ],
+    "tmSearch": [
+      "Central Michigan Chippewas football",
+      "Central Michigan football",
+      "Mount Pleasant Central Michigan Chippewas"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_charlotte",
+    "schoolKey": "charlotte",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Charlotte 49ers",
+    "brandName": "Charlotte",
+    "mascot": "49ers",
+    "displayName": "Charlotte 49ers Football",
+    "city": "Charlotte",
+    "state": "NC",
+    "country": "US",
+    "aliases": [
+      "Charlotte 49ers football",
+      "Charlotte football",
+      "49ers football"
+    ],
+    "tmSearch": [
+      "Charlotte 49ers football",
+      "Charlotte football",
+      "Charlotte Charlotte 49ers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_cincinnati",
+    "schoolKey": "cincinnati",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Cincinnati Bearcats",
+    "brandName": "Cincinnati",
+    "mascot": "Bearcats",
+    "displayName": "Cincinnati Bearcats Football",
+    "city": "Cincinnati",
+    "state": "OH",
+    "country": "US",
+    "aliases": [
+      "Cincinnati Bearcats football",
+      "Cincinnati football",
+      "Bearcats football"
+    ],
+    "tmSearch": [
+      "Cincinnati Bearcats football",
+      "Cincinnati football",
+      "Cincinnati Cincinnati Bearcats"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_clemson",
+    "schoolKey": "clemson",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Clemson Tigers",
+    "brandName": "Clemson",
+    "mascot": "Tigers",
+    "displayName": "Clemson Tigers Football",
+    "city": "Clemson",
+    "state": "SC",
+    "country": "US",
+    "aliases": [
+      "Clemson Tigers football",
+      "Clemson football",
+      "Tigers football"
+    ],
+    "tmSearch": [
+      "Clemson Tigers football",
+      "Clemson football",
+      "Clemson Clemson Tigers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_coastal_carolina",
+    "schoolKey": "coastal_carolina",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Coastal Carolina Chanticleers",
+    "brandName": "Coastal Carolina",
+    "mascot": "Chanticleers",
+    "displayName": "Coastal Carolina Chanticleers Football",
+    "city": "Conway",
+    "state": "SC",
+    "country": "US",
+    "aliases": [
+      "Coastal Carolina Chanticleers football",
+      "Coastal Carolina football",
+      "Chanticleers football"
+    ],
+    "tmSearch": [
+      "Coastal Carolina Chanticleers football",
+      "Coastal Carolina football",
+      "Conway Coastal Carolina Chanticleers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_colorado",
+    "schoolKey": "colorado",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Colorado Buffaloes",
+    "brandName": "Colorado",
+    "mascot": "Buffaloes",
+    "displayName": "Colorado Buffaloes Football",
+    "city": "Boulder",
+    "state": "CO",
+    "country": "US",
+    "aliases": [
+      "Colorado Buffaloes football",
+      "Colorado football",
+      "Buffaloes football"
+    ],
+    "tmSearch": [
+      "Colorado Buffaloes football",
+      "Colorado football",
+      "Boulder Colorado Buffaloes"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_colorado_state",
+    "schoolKey": "colorado_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Colorado State Rams",
+    "brandName": "Colorado State",
+    "mascot": "Rams",
+    "displayName": "Colorado State Rams Football",
+    "city": "Fort Collins",
+    "state": "CO",
+    "country": "US",
+    "aliases": [
+      "Colorado State Rams football",
+      "Colorado State football",
+      "Rams football"
+    ],
+    "tmSearch": [
+      "Colorado State Rams football",
+      "Colorado State football",
+      "Fort Collins Colorado State Rams"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_delaware",
+    "schoolKey": "delaware",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Delaware Fightin' Blue Hens",
+    "brandName": "Delaware",
+    "mascot": "Fightin' Blue Hens",
+    "displayName": "Delaware Fightin' Blue Hens Football",
+    "city": "Newark",
+    "state": "DE",
+    "country": "US",
+    "aliases": [
+      "Delaware Fightin' Blue Hens football",
+      "Delaware football",
+      "Fightin' Blue Hens football"
+    ],
+    "tmSearch": [
+      "Delaware Fightin' Blue Hens football",
+      "Delaware football",
+      "Newark Delaware Fightin' Blue Hens"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_duke",
+    "schoolKey": "duke",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Duke Blue Devils",
+    "brandName": "Duke",
+    "mascot": "Blue Devils",
+    "displayName": "Duke Blue Devils Football",
+    "city": "Durham",
+    "state": "NC",
+    "country": "US",
+    "aliases": [
+      "Duke Blue Devils football",
+      "Duke football",
+      "Blue Devils football"
+    ],
+    "tmSearch": [
+      "Duke Blue Devils football",
+      "Duke football",
+      "Durham Duke Blue Devils"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_east_carolina",
+    "schoolKey": "east_carolina",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "East Carolina Pirates",
+    "brandName": "East Carolina",
+    "mascot": "Pirates",
+    "displayName": "East Carolina Pirates Football",
+    "city": "Greenville",
+    "state": "NC",
+    "country": "US",
+    "aliases": [
+      "East Carolina Pirates football",
+      "East Carolina football",
+      "Pirates football"
+    ],
+    "tmSearch": [
+      "East Carolina Pirates football",
+      "East Carolina football",
+      "Greenville East Carolina Pirates"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_eastern_michigan",
+    "schoolKey": "eastern_michigan",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Eastern Michigan Eagles",
+    "brandName": "Eastern Michigan",
+    "mascot": "Eagles",
+    "displayName": "Eastern Michigan Eagles Football",
+    "city": "Ypsilanti",
+    "state": "MI",
+    "country": "US",
+    "aliases": [
+      "Eastern Michigan Eagles football",
+      "Eastern Michigan football",
+      "Eagles football"
+    ],
+    "tmSearch": [
+      "Eastern Michigan Eagles football",
+      "Eastern Michigan football",
+      "Ypsilanti Eastern Michigan Eagles"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_florida",
+    "schoolKey": "florida",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Florida Gators",
+    "brandName": "Florida",
+    "mascot": "Gators",
+    "displayName": "Florida Gators Football",
+    "city": "Gainesville",
+    "state": "FL",
+    "country": "US",
+    "aliases": [
+      "Florida Gators football",
+      "Florida football",
+      "Gators football"
+    ],
+    "tmSearch": [
+      "Florida Gators football",
+      "Florida football",
+      "Gainesville Florida Gators"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_florida_atlantic",
+    "schoolKey": "florida_atlantic",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Florida Atlantic Owls",
+    "brandName": "Florida Atlantic",
+    "mascot": "Owls",
+    "displayName": "Florida Atlantic Owls Football",
+    "city": "Boca Raton",
+    "state": "FL",
+    "country": "US",
+    "aliases": [
+      "Florida Atlantic Owls football",
+      "Florida Atlantic football",
+      "Owls football"
+    ],
+    "tmSearch": [
+      "Florida Atlantic Owls football",
+      "Florida Atlantic football",
+      "Boca Raton Florida Atlantic Owls"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_fiu",
+    "schoolKey": "fiu",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "FIU Panthers",
+    "brandName": "FIU",
+    "mascot": "Panthers",
+    "displayName": "FIU Panthers Football",
+    "city": "Miami",
+    "state": "FL",
+    "country": "US",
+    "aliases": [
+      "FIU Panthers football",
+      "FIU football",
+      "Florida International football",
+      "Panthers football"
+    ],
+    "tmSearch": [
+      "FIU Panthers football",
+      "FIU football",
+      "Miami FIU Panthers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_florida_state",
+    "schoolKey": "florida_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Florida State Seminoles",
+    "brandName": "Florida State",
+    "mascot": "Seminoles",
+    "displayName": "Florida State Seminoles Football",
+    "city": "Tallahassee",
+    "state": "FL",
+    "country": "US",
+    "aliases": [
+      "Florida State Seminoles football",
+      "Florida State football",
+      "Seminoles football"
+    ],
+    "tmSearch": [
+      "Florida State Seminoles football",
+      "Florida State football",
+      "Tallahassee Florida State Seminoles"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_fresno_state",
+    "schoolKey": "fresno_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Fresno State Bulldogs",
+    "brandName": "Fresno State",
+    "mascot": "Bulldogs",
+    "displayName": "Fresno State Bulldogs Football",
+    "city": "Fresno",
+    "state": "CA",
+    "country": "US",
+    "aliases": [
+      "Fresno State Bulldogs football",
+      "Fresno State football",
+      "Bulldogs football"
+    ],
+    "tmSearch": [
+      "Fresno State Bulldogs football",
+      "Fresno State football",
+      "Fresno Fresno State Bulldogs"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_georgia",
+    "schoolKey": "georgia",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Georgia Bulldogs",
+    "brandName": "Georgia",
+    "mascot": "Bulldogs",
+    "displayName": "Georgia Bulldogs Football",
+    "city": "Athens",
+    "state": "GA",
+    "country": "US",
+    "aliases": [
+      "Georgia Bulldogs football",
+      "Georgia football",
+      "Bulldogs football"
+    ],
+    "tmSearch": [
+      "Georgia Bulldogs football",
+      "Georgia football",
+      "Athens Georgia Bulldogs"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_georgia_southern",
+    "schoolKey": "georgia_southern",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Georgia Southern Eagles",
+    "brandName": "Georgia Southern",
+    "mascot": "Eagles",
+    "displayName": "Georgia Southern Eagles Football",
+    "city": "Statesboro",
+    "state": "GA",
+    "country": "US",
+    "aliases": [
+      "Georgia Southern Eagles football",
+      "Georgia Southern football",
+      "Eagles football"
+    ],
+    "tmSearch": [
+      "Georgia Southern Eagles football",
+      "Georgia Southern football",
+      "Statesboro Georgia Southern Eagles"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_georgia_state",
+    "schoolKey": "georgia_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Georgia State Panthers",
+    "brandName": "Georgia State",
+    "mascot": "Panthers",
+    "displayName": "Georgia State Panthers Football",
+    "city": "Atlanta",
+    "state": "GA",
+    "country": "US",
+    "aliases": [
+      "Georgia State Panthers football",
+      "Georgia State football",
+      "Panthers football"
+    ],
+    "tmSearch": [
+      "Georgia State Panthers football",
+      "Georgia State football",
+      "Atlanta Georgia State Panthers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_georgia_tech",
+    "schoolKey": "georgia_tech",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Georgia Tech Yellow Jackets",
+    "brandName": "Georgia Tech",
+    "mascot": "Yellow Jackets",
+    "displayName": "Georgia Tech Yellow Jackets Football",
+    "city": "Atlanta",
+    "state": "GA",
+    "country": "US",
+    "aliases": [
+      "Georgia Tech Yellow Jackets football",
+      "Georgia Tech football",
+      "Yellow Jackets football"
+    ],
+    "tmSearch": [
+      "Georgia Tech Yellow Jackets football",
+      "Georgia Tech football",
+      "Atlanta Georgia Tech Yellow Jackets"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_hawaii",
+    "schoolKey": "hawaii",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Hawai'i Rainbow Warriors",
+    "brandName": "Hawai'i",
+    "mascot": "Rainbow Warriors",
+    "displayName": "Hawai'i Rainbow Warriors Football",
+    "city": "Honolulu",
+    "state": "HI",
+    "country": "US",
+    "aliases": [
+      "Hawai'i Rainbow Warriors football",
+      "Hawaii football",
+      "Hawai'i football",
+      "Rainbow Warriors football"
+    ],
+    "tmSearch": [
+      "Hawai'i Rainbow Warriors football",
+      "Hawai'i football",
+      "Honolulu Hawai'i Rainbow Warriors"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_houston",
+    "schoolKey": "houston",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Houston Cougars",
+    "brandName": "Houston",
+    "mascot": "Cougars",
+    "displayName": "Houston Cougars Football",
+    "city": "Houston",
+    "state": "TX",
+    "country": "US",
+    "aliases": [
+      "Houston Cougars football",
+      "Houston football",
+      "Cougars football"
+    ],
+    "tmSearch": [
+      "Houston Cougars football",
+      "Houston football",
+      "Houston Houston Cougars"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_illinois",
+    "schoolKey": "illinois",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Illinois Fighting Illini",
+    "brandName": "Illinois",
+    "mascot": "Fighting Illini",
+    "displayName": "Illinois Fighting Illini Football",
+    "city": "Champaign",
+    "state": "IL",
+    "country": "US",
+    "aliases": [
+      "Illinois Fighting Illini football",
+      "Illinois football",
+      "Fighting Illini football"
+    ],
+    "tmSearch": [
+      "Illinois Fighting Illini football",
+      "Illinois football",
+      "Champaign Illinois Fighting Illini"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_indiana",
+    "schoolKey": "indiana",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Indiana Hoosiers",
+    "brandName": "Indiana",
+    "mascot": "Hoosiers",
+    "displayName": "Indiana Hoosiers Football",
+    "city": "Bloomington",
+    "state": "IN",
+    "country": "US",
+    "aliases": [
+      "Indiana Hoosiers football",
+      "Indiana football",
+      "Hoosiers football"
+    ],
+    "tmSearch": [
+      "Indiana Hoosiers football",
+      "Indiana football",
+      "Bloomington Indiana Hoosiers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_iowa",
+    "schoolKey": "iowa",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Iowa Hawkeyes",
+    "brandName": "Iowa",
+    "mascot": "Hawkeyes",
+    "displayName": "Iowa Hawkeyes Football",
+    "city": "Iowa City",
+    "state": "IA",
+    "country": "US",
+    "aliases": [
+      "Iowa Hawkeyes football",
+      "Iowa football",
+      "Hawkeyes football"
+    ],
+    "tmSearch": [
+      "Iowa Hawkeyes football",
+      "Iowa football",
+      "Iowa City Iowa Hawkeyes"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_iowa_state",
+    "schoolKey": "iowa_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Iowa State Cyclones",
+    "brandName": "Iowa State",
+    "mascot": "Cyclones",
+    "displayName": "Iowa State Cyclones Football",
+    "city": "Ames",
+    "state": "IA",
+    "country": "US",
+    "aliases": [
+      "Iowa State Cyclones football",
+      "Iowa State football",
+      "Cyclones football"
+    ],
+    "tmSearch": [
+      "Iowa State Cyclones football",
+      "Iowa State football",
+      "Ames Iowa State Cyclones"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_jacksonville_state",
+    "schoolKey": "jacksonville_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Jacksonville State Gamecocks",
+    "brandName": "Jacksonville State",
+    "mascot": "Gamecocks",
+    "displayName": "Jacksonville State Gamecocks Football",
+    "city": "Jacksonville",
+    "state": "AL",
+    "country": "US",
+    "aliases": [
+      "Jacksonville State Gamecocks football",
+      "Jacksonville State football",
+      "Gamecocks football"
+    ],
+    "tmSearch": [
+      "Jacksonville State Gamecocks football",
+      "Jacksonville State football",
+      "Jacksonville Jacksonville State Gamecocks"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_james_madison",
+    "schoolKey": "james_madison",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "James Madison Dukes",
+    "brandName": "James Madison",
+    "mascot": "Dukes",
+    "displayName": "James Madison Dukes Football",
+    "city": "Harrisonburg",
+    "state": "VA",
+    "country": "US",
+    "aliases": [
+      "James Madison Dukes football",
+      "James Madison football",
+      "Dukes football"
+    ],
+    "tmSearch": [
+      "James Madison Dukes football",
+      "James Madison football",
+      "Harrisonburg James Madison Dukes"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_kansas",
+    "schoolKey": "kansas",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Kansas Jayhawks",
+    "brandName": "Kansas",
+    "mascot": "Jayhawks",
+    "displayName": "Kansas Jayhawks Football",
+    "city": "Lawrence",
+    "state": "KS",
+    "country": "US",
+    "aliases": [
+      "Kansas Jayhawks football",
+      "Kansas football",
+      "Jayhawks football"
+    ],
+    "tmSearch": [
+      "Kansas Jayhawks football",
+      "Kansas football",
+      "Lawrence Kansas Jayhawks"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_kansas_state",
+    "schoolKey": "kansas_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Kansas State Wildcats",
+    "brandName": "Kansas State",
+    "mascot": "Wildcats",
+    "displayName": "Kansas State Wildcats Football",
+    "city": "Manhattan",
+    "state": "KS",
+    "country": "US",
+    "aliases": [
+      "Kansas State Wildcats football",
+      "Kansas State football",
+      "Wildcats football"
+    ],
+    "tmSearch": [
+      "Kansas State Wildcats football",
+      "Kansas State football",
+      "Manhattan Kansas State Wildcats"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_kennesaw_state",
+    "schoolKey": "kennesaw_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Kennesaw State Owls",
+    "brandName": "Kennesaw State",
+    "mascot": "Owls",
+    "displayName": "Kennesaw State Owls Football",
+    "city": "Kennesaw",
+    "state": "GA",
+    "country": "US",
+    "aliases": [
+      "Kennesaw State Owls football",
+      "Kennesaw State football",
+      "Owls football"
+    ],
+    "tmSearch": [
+      "Kennesaw State Owls football",
+      "Kennesaw State football",
+      "Kennesaw Kennesaw State Owls"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_kent_state",
+    "schoolKey": "kent_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Kent State Golden Flashes",
+    "brandName": "Kent State",
+    "mascot": "Golden Flashes",
+    "displayName": "Kent State Golden Flashes Football",
+    "city": "Kent",
+    "state": "OH",
+    "country": "US",
+    "aliases": [
+      "Kent State Golden Flashes football",
+      "Kent State football",
+      "Golden Flashes football"
+    ],
+    "tmSearch": [
+      "Kent State Golden Flashes football",
+      "Kent State football",
+      "Kent Kent State Golden Flashes"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_kentucky",
+    "schoolKey": "kentucky",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Kentucky Wildcats",
+    "brandName": "Kentucky",
+    "mascot": "Wildcats",
+    "displayName": "Kentucky Wildcats Football",
+    "city": "Lexington",
+    "state": "KY",
+    "country": "US",
+    "aliases": [
+      "Kentucky Wildcats football",
+      "Kentucky football",
+      "Wildcats football"
+    ],
+    "tmSearch": [
+      "Kentucky Wildcats football",
+      "Kentucky football",
+      "Lexington Kentucky Wildcats"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_liberty",
+    "schoolKey": "liberty",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Liberty Flames",
+    "brandName": "Liberty",
+    "mascot": "Flames",
+    "displayName": "Liberty Flames Football",
+    "city": "Lynchburg",
+    "state": "VA",
+    "country": "US",
+    "aliases": [
+      "Liberty Flames football",
+      "Liberty football",
+      "Flames football"
+    ],
+    "tmSearch": [
+      "Liberty Flames football",
+      "Liberty football",
+      "Lynchburg Liberty Flames"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_louisiana",
+    "schoolKey": "louisiana",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Louisiana Ragin' Cajuns",
+    "brandName": "Louisiana",
+    "mascot": "Ragin' Cajuns",
+    "displayName": "Louisiana Ragin' Cajuns Football",
+    "city": "Lafayette",
+    "state": "LA",
+    "country": "US",
+    "aliases": [
+      "Louisiana Ragin' Cajuns football",
+      "Louisiana football",
+      "Ragin' Cajuns football",
+      "UL Lafayette football"
+    ],
+    "tmSearch": [
+      "Louisiana Ragin' Cajuns football",
+      "Louisiana football",
+      "Lafayette Louisiana Ragin' Cajuns"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_louisiana_monroe",
+    "schoolKey": "louisiana_monroe",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "UL Monroe Warhawks",
+    "brandName": "UL Monroe",
+    "mascot": "Warhawks",
+    "displayName": "UL Monroe Warhawks Football",
+    "city": "Monroe",
+    "state": "LA",
+    "country": "US",
+    "aliases": [
+      "UL Monroe Warhawks football",
+      "UL Monroe football",
+      "Louisiana Monroe football",
+      "ULM football",
+      "Warhawks football"
+    ],
+    "tmSearch": [
+      "UL Monroe Warhawks football",
+      "ULM football",
+      "Monroe Louisiana UL Monroe"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_louisiana_tech",
+    "schoolKey": "louisiana_tech",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Louisiana Tech Bulldogs",
+    "brandName": "Louisiana Tech",
+    "mascot": "Bulldogs",
+    "displayName": "Louisiana Tech Bulldogs Football",
+    "city": "Ruston",
+    "state": "LA",
+    "country": "US",
+    "aliases": [
+      "Louisiana Tech Bulldogs football",
+      "Louisiana Tech football",
+      "Bulldogs football"
+    ],
+    "tmSearch": [
+      "Louisiana Tech Bulldogs football",
+      "Louisiana Tech football",
+      "Ruston Louisiana Tech Bulldogs"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_louisville",
+    "schoolKey": "louisville",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Louisville Cardinals",
+    "brandName": "Louisville",
+    "mascot": "Cardinals",
+    "displayName": "Louisville Cardinals Football",
+    "city": "Louisville",
+    "state": "KY",
+    "country": "US",
+    "aliases": [
+      "Louisville Cardinals football",
+      "Louisville football",
+      "Cardinals football"
+    ],
+    "tmSearch": [
+      "Louisville Cardinals football",
+      "Louisville football",
+      "Louisville Louisville Cardinals"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_lsu",
+    "schoolKey": "lsu",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "LSU Tigers",
+    "brandName": "LSU",
+    "mascot": "Tigers",
+    "displayName": "LSU Tigers Football",
+    "city": "Baton Rouge",
+    "state": "LA",
+    "country": "US",
+    "aliases": [
+      "LSU Tigers football",
+      "LSU football",
+      "Tigers football"
+    ],
+    "tmSearch": [
+      "LSU Tigers football",
+      "LSU football",
+      "Baton Rouge LSU Tigers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_marshall",
+    "schoolKey": "marshall",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Marshall Thundering Herd",
+    "brandName": "Marshall",
+    "mascot": "Thundering Herd",
+    "displayName": "Marshall Thundering Herd Football",
+    "city": "Huntington",
+    "state": "WV",
+    "country": "US",
+    "aliases": [
+      "Marshall Thundering Herd football",
+      "Marshall football",
+      "Thundering Herd football"
+    ],
+    "tmSearch": [
+      "Marshall Thundering Herd football",
+      "Marshall football",
+      "Huntington Marshall Thundering Herd"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_maryland",
+    "schoolKey": "maryland",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Maryland Terrapins",
+    "brandName": "Maryland",
+    "mascot": "Terrapins",
+    "displayName": "Maryland Terrapins Football",
+    "city": "College Park",
+    "state": "MD",
+    "country": "US",
+    "aliases": [
+      "Maryland Terrapins football",
+      "Maryland football",
+      "Terrapins football"
+    ],
+    "tmSearch": [
+      "Maryland Terrapins football",
+      "Maryland football",
+      "College Park Maryland Terrapins"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_memphis",
+    "schoolKey": "memphis",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Memphis Tigers",
+    "brandName": "Memphis",
+    "mascot": "Tigers",
+    "displayName": "Memphis Tigers Football",
+    "city": "Memphis",
+    "state": "TN",
+    "country": "US",
+    "aliases": [
+      "Memphis Tigers football",
+      "Memphis football",
+      "Tigers football"
+    ],
+    "tmSearch": [
+      "Memphis Tigers football",
+      "Memphis football",
+      "Memphis Memphis Tigers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_miami_fl",
+    "schoolKey": "miami_fl",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Miami Hurricanes",
+    "brandName": "Miami",
+    "mascot": "Hurricanes",
+    "displayName": "Miami Hurricanes Football",
+    "city": "Coral Gables",
+    "state": "FL",
+    "country": "US",
+    "aliases": [
+      "Miami football",
+      "Miami Hurricanes football",
+      "Miami Florida football",
+      "The U football"
+    ],
+    "tmSearch": [
+      "Miami Hurricanes football",
+      "Miami football",
+      "Coral Gables Miami Hurricanes"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_miami_oh",
+    "schoolKey": "miami_oh",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Miami (OH) RedHawks",
+    "brandName": "Miami (OH)",
+    "mascot": "RedHawks",
+    "displayName": "Miami (OH) RedHawks Football",
+    "city": "Oxford",
+    "state": "OH",
+    "country": "US",
+    "aliases": [
+      "Miami (OH) RedHawks football",
+      "Miami OH football",
+      "Miami Ohio football",
+      "Miami RedHawks football"
+    ],
+    "tmSearch": [
+      "Miami RedHawks football",
+      "Miami OH football",
+      "Oxford Ohio Miami RedHawks"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_michigan",
+    "schoolKey": "michigan",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Michigan Wolverines",
+    "brandName": "Michigan",
+    "mascot": "Wolverines",
+    "displayName": "Michigan Wolverines Football",
+    "city": "Ann Arbor",
+    "state": "MI",
+    "country": "US",
+    "aliases": [
+      "Michigan Wolverines football",
+      "Michigan football",
+      "Wolverines football"
+    ],
+    "tmSearch": [
+      "Michigan Wolverines football",
+      "Michigan football",
+      "Ann Arbor Michigan Wolverines"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_michigan_state",
+    "schoolKey": "michigan_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Michigan State Spartans",
+    "brandName": "Michigan State",
+    "mascot": "Spartans",
+    "displayName": "Michigan State Spartans Football",
+    "city": "East Lansing",
+    "state": "MI",
+    "country": "US",
+    "aliases": [
+      "Michigan State Spartans football",
+      "Michigan State football",
+      "Spartans football"
+    ],
+    "tmSearch": [
+      "Michigan State Spartans football",
+      "Michigan State football",
+      "East Lansing Michigan State Spartans"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_middle_tennessee",
+    "schoolKey": "middle_tennessee",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Middle Tennessee Blue Raiders",
+    "brandName": "Middle Tennessee",
+    "mascot": "Blue Raiders",
+    "displayName": "Middle Tennessee Blue Raiders Football",
+    "city": "Murfreesboro",
+    "state": "TN",
+    "country": "US",
+    "aliases": [
+      "Middle Tennessee Blue Raiders football",
+      "Middle Tennessee football",
+      "Blue Raiders football"
+    ],
+    "tmSearch": [
+      "Middle Tennessee Blue Raiders football",
+      "Middle Tennessee football",
+      "Murfreesboro Middle Tennessee Blue Raiders"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_minnesota",
+    "schoolKey": "minnesota",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Minnesota Golden Gophers",
+    "brandName": "Minnesota",
+    "mascot": "Golden Gophers",
+    "displayName": "Minnesota Golden Gophers Football",
+    "city": "Minneapolis",
+    "state": "MN",
+    "country": "US",
+    "aliases": [
+      "Minnesota Golden Gophers football",
+      "Minnesota football",
+      "Golden Gophers football"
+    ],
+    "tmSearch": [
+      "Minnesota Golden Gophers football",
+      "Minnesota football",
+      "Minneapolis Minnesota Golden Gophers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_mississippi_state",
+    "schoolKey": "mississippi_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Mississippi State Bulldogs",
+    "brandName": "Mississippi State",
+    "mascot": "Bulldogs",
+    "displayName": "Mississippi State Bulldogs Football",
+    "city": "Starkville",
+    "state": "MS",
+    "country": "US",
+    "aliases": [
+      "Mississippi State Bulldogs football",
+      "Mississippi State football",
+      "Bulldogs football"
+    ],
+    "tmSearch": [
+      "Mississippi State Bulldogs football",
+      "Mississippi State football",
+      "Starkville Mississippi State Bulldogs"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_missouri",
+    "schoolKey": "missouri",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Missouri Tigers",
+    "brandName": "Missouri",
+    "mascot": "Tigers",
+    "displayName": "Missouri Tigers Football",
+    "city": "Columbia",
+    "state": "MO",
+    "country": "US",
+    "aliases": [
+      "Missouri Tigers football",
+      "Missouri football",
+      "Tigers football"
+    ],
+    "tmSearch": [
+      "Missouri Tigers football",
+      "Missouri football",
+      "Columbia Missouri Tigers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_missouri_state",
+    "schoolKey": "missouri_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Missouri State Bears",
+    "brandName": "Missouri State",
+    "mascot": "Bears",
+    "displayName": "Missouri State Bears Football",
+    "city": "Springfield",
+    "state": "MO",
+    "country": "US",
+    "aliases": [
+      "Missouri State Bears football",
+      "Missouri State football",
+      "Bears football"
+    ],
+    "tmSearch": [
+      "Missouri State Bears football",
+      "Missouri State football",
+      "Springfield Missouri State Bears"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_navy",
+    "schoolKey": "navy",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Navy Midshipmen",
+    "brandName": "Navy",
+    "mascot": "Midshipmen",
+    "displayName": "Navy Midshipmen Football",
+    "city": "Annapolis",
+    "state": "MD",
+    "country": "US",
+    "aliases": [
+      "Navy Midshipmen football",
+      "Navy football",
+      "Midshipmen football"
+    ],
+    "tmSearch": [
+      "Navy Midshipmen football",
+      "Navy football",
+      "Annapolis Navy Midshipmen"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_nc_state",
+    "schoolKey": "nc_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "NC State Wolfpack",
+    "brandName": "NC State",
+    "mascot": "Wolfpack",
+    "displayName": "NC State Wolfpack Football",
+    "city": "Raleigh",
+    "state": "NC",
+    "country": "US",
+    "aliases": [
+      "NC State Wolfpack football",
+      "NC State football",
+      "Wolfpack football",
+      "North Carolina State football"
+    ],
+    "tmSearch": [
+      "NC State Wolfpack football",
+      "NC State football",
+      "Raleigh NC State Wolfpack"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_nebraska",
+    "schoolKey": "nebraska",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Nebraska Cornhuskers",
+    "brandName": "Nebraska",
+    "mascot": "Cornhuskers",
+    "displayName": "Nebraska Cornhuskers Football",
+    "city": "Lincoln",
+    "state": "NE",
+    "country": "US",
+    "aliases": [
+      "Nebraska Cornhuskers football",
+      "Nebraska football",
+      "Cornhuskers football"
+    ],
+    "tmSearch": [
+      "Nebraska Cornhuskers football",
+      "Nebraska football",
+      "Lincoln Nebraska Cornhuskers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_nevada",
+    "schoolKey": "nevada",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Nevada Wolf Pack",
+    "brandName": "Nevada",
+    "mascot": "Wolf Pack",
+    "displayName": "Nevada Wolf Pack Football",
+    "city": "Reno",
+    "state": "NV",
+    "country": "US",
+    "aliases": [
+      "Nevada Wolf Pack football",
+      "Nevada football",
+      "Wolf Pack football"
+    ],
+    "tmSearch": [
+      "Nevada Wolf Pack football",
+      "Nevada football",
+      "Reno Nevada Wolf Pack"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_new_mexico",
+    "schoolKey": "new_mexico",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "New Mexico Lobos",
+    "brandName": "New Mexico",
+    "mascot": "Lobos",
+    "displayName": "New Mexico Lobos Football",
+    "city": "Albuquerque",
+    "state": "NM",
+    "country": "US",
+    "aliases": [
+      "New Mexico Lobos football",
+      "New Mexico football",
+      "Lobos football"
+    ],
+    "tmSearch": [
+      "New Mexico Lobos football",
+      "New Mexico football",
+      "Albuquerque New Mexico Lobos"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_new_mexico_state",
+    "schoolKey": "new_mexico_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "New Mexico State Aggies",
+    "brandName": "New Mexico State",
+    "mascot": "Aggies",
+    "displayName": "New Mexico State Aggies Football",
+    "city": "Las Cruces",
+    "state": "NM",
+    "country": "US",
+    "aliases": [
+      "New Mexico State Aggies football",
+      "New Mexico State football",
+      "Aggies football"
+    ],
+    "tmSearch": [
+      "New Mexico State Aggies football",
+      "New Mexico State football",
+      "Las Cruces New Mexico State Aggies"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_north_carolina",
+    "schoolKey": "north_carolina",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "North Carolina Tar Heels",
+    "brandName": "North Carolina",
+    "mascot": "Tar Heels",
+    "displayName": "North Carolina Tar Heels Football",
+    "city": "Chapel Hill",
+    "state": "NC",
+    "country": "US",
+    "aliases": [
+      "North Carolina Tar Heels football",
+      "North Carolina football",
+      "Tar Heels football"
+    ],
+    "tmSearch": [
+      "North Carolina Tar Heels football",
+      "North Carolina football",
+      "Chapel Hill North Carolina Tar Heels"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_north_texas",
+    "schoolKey": "north_texas",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "North Texas Mean Green",
+    "brandName": "North Texas",
+    "mascot": "Mean Green",
+    "displayName": "North Texas Mean Green Football",
+    "city": "Denton",
+    "state": "TX",
+    "country": "US",
+    "aliases": [
+      "North Texas Mean Green football",
+      "North Texas football",
+      "Mean Green football"
+    ],
+    "tmSearch": [
+      "North Texas Mean Green football",
+      "North Texas football",
+      "Denton North Texas Mean Green"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_northern_illinois",
+    "schoolKey": "northern_illinois",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Northern Illinois Huskies",
+    "brandName": "Northern Illinois",
+    "mascot": "Huskies",
+    "displayName": "Northern Illinois Huskies Football",
+    "city": "DeKalb",
+    "state": "IL",
+    "country": "US",
+    "aliases": [
+      "Northern Illinois Huskies football",
+      "Northern Illinois football",
+      "Huskies football"
+    ],
+    "tmSearch": [
+      "Northern Illinois Huskies football",
+      "Northern Illinois football",
+      "DeKalb Northern Illinois Huskies"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_northwestern",
+    "schoolKey": "northwestern",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Northwestern Wildcats",
+    "brandName": "Northwestern",
+    "mascot": "Wildcats",
+    "displayName": "Northwestern Wildcats Football",
+    "city": "Evanston",
+    "state": "IL",
+    "country": "US",
+    "aliases": [
+      "Northwestern Wildcats football",
+      "Northwestern football",
+      "Wildcats football"
+    ],
+    "tmSearch": [
+      "Northwestern Wildcats football",
+      "Northwestern football",
+      "Evanston Northwestern Wildcats"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_notre_dame",
+    "schoolKey": "notre_dame",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Notre Dame Fighting Irish",
+    "brandName": "Notre Dame",
+    "mascot": "Fighting Irish",
+    "displayName": "Notre Dame Fighting Irish Football",
+    "city": "South Bend",
+    "state": "IN",
+    "country": "US",
+    "aliases": [
+      "Notre Dame Fighting Irish football",
+      "Notre Dame football",
+      "Fighting Irish football"
+    ],
+    "tmSearch": [
+      "Notre Dame Fighting Irish football",
+      "Notre Dame football",
+      "South Bend Notre Dame Fighting Irish"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_ohio",
+    "schoolKey": "ohio",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Ohio Bobcats",
+    "brandName": "Ohio",
+    "mascot": "Bobcats",
+    "displayName": "Ohio Bobcats Football",
+    "city": "Athens",
+    "state": "OH",
+    "country": "US",
+    "aliases": [
+      "Ohio Bobcats football",
+      "Ohio football",
+      "Bobcats football"
+    ],
+    "tmSearch": [
+      "Ohio Bobcats football",
+      "Ohio football",
+      "Athens Ohio Bobcats"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_ohio_state",
+    "schoolKey": "ohio_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Ohio State Buckeyes",
+    "brandName": "Ohio State",
+    "mascot": "Buckeyes",
+    "displayName": "Ohio State Buckeyes Football",
+    "city": "Columbus",
+    "state": "OH",
+    "country": "US",
+    "aliases": [
+      "Ohio State Buckeyes football",
+      "Ohio State football",
+      "Buckeyes football"
+    ],
+    "tmSearch": [
+      "Ohio State Buckeyes football",
+      "Ohio State football",
+      "Columbus Ohio State Buckeyes"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_oklahoma",
+    "schoolKey": "oklahoma",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Oklahoma Sooners",
+    "brandName": "Oklahoma",
+    "mascot": "Sooners",
+    "displayName": "Oklahoma Sooners Football",
+    "city": "Norman",
+    "state": "OK",
+    "country": "US",
+    "aliases": [
+      "Oklahoma Sooners football",
+      "Oklahoma football",
+      "Sooners football"
+    ],
+    "tmSearch": [
+      "Oklahoma Sooners football",
+      "Oklahoma football",
+      "Norman Oklahoma Sooners"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_oklahoma_state",
+    "schoolKey": "oklahoma_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Oklahoma State Cowboys",
+    "brandName": "Oklahoma State",
+    "mascot": "Cowboys",
+    "displayName": "Oklahoma State Cowboys Football",
+    "city": "Stillwater",
+    "state": "OK",
+    "country": "US",
+    "aliases": [
+      "Oklahoma State Cowboys football",
+      "Oklahoma State football",
+      "Cowboys football"
+    ],
+    "tmSearch": [
+      "Oklahoma State Cowboys football",
+      "Oklahoma State football",
+      "Stillwater Oklahoma State Cowboys"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_old_dominion",
+    "schoolKey": "old_dominion",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Old Dominion Monarchs",
+    "brandName": "Old Dominion",
+    "mascot": "Monarchs",
+    "displayName": "Old Dominion Monarchs Football",
+    "city": "Norfolk",
+    "state": "VA",
+    "country": "US",
+    "aliases": [
+      "Old Dominion Monarchs football",
+      "Old Dominion football",
+      "Monarchs football"
+    ],
+    "tmSearch": [
+      "Old Dominion Monarchs football",
+      "Old Dominion football",
+      "Norfolk Old Dominion Monarchs"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_ole_miss",
+    "schoolKey": "ole_miss",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Ole Miss Rebels",
+    "brandName": "Ole Miss",
+    "mascot": "Rebels",
+    "displayName": "Ole Miss Rebels Football",
+    "city": "Oxford",
+    "state": "MS",
+    "country": "US",
+    "aliases": [
+      "Ole Miss Rebels football",
+      "Ole Miss football",
+      "Rebels football",
+      "Mississippi football"
+    ],
+    "tmSearch": [
+      "Ole Miss Rebels football",
+      "Ole Miss football",
+      "Oxford Ole Miss Rebels"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_oregon",
+    "schoolKey": "oregon",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Oregon Ducks",
+    "brandName": "Oregon",
+    "mascot": "Ducks",
+    "displayName": "Oregon Ducks Football",
+    "city": "Eugene",
+    "state": "OR",
+    "country": "US",
+    "aliases": [
+      "Oregon Ducks football",
+      "Oregon football",
+      "Ducks football"
+    ],
+    "tmSearch": [
+      "Oregon Ducks football",
+      "Oregon football",
+      "Eugene Oregon Ducks"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_oregon_state",
+    "schoolKey": "oregon_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Oregon State Beavers",
+    "brandName": "Oregon State",
+    "mascot": "Beavers",
+    "displayName": "Oregon State Beavers Football",
+    "city": "Corvallis",
+    "state": "OR",
+    "country": "US",
+    "aliases": [
+      "Oregon State Beavers football",
+      "Oregon State football",
+      "Beavers football"
+    ],
+    "tmSearch": [
+      "Oregon State Beavers football",
+      "Oregon State football",
+      "Corvallis Oregon State Beavers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_penn_state",
+    "schoolKey": "penn_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Penn State Nittany Lions",
+    "brandName": "Penn State",
+    "mascot": "Nittany Lions",
+    "displayName": "Penn State Nittany Lions Football",
+    "city": "University Park",
+    "state": "PA",
+    "country": "US",
+    "aliases": [
+      "Penn State Nittany Lions football",
+      "Penn State football",
+      "Nittany Lions football"
+    ],
+    "tmSearch": [
+      "Penn State Nittany Lions football",
+      "Penn State football",
+      "University Park Penn State Nittany Lions"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_pittsburgh",
+    "schoolKey": "pittsburgh",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Pitt Panthers",
+    "brandName": "Pitt",
+    "mascot": "Panthers",
+    "displayName": "Pitt Panthers Football",
+    "city": "Pittsburgh",
+    "state": "PA",
+    "country": "US",
+    "aliases": [
+      "Pitt Panthers football",
+      "Pitt football",
+      "Pittsburgh Panthers football"
+    ],
+    "tmSearch": [
+      "Pitt Panthers football",
+      "Pitt football",
+      "Pittsburgh Panthers football"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_purdue",
+    "schoolKey": "purdue",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Purdue Boilermakers",
+    "brandName": "Purdue",
+    "mascot": "Boilermakers",
+    "displayName": "Purdue Boilermakers Football",
+    "city": "West Lafayette",
+    "state": "IN",
+    "country": "US",
+    "aliases": [
+      "Purdue Boilermakers football",
+      "Purdue football",
+      "Boilermakers football"
+    ],
+    "tmSearch": [
+      "Purdue Boilermakers football",
+      "Purdue football",
+      "West Lafayette Purdue Boilermakers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_rice",
+    "schoolKey": "rice",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Rice Owls",
+    "brandName": "Rice",
+    "mascot": "Owls",
+    "displayName": "Rice Owls Football",
+    "city": "Houston",
+    "state": "TX",
+    "country": "US",
+    "aliases": [
+      "Rice Owls football",
+      "Rice football",
+      "Owls football"
+    ],
+    "tmSearch": [
+      "Rice Owls football",
+      "Rice football",
+      "Houston Rice Owls"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_rutgers",
+    "schoolKey": "rutgers",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Rutgers Scarlet Knights",
+    "brandName": "Rutgers",
+    "mascot": "Scarlet Knights",
+    "displayName": "Rutgers Scarlet Knights Football",
+    "city": "Piscataway",
+    "state": "NJ",
+    "country": "US",
+    "aliases": [
+      "Rutgers Scarlet Knights football",
+      "Rutgers football",
+      "Scarlet Knights football"
+    ],
+    "tmSearch": [
+      "Rutgers Scarlet Knights football",
+      "Rutgers football",
+      "Piscataway Rutgers Scarlet Knights"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_sam_houston",
+    "schoolKey": "sam_houston",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Sam Houston Bearkats",
+    "brandName": "Sam Houston",
+    "mascot": "Bearkats",
+    "displayName": "Sam Houston Bearkats Football",
+    "city": "Huntsville",
+    "state": "TX",
+    "country": "US",
+    "aliases": [
+      "Sam Houston Bearkats football",
+      "Sam Houston football",
+      "Bearkats football"
+    ],
+    "tmSearch": [
+      "Sam Houston Bearkats football",
+      "Sam Houston football",
+      "Huntsville Sam Houston Bearkats"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_san_diego_state",
+    "schoolKey": "san_diego_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "San Diego State Aztecs",
+    "brandName": "San Diego State",
+    "mascot": "Aztecs",
+    "displayName": "San Diego State Aztecs Football",
+    "city": "San Diego",
+    "state": "CA",
+    "country": "US",
+    "aliases": [
+      "San Diego State Aztecs football",
+      "San Diego State football",
+      "Aztecs football"
+    ],
+    "tmSearch": [
+      "San Diego State Aztecs football",
+      "San Diego State football",
+      "San Diego San Diego State Aztecs"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_san_jose_state",
+    "schoolKey": "san_jose_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "San José State Spartans",
+    "brandName": "San José State",
+    "mascot": "Spartans",
+    "displayName": "San José State Spartans Football",
+    "city": "San Jose",
+    "state": "CA",
+    "country": "US",
+    "aliases": [
+      "San José State Spartans football",
+      "San Jose State football",
+      "San José State football",
+      "Spartans football"
+    ],
+    "tmSearch": [
+      "San José State Spartans football",
+      "San José State football",
+      "San Jose San José State Spartans"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_smu",
+    "schoolKey": "smu",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "SMU Mustangs",
+    "brandName": "SMU",
+    "mascot": "Mustangs",
+    "displayName": "SMU Mustangs Football",
+    "city": "Dallas",
+    "state": "TX",
+    "country": "US",
+    "aliases": [
+      "SMU Mustangs football",
+      "SMU football",
+      "Mustangs football",
+      "Southern Methodist football"
+    ],
+    "tmSearch": [
+      "SMU Mustangs football",
+      "SMU football",
+      "Dallas SMU Mustangs"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_south_alabama",
+    "schoolKey": "south_alabama",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "South Alabama Jaguars",
+    "brandName": "South Alabama",
+    "mascot": "Jaguars",
+    "displayName": "South Alabama Jaguars Football",
+    "city": "Mobile",
+    "state": "AL",
+    "country": "US",
+    "aliases": [
+      "South Alabama Jaguars football",
+      "South Alabama football",
+      "Jaguars football"
+    ],
+    "tmSearch": [
+      "South Alabama Jaguars football",
+      "South Alabama football",
+      "Mobile South Alabama Jaguars"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_south_carolina",
+    "schoolKey": "south_carolina",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "South Carolina Gamecocks",
+    "brandName": "South Carolina",
+    "mascot": "Gamecocks",
+    "displayName": "South Carolina Gamecocks Football",
+    "city": "Columbia",
+    "state": "SC",
+    "country": "US",
+    "aliases": [
+      "South Carolina Gamecocks football",
+      "South Carolina football",
+      "Gamecocks football"
+    ],
+    "tmSearch": [
+      "South Carolina Gamecocks football",
+      "South Carolina football",
+      "Columbia South Carolina Gamecocks"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_southern_miss",
+    "schoolKey": "southern_miss",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Southern Miss Golden Eagles",
+    "brandName": "Southern Miss",
+    "mascot": "Golden Eagles",
+    "displayName": "Southern Miss Golden Eagles Football",
+    "city": "Hattiesburg",
+    "state": "MS",
+    "country": "US",
+    "aliases": [
+      "Southern Miss Golden Eagles football",
+      "Southern Miss football",
+      "Golden Eagles football"
+    ],
+    "tmSearch": [
+      "Southern Miss Golden Eagles football",
+      "Southern Miss football",
+      "Hattiesburg Southern Miss Golden Eagles"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_stanford",
+    "schoolKey": "stanford",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Stanford Cardinal",
+    "brandName": "Stanford",
+    "mascot": "Cardinal",
+    "displayName": "Stanford Cardinal Football",
+    "city": "Stanford",
+    "state": "CA",
+    "country": "US",
+    "aliases": [
+      "Stanford Cardinal football",
+      "Stanford football",
+      "Cardinal football"
+    ],
+    "tmSearch": [
+      "Stanford Cardinal football",
+      "Stanford football",
+      "Stanford Stanford Cardinal"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_syracuse",
+    "schoolKey": "syracuse",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Syracuse Orange",
+    "brandName": "Syracuse",
+    "mascot": "Orange",
+    "displayName": "Syracuse Orange Football",
+    "city": "Syracuse",
+    "state": "NY",
+    "country": "US",
+    "aliases": [
+      "Syracuse Orange football",
+      "Syracuse football",
+      "Orange football"
+    ],
+    "tmSearch": [
+      "Syracuse Orange football",
+      "Syracuse football",
+      "Syracuse Syracuse Orange"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_tcu",
+    "schoolKey": "tcu",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "TCU Horned Frogs",
+    "brandName": "TCU",
+    "mascot": "Horned Frogs",
+    "displayName": "TCU Horned Frogs Football",
+    "city": "Fort Worth",
+    "state": "TX",
+    "country": "US",
+    "aliases": [
+      "TCU Horned Frogs football",
+      "TCU football",
+      "Horned Frogs football",
+      "Texas Christian football"
+    ],
+    "tmSearch": [
+      "TCU Horned Frogs football",
+      "TCU football",
+      "Fort Worth TCU Horned Frogs"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_temple",
+    "schoolKey": "temple",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Temple Owls",
+    "brandName": "Temple",
+    "mascot": "Owls",
+    "displayName": "Temple Owls Football",
+    "city": "Philadelphia",
+    "state": "PA",
+    "country": "US",
+    "aliases": [
+      "Temple Owls football",
+      "Temple football",
+      "Owls football"
+    ],
+    "tmSearch": [
+      "Temple Owls football",
+      "Temple football",
+      "Philadelphia Temple Owls"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_tennessee",
+    "schoolKey": "tennessee",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Tennessee Volunteers",
+    "brandName": "Tennessee",
+    "mascot": "Volunteers",
+    "displayName": "Tennessee Volunteers Football",
+    "city": "Knoxville",
+    "state": "TN",
+    "country": "US",
+    "aliases": [
+      "Tennessee Volunteers football",
+      "Tennessee football",
+      "Volunteers football"
+    ],
+    "tmSearch": [
+      "Tennessee Volunteers football",
+      "Tennessee football",
+      "Knoxville Tennessee Volunteers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_texas",
+    "schoolKey": "texas",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Texas Longhorns",
+    "brandName": "Texas",
+    "mascot": "Longhorns",
+    "displayName": "Texas Longhorns Football",
+    "city": "Austin",
+    "state": "TX",
+    "country": "US",
+    "aliases": [
+      "Texas Longhorns football",
+      "Texas football",
+      "Longhorns football"
+    ],
+    "tmSearch": [
+      "Texas Longhorns football",
+      "Texas football",
+      "Austin Texas Longhorns"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_texas_a&m",
+    "schoolKey": "texas_a&m",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Texas A&M Aggies",
+    "brandName": "Texas A&M",
+    "mascot": "Aggies",
+    "displayName": "Texas A&M Aggies Football",
+    "city": "College Station",
+    "state": "TX",
+    "country": "US",
+    "aliases": [
+      "Texas A&M Aggies football",
+      "Texas A&M football",
+      "Aggies football"
+    ],
+    "tmSearch": [
+      "Texas A&M Aggies football",
+      "Texas A&M football",
+      "College Station Texas A&M Aggies"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_texas_state",
+    "schoolKey": "texas_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Texas State Bobcats",
+    "brandName": "Texas State",
+    "mascot": "Bobcats",
+    "displayName": "Texas State Bobcats Football",
+    "city": "San Marcos",
+    "state": "TX",
+    "country": "US",
+    "aliases": [
+      "Texas State Bobcats football",
+      "Texas State football",
+      "Bobcats football"
+    ],
+    "tmSearch": [
+      "Texas State Bobcats football",
+      "Texas State football",
+      "San Marcos Texas State Bobcats"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_texas_tech",
+    "schoolKey": "texas_tech",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Texas Tech Red Raiders",
+    "brandName": "Texas Tech",
+    "mascot": "Red Raiders",
+    "displayName": "Texas Tech Red Raiders Football",
+    "city": "Lubbock",
+    "state": "TX",
+    "country": "US",
+    "aliases": [
+      "Texas Tech Red Raiders football",
+      "Texas Tech football",
+      "Red Raiders football"
+    ],
+    "tmSearch": [
+      "Texas Tech Red Raiders football",
+      "Texas Tech football",
+      "Lubbock Texas Tech Red Raiders"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_toledo",
+    "schoolKey": "toledo",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Toledo Rockets",
+    "brandName": "Toledo",
+    "mascot": "Rockets",
+    "displayName": "Toledo Rockets Football",
+    "city": "Toledo",
+    "state": "OH",
+    "country": "US",
+    "aliases": [
+      "Toledo Rockets football",
+      "Toledo football",
+      "Rockets football"
+    ],
+    "tmSearch": [
+      "Toledo Rockets football",
+      "Toledo football",
+      "Toledo Toledo Rockets"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_troy",
+    "schoolKey": "troy",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Troy Trojans",
+    "brandName": "Troy",
+    "mascot": "Trojans",
+    "displayName": "Troy Trojans Football",
+    "city": "Troy",
+    "state": "AL",
+    "country": "US",
+    "aliases": [
+      "Troy Trojans football",
+      "Troy football",
+      "Trojans football"
+    ],
+    "tmSearch": [
+      "Troy Trojans football",
+      "Troy football",
+      "Troy Troy Trojans"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_tulane",
+    "schoolKey": "tulane",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Tulane Green Wave",
+    "brandName": "Tulane",
+    "mascot": "Green Wave",
+    "displayName": "Tulane Green Wave Football",
+    "city": "New Orleans",
+    "state": "LA",
+    "country": "US",
+    "aliases": [
+      "Tulane Green Wave football",
+      "Tulane football",
+      "Green Wave football"
+    ],
+    "tmSearch": [
+      "Tulane Green Wave football",
+      "Tulane football",
+      "New Orleans Tulane Green Wave"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_tulsa",
+    "schoolKey": "tulsa",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Tulsa Golden Hurricane",
+    "brandName": "Tulsa",
+    "mascot": "Golden Hurricane",
+    "displayName": "Tulsa Golden Hurricane Football",
+    "city": "Tulsa",
+    "state": "OK",
+    "country": "US",
+    "aliases": [
+      "Tulsa Golden Hurricane football",
+      "Tulsa football",
+      "Golden Hurricane football"
+    ],
+    "tmSearch": [
+      "Tulsa Golden Hurricane football",
+      "Tulsa football",
+      "Tulsa Tulsa Golden Hurricane"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_uab",
+    "schoolKey": "uab",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "UAB Blazers",
+    "brandName": "UAB",
+    "mascot": "Blazers",
+    "displayName": "UAB Blazers Football",
+    "city": "Birmingham",
+    "state": "AL",
+    "country": "US",
+    "aliases": [
+      "UAB Blazers football",
+      "UAB football",
+      "Blazers football"
+    ],
+    "tmSearch": [
+      "UAB Blazers football",
+      "UAB football",
+      "Birmingham UAB Blazers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_ucf",
+    "schoolKey": "ucf",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "UCF Knights",
+    "brandName": "UCF",
+    "mascot": "Knights",
+    "displayName": "UCF Knights Football",
+    "city": "Orlando",
+    "state": "FL",
+    "country": "US",
+    "aliases": [
+      "UCF Knights football",
+      "UCF football",
+      "Knights football",
+      "Central Florida football"
+    ],
+    "tmSearch": [
+      "UCF Knights football",
+      "UCF football",
+      "Orlando UCF Knights"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_ucla",
+    "schoolKey": "ucla",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "UCLA Bruins",
+    "brandName": "UCLA",
+    "mascot": "Bruins",
+    "displayName": "UCLA Bruins Football",
+    "city": "Los Angeles",
+    "state": "CA",
+    "country": "US",
+    "aliases": [
+      "UCLA Bruins football",
+      "UCLA football",
+      "Bruins football"
+    ],
+    "tmSearch": [
+      "UCLA Bruins football",
+      "UCLA football",
+      "Los Angeles UCLA Bruins"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_uconn",
+    "schoolKey": "uconn",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "UConn Huskies",
+    "brandName": "UConn",
+    "mascot": "Huskies",
+    "displayName": "UConn Huskies Football",
+    "city": "Storrs",
+    "state": "CT",
+    "country": "US",
+    "aliases": [
+      "UConn Huskies football",
+      "UConn football",
+      "Connecticut football",
+      "Huskies football"
+    ],
+    "tmSearch": [
+      "UConn Huskies football",
+      "UConn football",
+      "Storrs UConn Huskies"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_umass",
+    "schoolKey": "umass",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "UMass Minutemen",
+    "brandName": "UMass",
+    "mascot": "Minutemen",
+    "displayName": "UMass Minutemen Football",
+    "city": "Amherst",
+    "state": "MA",
+    "country": "US",
+    "aliases": [
+      "UMass Minutemen football",
+      "UMass football",
+      "Massachusetts football",
+      "Minutemen football"
+    ],
+    "tmSearch": [
+      "UMass Minutemen football",
+      "UMass football",
+      "Amherst UMass Minutemen"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_unlv",
+    "schoolKey": "unlv",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "UNLV Rebels",
+    "brandName": "UNLV",
+    "mascot": "Rebels",
+    "displayName": "UNLV Rebels Football",
+    "city": "Las Vegas",
+    "state": "NV",
+    "country": "US",
+    "aliases": [
+      "UNLV Rebels football",
+      "UNLV football",
+      "Rebels football",
+      "Nevada Las Vegas football"
+    ],
+    "tmSearch": [
+      "UNLV Rebels football",
+      "UNLV football",
+      "Las Vegas UNLV Rebels"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_usc",
+    "schoolKey": "usc",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "USC Trojans",
+    "brandName": "USC",
+    "mascot": "Trojans",
+    "displayName": "USC Trojans Football",
+    "city": "Los Angeles",
+    "state": "CA",
+    "country": "US",
+    "aliases": [
+      "USC football",
+      "Southern Cal football",
+      "USC Trojans football"
+    ],
+    "tmSearch": [
+      "USC Trojans football",
+      "USC football",
+      "Southern Cal football",
+      "Los Angeles USC Trojans"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_utah",
+    "schoolKey": "utah",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Utah Utes",
+    "brandName": "Utah",
+    "mascot": "Utes",
+    "displayName": "Utah Utes Football",
+    "city": "Salt Lake City",
+    "state": "UT",
+    "country": "US",
+    "aliases": [
+      "Utah Utes football",
+      "Utah football",
+      "Utes football"
+    ],
+    "tmSearch": [
+      "Utah Utes football",
+      "Utah football",
+      "Salt Lake City Utah Utes"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_utah_state",
+    "schoolKey": "utah_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Utah State Aggies",
+    "brandName": "Utah State",
+    "mascot": "Aggies",
+    "displayName": "Utah State Aggies Football",
+    "city": "Logan",
+    "state": "UT",
+    "country": "US",
+    "aliases": [
+      "Utah State Aggies football",
+      "Utah State football",
+      "Aggies football"
+    ],
+    "tmSearch": [
+      "Utah State Aggies football",
+      "Utah State football",
+      "Logan Utah State Aggies"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_utep",
+    "schoolKey": "utep",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "UTEP Miners",
+    "brandName": "UTEP",
+    "mascot": "Miners",
+    "displayName": "UTEP Miners Football",
+    "city": "El Paso",
+    "state": "TX",
+    "country": "US",
+    "aliases": [
+      "UTEP Miners football",
+      "UTEP football",
+      "Miners football",
+      "Texas El Paso football"
+    ],
+    "tmSearch": [
+      "UTEP Miners football",
+      "UTEP football",
+      "El Paso UTEP Miners"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_utsa",
+    "schoolKey": "utsa",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "UTSA Roadrunners",
+    "brandName": "UTSA",
+    "mascot": "Roadrunners",
+    "displayName": "UTSA Roadrunners Football",
+    "city": "San Antonio",
+    "state": "TX",
+    "country": "US",
+    "aliases": [
+      "UTSA Roadrunners football",
+      "UTSA football",
+      "Roadrunners football"
+    ],
+    "tmSearch": [
+      "UTSA Roadrunners football",
+      "UTSA football",
+      "San Antonio UTSA Roadrunners"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_vanderbilt",
+    "schoolKey": "vanderbilt",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Vanderbilt Commodores",
+    "brandName": "Vanderbilt",
+    "mascot": "Commodores",
+    "displayName": "Vanderbilt Commodores Football",
+    "city": "Nashville",
+    "state": "TN",
+    "country": "US",
+    "aliases": [
+      "Vanderbilt Commodores football",
+      "Vanderbilt football",
+      "Commodores football"
+    ],
+    "tmSearch": [
+      "Vanderbilt Commodores football",
+      "Vanderbilt football",
+      "Nashville Vanderbilt Commodores"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_virginia",
+    "schoolKey": "virginia",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Virginia Cavaliers",
+    "brandName": "Virginia",
+    "mascot": "Cavaliers",
+    "displayName": "Virginia Cavaliers Football",
+    "city": "Charlottesville",
+    "state": "VA",
+    "country": "US",
+    "aliases": [
+      "Virginia Cavaliers football",
+      "Virginia football",
+      "Cavaliers football"
+    ],
+    "tmSearch": [
+      "Virginia Cavaliers football",
+      "Virginia football",
+      "Charlottesville Virginia Cavaliers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_virginia_tech",
+    "schoolKey": "virginia_tech",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Virginia Tech Hokies",
+    "brandName": "Virginia Tech",
+    "mascot": "Hokies",
+    "displayName": "Virginia Tech Hokies Football",
+    "city": "Blacksburg",
+    "state": "VA",
+    "country": "US",
+    "aliases": [
+      "Virginia Tech Hokies football",
+      "Virginia Tech football",
+      "Hokies football"
+    ],
+    "tmSearch": [
+      "Virginia Tech Hokies football",
+      "Virginia Tech football",
+      "Blacksburg Virginia Tech Hokies"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_wake_forest",
+    "schoolKey": "wake_forest",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Wake Forest Demon Deacons",
+    "brandName": "Wake Forest",
+    "mascot": "Demon Deacons",
+    "displayName": "Wake Forest Demon Deacons Football",
+    "city": "Winston-Salem",
+    "state": "NC",
+    "country": "US",
+    "aliases": [
+      "Wake Forest Demon Deacons football",
+      "Wake Forest football",
+      "Demon Deacons football"
+    ],
+    "tmSearch": [
+      "Wake Forest Demon Deacons football",
+      "Wake Forest football",
+      "Winston-Salem Wake Forest Demon Deacons"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_washington",
+    "schoolKey": "washington",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Washington Huskies",
+    "brandName": "Washington",
+    "mascot": "Huskies",
+    "displayName": "Washington Huskies Football",
+    "city": "Seattle",
+    "state": "WA",
+    "country": "US",
+    "aliases": [
+      "Washington Huskies football",
+      "Washington football",
+      "Huskies football"
+    ],
+    "tmSearch": [
+      "Washington Huskies football",
+      "Washington football",
+      "Seattle Washington Huskies"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_washington_state",
+    "schoolKey": "washington_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Washington State Cougars",
+    "brandName": "Washington State",
+    "mascot": "Cougars",
+    "displayName": "Washington State Cougars Football",
+    "city": "Pullman",
+    "state": "WA",
+    "country": "US",
+    "aliases": [
+      "Washington State Cougars football",
+      "Washington State football",
+      "Cougars football"
+    ],
+    "tmSearch": [
+      "Washington State Cougars football",
+      "Washington State football",
+      "Pullman Washington State Cougars"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_west_virginia",
+    "schoolKey": "west_virginia",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "West Virginia Mountaineers",
+    "brandName": "West Virginia",
+    "mascot": "Mountaineers",
+    "displayName": "West Virginia Mountaineers Football",
+    "city": "Morgantown",
+    "state": "WV",
+    "country": "US",
+    "aliases": [
+      "West Virginia Mountaineers football",
+      "West Virginia football",
+      "Mountaineers football"
+    ],
+    "tmSearch": [
+      "West Virginia Mountaineers football",
+      "West Virginia football",
+      "Morgantown West Virginia Mountaineers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_western_kentucky",
+    "schoolKey": "western_kentucky",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Western Kentucky Hilltoppers",
+    "brandName": "Western Kentucky",
+    "mascot": "Hilltoppers",
+    "displayName": "Western Kentucky Hilltoppers Football",
+    "city": "Bowling Green",
+    "state": "KY",
+    "country": "US",
+    "aliases": [
+      "Western Kentucky Hilltoppers football",
+      "Western Kentucky football",
+      "Hilltoppers football"
+    ],
+    "tmSearch": [
+      "Western Kentucky Hilltoppers football",
+      "Western Kentucky football",
+      "Bowling Green Western Kentucky Hilltoppers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_western_michigan",
+    "schoolKey": "western_michigan",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Western Michigan Broncos",
+    "brandName": "Western Michigan",
+    "mascot": "Broncos",
+    "displayName": "Western Michigan Broncos Football",
+    "city": "Kalamazoo",
+    "state": "MI",
+    "country": "US",
+    "aliases": [
+      "Western Michigan Broncos football",
+      "Western Michigan football",
+      "Broncos football"
+    ],
+    "tmSearch": [
+      "Western Michigan Broncos football",
+      "Western Michigan football",
+      "Kalamazoo Western Michigan Broncos"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_wisconsin",
+    "schoolKey": "wisconsin",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Wisconsin Badgers",
+    "brandName": "Wisconsin",
+    "mascot": "Badgers",
+    "displayName": "Wisconsin Badgers Football",
+    "city": "Madison",
+    "state": "WI",
+    "country": "US",
+    "aliases": [
+      "Wisconsin Badgers football",
+      "Wisconsin football",
+      "Badgers football"
+    ],
+    "tmSearch": [
+      "Wisconsin Badgers football",
+      "Wisconsin football",
+      "Madison Wisconsin Badgers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_wyoming",
+    "schoolKey": "wyoming",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "Wyoming Cowboys",
+    "brandName": "Wyoming",
+    "mascot": "Cowboys",
+    "displayName": "Wyoming Cowboys Football",
+    "city": "Laramie",
+    "state": "WY",
+    "country": "US",
+    "aliases": [
+      "Wyoming Cowboys football",
+      "Wyoming football",
+      "Cowboys football"
+    ],
+    "tmSearch": [
+      "Wyoming Cowboys football",
+      "Wyoming football",
+      "Laramie Wyoming Cowboys"
+    ]
+  },
+  {
+    "id": "ncaa_football_fbs_south_florida",
+    "schoolKey": "south_florida",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FBS",
+    "teamName": "South Florida Bulls",
+    "brandName": "South Florida",
+    "mascot": "Bulls",
+    "displayName": "South Florida Bulls Football",
+    "city": "Tampa",
+    "state": "FL",
+    "country": "US",
+    "aliases": [
+      "South Florida Bulls football",
+      "South Florida football",
+      "Bulls football"
+    ],
+    "tmSearch": [
+      "South Florida Bulls football",
+      "South Florida football",
+      "Tampa South Florida Bulls"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_abilene_christian",
+    "schoolKey": "abilene_christian",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Abilene Christian Wildcats",
+    "brandName": "Abilene Christian",
+    "mascot": "Wildcats",
+    "displayName": "Abilene Christian Wildcats Football",
+    "city": "Abilene",
+    "state": "TX",
+    "country": "US",
+    "aliases": [
+      "Abilene Christian Wildcats football",
+      "Abilene Christian football",
+      "Wildcats football"
+    ],
+    "tmSearch": [
+      "Abilene Christian Wildcats football",
+      "Abilene Christian football",
+      "Abilene Abilene Christian Wildcats"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_alabama_a&m",
+    "schoolKey": "alabama_a&m",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Alabama A&M Bulldogs",
+    "brandName": "Alabama A&M",
+    "mascot": "Bulldogs",
+    "displayName": "Alabama A&M Bulldogs Football",
+    "city": "Normal",
+    "state": "AL",
+    "country": "US",
+    "aliases": [
+      "Alabama A&M Bulldogs football",
+      "Alabama A&M football",
+      "Bulldogs football"
+    ],
+    "tmSearch": [
+      "Alabama A&M Bulldogs football",
+      "Alabama A&M football",
+      "Normal Alabama A&M Bulldogs"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_alabama_state",
+    "schoolKey": "alabama_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Alabama State Hornets",
+    "brandName": "Alabama State",
+    "mascot": "Hornets",
+    "displayName": "Alabama State Hornets Football",
+    "city": "Montgomery",
+    "state": "AL",
+    "country": "US",
+    "aliases": [
+      "Alabama State Hornets football",
+      "Alabama State football",
+      "Hornets football"
+    ],
+    "tmSearch": [
+      "Alabama State Hornets football",
+      "Alabama State football",
+      "Montgomery Alabama State Hornets"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_albany",
+    "schoolKey": "albany",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "UAlbany Great Danes",
+    "brandName": "UAlbany",
+    "mascot": "Great Danes",
+    "displayName": "UAlbany Great Danes Football",
+    "city": "Albany",
+    "state": "NY",
+    "country": "US",
+    "aliases": [
+      "UAlbany Great Danes football",
+      "UAlbany football",
+      "Albany football",
+      "Great Danes football"
+    ],
+    "tmSearch": [
+      "UAlbany Great Danes football",
+      "UAlbany football",
+      "Albany Great Danes football"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_alcorn_state",
+    "schoolKey": "alcorn_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Alcorn State Braves",
+    "brandName": "Alcorn State",
+    "mascot": "Braves",
+    "displayName": "Alcorn State Braves Football",
+    "city": "Lorman",
+    "state": "MS",
+    "country": "US",
+    "aliases": [
+      "Alcorn State Braves football",
+      "Alcorn State football",
+      "Braves football"
+    ],
+    "tmSearch": [
+      "Alcorn State Braves football",
+      "Alcorn State football",
+      "Lorman Alcorn State Braves"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_austin_peay",
+    "schoolKey": "austin_peay",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Austin Peay Governors",
+    "brandName": "Austin Peay",
+    "mascot": "Governors",
+    "displayName": "Austin Peay Governors Football",
+    "city": "Clarksville",
+    "state": "TN",
+    "country": "US",
+    "aliases": [
+      "Austin Peay Governors football",
+      "Austin Peay football",
+      "Governors football"
+    ],
+    "tmSearch": [
+      "Austin Peay Governors football",
+      "Austin Peay football",
+      "Clarksville Austin Peay Governors"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_bethune_cookman",
+    "schoolKey": "bethune_cookman",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Bethune-Cookman Wildcats",
+    "brandName": "Bethune-Cookman",
+    "mascot": "Wildcats",
+    "displayName": "Bethune-Cookman Wildcats Football",
+    "city": "Daytona Beach",
+    "state": "FL",
+    "country": "US",
+    "aliases": [
+      "Bethune-Cookman Wildcats football",
+      "Bethune-Cookman football",
+      "Wildcats football"
+    ],
+    "tmSearch": [
+      "Bethune-Cookman Wildcats football",
+      "Bethune-Cookman football",
+      "Daytona Beach Bethune-Cookman Wildcats"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_brown",
+    "schoolKey": "brown",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Brown Bears",
+    "brandName": "Brown",
+    "mascot": "Bears",
+    "displayName": "Brown Bears Football",
+    "city": "Providence",
+    "state": "RI",
+    "country": "US",
+    "aliases": [
+      "Brown Bears football",
+      "Brown football",
+      "Bears football"
+    ],
+    "tmSearch": [
+      "Brown Bears football",
+      "Brown football",
+      "Providence Brown Bears"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_bryant",
+    "schoolKey": "bryant",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Bryant Bulldogs",
+    "brandName": "Bryant",
+    "mascot": "Bulldogs",
+    "displayName": "Bryant Bulldogs Football",
+    "city": "Smithfield",
+    "state": "RI",
+    "country": "US",
+    "aliases": [
+      "Bryant Bulldogs football",
+      "Bryant football",
+      "Bulldogs football"
+    ],
+    "tmSearch": [
+      "Bryant Bulldogs football",
+      "Bryant football",
+      "Smithfield Bryant Bulldogs"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_bucknell",
+    "schoolKey": "bucknell",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Bucknell Bison",
+    "brandName": "Bucknell",
+    "mascot": "Bison",
+    "displayName": "Bucknell Bison Football",
+    "city": "Lewisburg",
+    "state": "PA",
+    "country": "US",
+    "aliases": [
+      "Bucknell Bison football",
+      "Bucknell football",
+      "Bison football"
+    ],
+    "tmSearch": [
+      "Bucknell Bison football",
+      "Bucknell football",
+      "Lewisburg Bucknell Bison"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_campbell",
+    "schoolKey": "campbell",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Campbell Camels",
+    "brandName": "Campbell",
+    "mascot": "Camels",
+    "displayName": "Campbell Camels Football",
+    "city": "Buies Creek",
+    "state": "NC",
+    "country": "US",
+    "aliases": [
+      "Campbell Camels football",
+      "Campbell football",
+      "Camels football"
+    ],
+    "tmSearch": [
+      "Campbell Camels football",
+      "Campbell football",
+      "Buies Creek Campbell Camels"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_central_arkansas",
+    "schoolKey": "central_arkansas",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Central Arkansas Bears",
+    "brandName": "Central Arkansas",
+    "mascot": "Bears",
+    "displayName": "Central Arkansas Bears Football",
+    "city": "Conway",
+    "state": "AR",
+    "country": "US",
+    "aliases": [
+      "Central Arkansas Bears football",
+      "Central Arkansas football",
+      "Bears football"
+    ],
+    "tmSearch": [
+      "Central Arkansas Bears football",
+      "Central Arkansas football",
+      "Conway Central Arkansas Bears"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_central_connecticut",
+    "schoolKey": "central_connecticut",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Central Connecticut Blue Devils",
+    "brandName": "Central Connecticut",
+    "mascot": "Blue Devils",
+    "displayName": "Central Connecticut Blue Devils Football",
+    "city": "New Britain",
+    "state": "CT",
+    "country": "US",
+    "aliases": [
+      "Central Connecticut Blue Devils football",
+      "Central Connecticut football",
+      "Blue Devils football"
+    ],
+    "tmSearch": [
+      "Central Connecticut Blue Devils football",
+      "Central Connecticut football",
+      "New Britain Central Connecticut Blue Devils"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_charleston_southern",
+    "schoolKey": "charleston_southern",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Charleston Southern Buccaneers",
+    "brandName": "Charleston Southern",
+    "mascot": "Buccaneers",
+    "displayName": "Charleston Southern Buccaneers Football",
+    "city": "North Charleston",
+    "state": "SC",
+    "country": "US",
+    "aliases": [
+      "Charleston Southern Buccaneers football",
+      "Charleston Southern football",
+      "Buccaneers football"
+    ],
+    "tmSearch": [
+      "Charleston Southern Buccaneers football",
+      "Charleston Southern football",
+      "North Charleston Charleston Southern Buccaneers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_chattanooga",
+    "schoolKey": "chattanooga",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Chattanooga Mocs",
+    "brandName": "Chattanooga",
+    "mascot": "Mocs",
+    "displayName": "Chattanooga Mocs Football",
+    "city": "Chattanooga",
+    "state": "TN",
+    "country": "US",
+    "aliases": [
+      "Chattanooga Mocs football",
+      "Chattanooga football",
+      "Mocs football"
+    ],
+    "tmSearch": [
+      "Chattanooga Mocs football",
+      "Chattanooga football",
+      "Chattanooga Chattanooga Mocs"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_chicago_state",
+    "schoolKey": "chicago_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Chicago State Cougars",
+    "brandName": "Chicago State",
+    "mascot": "Cougars",
+    "displayName": "Chicago State Cougars Football",
+    "city": "Chicago",
+    "state": "IL",
+    "country": "US",
+    "aliases": [
+      "Chicago State Cougars football",
+      "Chicago State football",
+      "Cougars football"
+    ],
+    "tmSearch": [
+      "Chicago State Cougars football",
+      "Chicago State football",
+      "Chicago Chicago State Cougars"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_colgate",
+    "schoolKey": "colgate",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Colgate Raiders",
+    "brandName": "Colgate",
+    "mascot": "Raiders",
+    "displayName": "Colgate Raiders Football",
+    "city": "Hamilton",
+    "state": "NY",
+    "country": "US",
+    "aliases": [
+      "Colgate Raiders football",
+      "Colgate football",
+      "Raiders football"
+    ],
+    "tmSearch": [
+      "Colgate Raiders football",
+      "Colgate football",
+      "Hamilton Colgate Raiders"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_columbia",
+    "schoolKey": "columbia",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Columbia Lions",
+    "brandName": "Columbia",
+    "mascot": "Lions",
+    "displayName": "Columbia Lions Football",
+    "city": "New York",
+    "state": "NY",
+    "country": "US",
+    "aliases": [
+      "Columbia Lions football",
+      "Columbia football",
+      "Lions football"
+    ],
+    "tmSearch": [
+      "Columbia Lions football",
+      "Columbia football",
+      "New York Columbia Lions"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_cornell",
+    "schoolKey": "cornell",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Cornell Big Red",
+    "brandName": "Cornell",
+    "mascot": "Big Red",
+    "displayName": "Cornell Big Red Football",
+    "city": "Ithaca",
+    "state": "NY",
+    "country": "US",
+    "aliases": [
+      "Cornell Big Red football",
+      "Cornell football",
+      "Big Red football"
+    ],
+    "tmSearch": [
+      "Cornell Big Red football",
+      "Cornell football",
+      "Ithaca Cornell Big Red"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_dartmouth",
+    "schoolKey": "dartmouth",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Dartmouth Big Green",
+    "brandName": "Dartmouth",
+    "mascot": "Big Green",
+    "displayName": "Dartmouth Big Green Football",
+    "city": "Hanover",
+    "state": "NH",
+    "country": "US",
+    "aliases": [
+      "Dartmouth Big Green football",
+      "Dartmouth football",
+      "Big Green football"
+    ],
+    "tmSearch": [
+      "Dartmouth Big Green football",
+      "Dartmouth football",
+      "Hanover Dartmouth Big Green"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_davidson",
+    "schoolKey": "davidson",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Davidson Wildcats",
+    "brandName": "Davidson",
+    "mascot": "Wildcats",
+    "displayName": "Davidson Wildcats Football",
+    "city": "Davidson",
+    "state": "NC",
+    "country": "US",
+    "aliases": [
+      "Davidson Wildcats football",
+      "Davidson football",
+      "Wildcats football"
+    ],
+    "tmSearch": [
+      "Davidson Wildcats football",
+      "Davidson football",
+      "Davidson Davidson Wildcats"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_dayton",
+    "schoolKey": "dayton",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Dayton Flyers",
+    "brandName": "Dayton",
+    "mascot": "Flyers",
+    "displayName": "Dayton Flyers Football",
+    "city": "Dayton",
+    "state": "OH",
+    "country": "US",
+    "aliases": [
+      "Dayton Flyers football",
+      "Dayton football",
+      "Flyers football"
+    ],
+    "tmSearch": [
+      "Dayton Flyers football",
+      "Dayton football",
+      "Dayton Dayton Flyers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_drake",
+    "schoolKey": "drake",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Drake Bulldogs",
+    "brandName": "Drake",
+    "mascot": "Bulldogs",
+    "displayName": "Drake Bulldogs Football",
+    "city": "Des Moines",
+    "state": "IA",
+    "country": "US",
+    "aliases": [
+      "Drake Bulldogs football",
+      "Drake football",
+      "Bulldogs football"
+    ],
+    "tmSearch": [
+      "Drake Bulldogs football",
+      "Drake football",
+      "Des Moines Drake Bulldogs"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_duquesne",
+    "schoolKey": "duquesne",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Duquesne Dukes",
+    "brandName": "Duquesne",
+    "mascot": "Dukes",
+    "displayName": "Duquesne Dukes Football",
+    "city": "Pittsburgh",
+    "state": "PA",
+    "country": "US",
+    "aliases": [
+      "Duquesne Dukes football",
+      "Duquesne football",
+      "Dukes football"
+    ],
+    "tmSearch": [
+      "Duquesne Dukes football",
+      "Duquesne football",
+      "Pittsburgh Duquesne Dukes"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_east_tennessee_state",
+    "schoolKey": "east_tennessee_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "East Tennessee State Buccaneers",
+    "brandName": "East Tennessee State",
+    "mascot": "Buccaneers",
+    "displayName": "East Tennessee State Buccaneers Football",
+    "city": "Johnson City",
+    "state": "TN",
+    "country": "US",
+    "aliases": [
+      "East Tennessee State Buccaneers football",
+      "East Tennessee State football",
+      "Buccaneers football"
+    ],
+    "tmSearch": [
+      "East Tennessee State Buccaneers football",
+      "East Tennessee State football",
+      "Johnson City East Tennessee State Buccaneers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_eastern_illinois",
+    "schoolKey": "eastern_illinois",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Eastern Illinois Panthers",
+    "brandName": "Eastern Illinois",
+    "mascot": "Panthers",
+    "displayName": "Eastern Illinois Panthers Football",
+    "city": "Charleston",
+    "state": "IL",
+    "country": "US",
+    "aliases": [
+      "Eastern Illinois Panthers football",
+      "Eastern Illinois football",
+      "Panthers football"
+    ],
+    "tmSearch": [
+      "Eastern Illinois Panthers football",
+      "Eastern Illinois football",
+      "Charleston Eastern Illinois Panthers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_eastern_kentucky",
+    "schoolKey": "eastern_kentucky",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Eastern Kentucky Colonels",
+    "brandName": "Eastern Kentucky",
+    "mascot": "Colonels",
+    "displayName": "Eastern Kentucky Colonels Football",
+    "city": "Richmond",
+    "state": "KY",
+    "country": "US",
+    "aliases": [
+      "Eastern Kentucky Colonels football",
+      "Eastern Kentucky football",
+      "Colonels football"
+    ],
+    "tmSearch": [
+      "Eastern Kentucky Colonels football",
+      "Eastern Kentucky football",
+      "Richmond Eastern Kentucky Colonels"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_eastern_washington",
+    "schoolKey": "eastern_washington",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Eastern Washington Eagles",
+    "brandName": "Eastern Washington",
+    "mascot": "Eagles",
+    "displayName": "Eastern Washington Eagles Football",
+    "city": "Cheney",
+    "state": "WA",
+    "country": "US",
+    "aliases": [
+      "Eastern Washington Eagles football",
+      "Eastern Washington football",
+      "Eagles football"
+    ],
+    "tmSearch": [
+      "Eastern Washington Eagles football",
+      "Eastern Washington football",
+      "Cheney Eastern Washington Eagles"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_elon",
+    "schoolKey": "elon",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Elon Phoenix",
+    "brandName": "Elon",
+    "mascot": "Phoenix",
+    "displayName": "Elon Phoenix Football",
+    "city": "Elon",
+    "state": "NC",
+    "country": "US",
+    "aliases": [
+      "Elon Phoenix football",
+      "Elon football",
+      "Phoenix football"
+    ],
+    "tmSearch": [
+      "Elon Phoenix football",
+      "Elon football",
+      "Elon Elon Phoenix"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_fordham",
+    "schoolKey": "fordham",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Fordham Rams",
+    "brandName": "Fordham",
+    "mascot": "Rams",
+    "displayName": "Fordham Rams Football",
+    "city": "Bronx",
+    "state": "NY",
+    "country": "US",
+    "aliases": [
+      "Fordham Rams football",
+      "Fordham football",
+      "Rams football"
+    ],
+    "tmSearch": [
+      "Fordham Rams football",
+      "Fordham football",
+      "Bronx Fordham Rams"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_furman",
+    "schoolKey": "furman",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Furman Paladins",
+    "brandName": "Furman",
+    "mascot": "Paladins",
+    "displayName": "Furman Paladins Football",
+    "city": "Greenville",
+    "state": "SC",
+    "country": "US",
+    "aliases": [
+      "Furman Paladins football",
+      "Furman football",
+      "Paladins football"
+    ],
+    "tmSearch": [
+      "Furman Paladins football",
+      "Furman football",
+      "Greenville Furman Paladins"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_gardner_webb",
+    "schoolKey": "gardner_webb",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Gardner-Webb Runnin' Bulldogs",
+    "brandName": "Gardner-Webb",
+    "mascot": "Runnin' Bulldogs",
+    "displayName": "Gardner-Webb Runnin' Bulldogs Football",
+    "city": "Boiling Springs",
+    "state": "NC",
+    "country": "US",
+    "aliases": [
+      "Gardner-Webb Runnin' Bulldogs football",
+      "Gardner-Webb football",
+      "Runnin' Bulldogs football"
+    ],
+    "tmSearch": [
+      "Gardner-Webb Runnin' Bulldogs football",
+      "Gardner-Webb football",
+      "Boiling Springs Gardner-Webb Runnin' Bulldogs"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_georgetown",
+    "schoolKey": "georgetown",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Georgetown Hoyas",
+    "brandName": "Georgetown",
+    "mascot": "Hoyas",
+    "displayName": "Georgetown Hoyas Football",
+    "city": "Washington",
+    "state": "DC",
+    "country": "US",
+    "aliases": [
+      "Georgetown Hoyas football",
+      "Georgetown football",
+      "Hoyas football"
+    ],
+    "tmSearch": [
+      "Georgetown Hoyas football",
+      "Georgetown football",
+      "Washington Georgetown Hoyas"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_grambling_state",
+    "schoolKey": "grambling_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Grambling State Tigers",
+    "brandName": "Grambling State",
+    "mascot": "Tigers",
+    "displayName": "Grambling State Tigers Football",
+    "city": "Grambling",
+    "state": "LA",
+    "country": "US",
+    "aliases": [
+      "Grambling State Tigers football",
+      "Grambling State football",
+      "Tigers football"
+    ],
+    "tmSearch": [
+      "Grambling State Tigers football",
+      "Grambling State football",
+      "Grambling Grambling State Tigers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_hampton",
+    "schoolKey": "hampton",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Hampton Pirates",
+    "brandName": "Hampton",
+    "mascot": "Pirates",
+    "displayName": "Hampton Pirates Football",
+    "city": "Hampton",
+    "state": "VA",
+    "country": "US",
+    "aliases": [
+      "Hampton Pirates football",
+      "Hampton football",
+      "Pirates football"
+    ],
+    "tmSearch": [
+      "Hampton Pirates football",
+      "Hampton football",
+      "Hampton Hampton Pirates"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_harvard",
+    "schoolKey": "harvard",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Harvard Crimson",
+    "brandName": "Harvard",
+    "mascot": "Crimson",
+    "displayName": "Harvard Crimson Football",
+    "city": "Cambridge",
+    "state": "MA",
+    "country": "US",
+    "aliases": [
+      "Harvard Crimson football",
+      "Harvard football",
+      "Crimson football"
+    ],
+    "tmSearch": [
+      "Harvard Crimson football",
+      "Harvard football",
+      "Cambridge Harvard Crimson"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_holy_cross",
+    "schoolKey": "holy_cross",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Holy Cross Crusaders",
+    "brandName": "Holy Cross",
+    "mascot": "Crusaders",
+    "displayName": "Holy Cross Crusaders Football",
+    "city": "Worcester",
+    "state": "MA",
+    "country": "US",
+    "aliases": [
+      "Holy Cross Crusaders football",
+      "Holy Cross football",
+      "Crusaders football"
+    ],
+    "tmSearch": [
+      "Holy Cross Crusaders football",
+      "Holy Cross football",
+      "Worcester Holy Cross Crusaders"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_houston_christian",
+    "schoolKey": "houston_christian",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Houston Christian Huskies",
+    "brandName": "Houston Christian",
+    "mascot": "Huskies",
+    "displayName": "Houston Christian Huskies Football",
+    "city": "Houston",
+    "state": "TX",
+    "country": "US",
+    "aliases": [
+      "Houston Christian Huskies football",
+      "Houston Christian football",
+      "Huskies football"
+    ],
+    "tmSearch": [
+      "Houston Christian Huskies football",
+      "Houston Christian football",
+      "Houston Houston Christian Huskies"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_howard",
+    "schoolKey": "howard",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Howard Bison",
+    "brandName": "Howard",
+    "mascot": "Bison",
+    "displayName": "Howard Bison Football",
+    "city": "Washington",
+    "state": "DC",
+    "country": "US",
+    "aliases": [
+      "Howard Bison football",
+      "Howard football",
+      "Bison football"
+    ],
+    "tmSearch": [
+      "Howard Bison football",
+      "Howard football",
+      "Washington Howard Bison"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_idaho",
+    "schoolKey": "idaho",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Idaho Vandals",
+    "brandName": "Idaho",
+    "mascot": "Vandals",
+    "displayName": "Idaho Vandals Football",
+    "city": "Moscow",
+    "state": "ID",
+    "country": "US",
+    "aliases": [
+      "Idaho Vandals football",
+      "Idaho football",
+      "Vandals football"
+    ],
+    "tmSearch": [
+      "Idaho Vandals football",
+      "Idaho football",
+      "Moscow Idaho Vandals"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_idaho_state",
+    "schoolKey": "idaho_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Idaho State Bengals",
+    "brandName": "Idaho State",
+    "mascot": "Bengals",
+    "displayName": "Idaho State Bengals Football",
+    "city": "Pocatello",
+    "state": "ID",
+    "country": "US",
+    "aliases": [
+      "Idaho State Bengals football",
+      "Idaho State football",
+      "Bengals football"
+    ],
+    "tmSearch": [
+      "Idaho State Bengals football",
+      "Idaho State football",
+      "Pocatello Idaho State Bengals"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_illinois_state",
+    "schoolKey": "illinois_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Illinois State Redbirds",
+    "brandName": "Illinois State",
+    "mascot": "Redbirds",
+    "displayName": "Illinois State Redbirds Football",
+    "city": "Normal",
+    "state": "IL",
+    "country": "US",
+    "aliases": [
+      "Illinois State Redbirds football",
+      "Illinois State football",
+      "Redbirds football"
+    ],
+    "tmSearch": [
+      "Illinois State Redbirds football",
+      "Illinois State football",
+      "Normal Illinois State Redbirds"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_incarnate_word",
+    "schoolKey": "incarnate_word",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Incarnate Word Cardinals",
+    "brandName": "Incarnate Word",
+    "mascot": "Cardinals",
+    "displayName": "Incarnate Word Cardinals Football",
+    "city": "San Antonio",
+    "state": "TX",
+    "country": "US",
+    "aliases": [
+      "Incarnate Word Cardinals football",
+      "Incarnate Word football",
+      "Cardinals football"
+    ],
+    "tmSearch": [
+      "Incarnate Word Cardinals football",
+      "Incarnate Word football",
+      "San Antonio Incarnate Word Cardinals"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_indiana_state",
+    "schoolKey": "indiana_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Indiana State Sycamores",
+    "brandName": "Indiana State",
+    "mascot": "Sycamores",
+    "displayName": "Indiana State Sycamores Football",
+    "city": "Terre Haute",
+    "state": "IN",
+    "country": "US",
+    "aliases": [
+      "Indiana State Sycamores football",
+      "Indiana State football",
+      "Sycamores football"
+    ],
+    "tmSearch": [
+      "Indiana State Sycamores football",
+      "Indiana State football",
+      "Terre Haute Indiana State Sycamores"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_jackson_state",
+    "schoolKey": "jackson_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Jackson State Tigers",
+    "brandName": "Jackson State",
+    "mascot": "Tigers",
+    "displayName": "Jackson State Tigers Football",
+    "city": "Jackson",
+    "state": "MS",
+    "country": "US",
+    "aliases": [
+      "Jackson State Tigers football",
+      "Jackson State football",
+      "Tigers football"
+    ],
+    "tmSearch": [
+      "Jackson State Tigers football",
+      "Jackson State football",
+      "Jackson Jackson State Tigers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_lafayette",
+    "schoolKey": "lafayette",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Lafayette Leopards",
+    "brandName": "Lafayette",
+    "mascot": "Leopards",
+    "displayName": "Lafayette Leopards Football",
+    "city": "Easton",
+    "state": "PA",
+    "country": "US",
+    "aliases": [
+      "Lafayette Leopards football",
+      "Lafayette football",
+      "Leopards football"
+    ],
+    "tmSearch": [
+      "Lafayette Leopards football",
+      "Lafayette football",
+      "Easton Lafayette Leopards"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_lehigh",
+    "schoolKey": "lehigh",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Lehigh Mountain Hawks",
+    "brandName": "Lehigh",
+    "mascot": "Mountain Hawks",
+    "displayName": "Lehigh Mountain Hawks Football",
+    "city": "Bethlehem",
+    "state": "PA",
+    "country": "US",
+    "aliases": [
+      "Lehigh Mountain Hawks football",
+      "Lehigh football",
+      "Mountain Hawks football"
+    ],
+    "tmSearch": [
+      "Lehigh Mountain Hawks football",
+      "Lehigh football",
+      "Bethlehem Lehigh Mountain Hawks"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_lindenwood",
+    "schoolKey": "lindenwood",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Lindenwood Lions",
+    "brandName": "Lindenwood",
+    "mascot": "Lions",
+    "displayName": "Lindenwood Lions Football",
+    "city": "St. Charles",
+    "state": "MO",
+    "country": "US",
+    "aliases": [
+      "Lindenwood Lions football",
+      "Lindenwood football",
+      "Lions football"
+    ],
+    "tmSearch": [
+      "Lindenwood Lions football",
+      "Lindenwood football",
+      "St. Charles Lindenwood Lions"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_maine",
+    "schoolKey": "maine",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Maine Black Bears",
+    "brandName": "Maine",
+    "mascot": "Black Bears",
+    "displayName": "Maine Black Bears Football",
+    "city": "Orono",
+    "state": "ME",
+    "country": "US",
+    "aliases": [
+      "Maine Black Bears football",
+      "Maine football",
+      "Black Bears football"
+    ],
+    "tmSearch": [
+      "Maine Black Bears football",
+      "Maine football",
+      "Orono Maine Black Bears"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_marist",
+    "schoolKey": "marist",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Marist Red Foxes",
+    "brandName": "Marist",
+    "mascot": "Red Foxes",
+    "displayName": "Marist Red Foxes Football",
+    "city": "Poughkeepsie",
+    "state": "NY",
+    "country": "US",
+    "aliases": [
+      "Marist Red Foxes football",
+      "Marist football",
+      "Red Foxes football"
+    ],
+    "tmSearch": [
+      "Marist Red Foxes football",
+      "Marist football",
+      "Poughkeepsie Marist Red Foxes"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_mcneese",
+    "schoolKey": "mcneese",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "McNeese Cowboys",
+    "brandName": "McNeese",
+    "mascot": "Cowboys",
+    "displayName": "McNeese Cowboys Football",
+    "city": "Lake Charles",
+    "state": "LA",
+    "country": "US",
+    "aliases": [
+      "McNeese Cowboys football",
+      "McNeese football",
+      "Cowboys football"
+    ],
+    "tmSearch": [
+      "McNeese Cowboys football",
+      "McNeese football",
+      "Lake Charles McNeese Cowboys"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_mercer",
+    "schoolKey": "mercer",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Mercer Bears",
+    "brandName": "Mercer",
+    "mascot": "Bears",
+    "displayName": "Mercer Bears Football",
+    "city": "Macon",
+    "state": "GA",
+    "country": "US",
+    "aliases": [
+      "Mercer Bears football",
+      "Mercer football",
+      "Bears football"
+    ],
+    "tmSearch": [
+      "Mercer Bears football",
+      "Mercer football",
+      "Macon Mercer Bears"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_merrimack",
+    "schoolKey": "merrimack",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Merrimack Warriors",
+    "brandName": "Merrimack",
+    "mascot": "Warriors",
+    "displayName": "Merrimack Warriors Football",
+    "city": "North Andover",
+    "state": "MA",
+    "country": "US",
+    "aliases": [
+      "Merrimack Warriors football",
+      "Merrimack football",
+      "Warriors football"
+    ],
+    "tmSearch": [
+      "Merrimack Warriors football",
+      "Merrimack football",
+      "North Andover Merrimack Warriors"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_mississippi_valley_state",
+    "schoolKey": "mississippi_valley_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Mississippi Valley State Delta Devils",
+    "brandName": "Mississippi Valley State",
+    "mascot": "Delta Devils",
+    "displayName": "Mississippi Valley State Delta Devils Football",
+    "city": "Itta Bena",
+    "state": "MS",
+    "country": "US",
+    "aliases": [
+      "Mississippi Valley State Delta Devils football",
+      "Mississippi Valley State football",
+      "Delta Devils football"
+    ],
+    "tmSearch": [
+      "Mississippi Valley State Delta Devils football",
+      "Mississippi Valley State football",
+      "Itta Bena Mississippi Valley State Delta Devils"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_monmouth",
+    "schoolKey": "monmouth",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Monmouth Hawks",
+    "brandName": "Monmouth",
+    "mascot": "Hawks",
+    "displayName": "Monmouth Hawks Football",
+    "city": "West Long Branch",
+    "state": "NJ",
+    "country": "US",
+    "aliases": [
+      "Monmouth Hawks football",
+      "Monmouth football",
+      "Hawks football"
+    ],
+    "tmSearch": [
+      "Monmouth Hawks football",
+      "Monmouth football",
+      "West Long Branch Monmouth Hawks"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_montana",
+    "schoolKey": "montana",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Montana Grizzlies",
+    "brandName": "Montana",
+    "mascot": "Grizzlies",
+    "displayName": "Montana Grizzlies Football",
+    "city": "Missoula",
+    "state": "MT",
+    "country": "US",
+    "aliases": [
+      "Montana Grizzlies football",
+      "Montana football",
+      "Grizzlies football"
+    ],
+    "tmSearch": [
+      "Montana Grizzlies football",
+      "Montana football",
+      "Missoula Montana Grizzlies"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_montana_state",
+    "schoolKey": "montana_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Montana State Bobcats",
+    "brandName": "Montana State",
+    "mascot": "Bobcats",
+    "displayName": "Montana State Bobcats Football",
+    "city": "Bozeman",
+    "state": "MT",
+    "country": "US",
+    "aliases": [
+      "Montana State Bobcats football",
+      "Montana State football",
+      "Bobcats football"
+    ],
+    "tmSearch": [
+      "Montana State Bobcats football",
+      "Montana State football",
+      "Bozeman Montana State Bobcats"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_morehead_state",
+    "schoolKey": "morehead_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Morehead State Eagles",
+    "brandName": "Morehead State",
+    "mascot": "Eagles",
+    "displayName": "Morehead State Eagles Football",
+    "city": "Morehead",
+    "state": "KY",
+    "country": "US",
+    "aliases": [
+      "Morehead State Eagles football",
+      "Morehead State football",
+      "Eagles football"
+    ],
+    "tmSearch": [
+      "Morehead State Eagles football",
+      "Morehead State football",
+      "Morehead Morehead State Eagles"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_morgan_state",
+    "schoolKey": "morgan_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Morgan State Bears",
+    "brandName": "Morgan State",
+    "mascot": "Bears",
+    "displayName": "Morgan State Bears Football",
+    "city": "Baltimore",
+    "state": "MD",
+    "country": "US",
+    "aliases": [
+      "Morgan State Bears football",
+      "Morgan State football",
+      "Bears football"
+    ],
+    "tmSearch": [
+      "Morgan State Bears football",
+      "Morgan State football",
+      "Baltimore Morgan State Bears"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_murray_state",
+    "schoolKey": "murray_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Murray State Racers",
+    "brandName": "Murray State",
+    "mascot": "Racers",
+    "displayName": "Murray State Racers Football",
+    "city": "Murray",
+    "state": "KY",
+    "country": "US",
+    "aliases": [
+      "Murray State Racers football",
+      "Murray State football",
+      "Racers football"
+    ],
+    "tmSearch": [
+      "Murray State Racers football",
+      "Murray State football",
+      "Murray Murray State Racers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_new_hampshire",
+    "schoolKey": "new_hampshire",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "New Hampshire Wildcats",
+    "brandName": "New Hampshire",
+    "mascot": "Wildcats",
+    "displayName": "New Hampshire Wildcats Football",
+    "city": "Durham",
+    "state": "NH",
+    "country": "US",
+    "aliases": [
+      "New Hampshire Wildcats football",
+      "New Hampshire football",
+      "Wildcats football"
+    ],
+    "tmSearch": [
+      "New Hampshire Wildcats football",
+      "New Hampshire football",
+      "Durham New Hampshire Wildcats"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_new_haven",
+    "schoolKey": "new_haven",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "New Haven Chargers",
+    "brandName": "New Haven",
+    "mascot": "Chargers",
+    "displayName": "New Haven Chargers Football",
+    "city": "West Haven",
+    "state": "CT",
+    "country": "US",
+    "aliases": [
+      "New Haven Chargers football",
+      "New Haven football",
+      "Chargers football"
+    ],
+    "tmSearch": [
+      "New Haven Chargers football",
+      "New Haven football",
+      "West Haven New Haven Chargers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_nicholls",
+    "schoolKey": "nicholls",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Nicholls Colonels",
+    "brandName": "Nicholls",
+    "mascot": "Colonels",
+    "displayName": "Nicholls Colonels Football",
+    "city": "Thibodaux",
+    "state": "LA",
+    "country": "US",
+    "aliases": [
+      "Nicholls Colonels football",
+      "Nicholls football",
+      "Colonels football"
+    ],
+    "tmSearch": [
+      "Nicholls Colonels football",
+      "Nicholls football",
+      "Thibodaux Nicholls Colonels"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_nc_central",
+    "schoolKey": "nc_central",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "NC Central Eagles",
+    "brandName": "NC Central",
+    "mascot": "Eagles",
+    "displayName": "NC Central Eagles Football",
+    "city": "Durham",
+    "state": "NC",
+    "country": "US",
+    "aliases": [
+      "NC Central Eagles football",
+      "NC Central football",
+      "North Carolina Central football",
+      "Eagles football"
+    ],
+    "tmSearch": [
+      "NC Central Eagles football",
+      "NC Central football",
+      "Durham NC Central Eagles"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_north_carolina_a&t",
+    "schoolKey": "north_carolina_a&t",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "North Carolina A&T Aggies",
+    "brandName": "North Carolina A&T",
+    "mascot": "Aggies",
+    "displayName": "North Carolina A&T Aggies Football",
+    "city": "Greensboro",
+    "state": "NC",
+    "country": "US",
+    "aliases": [
+      "North Carolina A&T Aggies football",
+      "North Carolina A&T football",
+      "NC A&T football",
+      "Aggies football"
+    ],
+    "tmSearch": [
+      "North Carolina A&T Aggies football",
+      "North Carolina A&T football",
+      "Greensboro North Carolina A&T Aggies"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_north_dakota",
+    "schoolKey": "north_dakota",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "North Dakota Fighting Hawks",
+    "brandName": "North Dakota",
+    "mascot": "Fighting Hawks",
+    "displayName": "North Dakota Fighting Hawks Football",
+    "city": "Grand Forks",
+    "state": "ND",
+    "country": "US",
+    "aliases": [
+      "North Dakota Fighting Hawks football",
+      "North Dakota football",
+      "Fighting Hawks football"
+    ],
+    "tmSearch": [
+      "North Dakota Fighting Hawks football",
+      "North Dakota football",
+      "Grand Forks North Dakota Fighting Hawks"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_north_dakota_state",
+    "schoolKey": "north_dakota_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "North Dakota State Bison",
+    "brandName": "North Dakota State",
+    "mascot": "Bison",
+    "displayName": "North Dakota State Bison Football",
+    "city": "Fargo",
+    "state": "ND",
+    "country": "US",
+    "aliases": [
+      "North Dakota State Bison football",
+      "North Dakota State football",
+      "Bison football"
+    ],
+    "tmSearch": [
+      "North Dakota State Bison football",
+      "North Dakota State football",
+      "Fargo North Dakota State Bison"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_northern_arizona",
+    "schoolKey": "northern_arizona",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Northern Arizona Lumberjacks",
+    "brandName": "Northern Arizona",
+    "mascot": "Lumberjacks",
+    "displayName": "Northern Arizona Lumberjacks Football",
+    "city": "Flagstaff",
+    "state": "AZ",
+    "country": "US",
+    "aliases": [
+      "Northern Arizona Lumberjacks football",
+      "Northern Arizona football",
+      "Lumberjacks football"
+    ],
+    "tmSearch": [
+      "Northern Arizona Lumberjacks football",
+      "Northern Arizona football",
+      "Flagstaff Northern Arizona Lumberjacks"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_northern_colorado",
+    "schoolKey": "northern_colorado",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Northern Colorado Bears",
+    "brandName": "Northern Colorado",
+    "mascot": "Bears",
+    "displayName": "Northern Colorado Bears Football",
+    "city": "Greeley",
+    "state": "CO",
+    "country": "US",
+    "aliases": [
+      "Northern Colorado Bears football",
+      "Northern Colorado football",
+      "Bears football"
+    ],
+    "tmSearch": [
+      "Northern Colorado Bears football",
+      "Northern Colorado football",
+      "Greeley Northern Colorado Bears"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_northern_iowa",
+    "schoolKey": "northern_iowa",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Northern Iowa Panthers",
+    "brandName": "Northern Iowa",
+    "mascot": "Panthers",
+    "displayName": "Northern Iowa Panthers Football",
+    "city": "Cedar Falls",
+    "state": "IA",
+    "country": "US",
+    "aliases": [
+      "Northern Iowa Panthers football",
+      "Northern Iowa football",
+      "Panthers football"
+    ],
+    "tmSearch": [
+      "Northern Iowa Panthers football",
+      "Northern Iowa football",
+      "Cedar Falls Northern Iowa Panthers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_northwestern_state",
+    "schoolKey": "northwestern_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Northwestern State Demons",
+    "brandName": "Northwestern State",
+    "mascot": "Demons",
+    "displayName": "Northwestern State Demons Football",
+    "city": "Natchitoches",
+    "state": "LA",
+    "country": "US",
+    "aliases": [
+      "Northwestern State Demons football",
+      "Northwestern State football",
+      "Demons football"
+    ],
+    "tmSearch": [
+      "Northwestern State Demons football",
+      "Northwestern State football",
+      "Natchitoches Northwestern State Demons"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_penn",
+    "schoolKey": "penn",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Penn Quakers",
+    "brandName": "Penn",
+    "mascot": "Quakers",
+    "displayName": "Penn Quakers Football",
+    "city": "Philadelphia",
+    "state": "PA",
+    "country": "US",
+    "aliases": [
+      "Penn football",
+      "Penn Quakers football",
+      "Pennsylvania football"
+    ],
+    "tmSearch": [
+      "Penn Quakers football",
+      "Penn football",
+      "Philadelphia Penn Quakers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_portland_state",
+    "schoolKey": "portland_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Portland State Vikings",
+    "brandName": "Portland State",
+    "mascot": "Vikings",
+    "displayName": "Portland State Vikings Football",
+    "city": "Portland",
+    "state": "OR",
+    "country": "US",
+    "aliases": [
+      "Portland State Vikings football",
+      "Portland State football",
+      "Vikings football"
+    ],
+    "tmSearch": [
+      "Portland State Vikings football",
+      "Portland State football",
+      "Portland Portland State Vikings"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_prairie_view_a&m",
+    "schoolKey": "prairie_view_a&m",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Prairie View A&M Panthers",
+    "brandName": "Prairie View A&M",
+    "mascot": "Panthers",
+    "displayName": "Prairie View A&M Panthers Football",
+    "city": "Prairie View",
+    "state": "TX",
+    "country": "US",
+    "aliases": [
+      "Prairie View A&M Panthers football",
+      "Prairie View A&M football",
+      "Panthers football"
+    ],
+    "tmSearch": [
+      "Prairie View A&M Panthers football",
+      "Prairie View A&M football",
+      "Prairie View Prairie View A&M Panthers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_presbyterian",
+    "schoolKey": "presbyterian",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Presbyterian Blue Hose",
+    "brandName": "Presbyterian",
+    "mascot": "Blue Hose",
+    "displayName": "Presbyterian Blue Hose Football",
+    "city": "Clinton",
+    "state": "SC",
+    "country": "US",
+    "aliases": [
+      "Presbyterian Blue Hose football",
+      "Presbyterian football",
+      "Blue Hose football"
+    ],
+    "tmSearch": [
+      "Presbyterian Blue Hose football",
+      "Presbyterian football",
+      "Clinton Presbyterian Blue Hose"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_princeton",
+    "schoolKey": "princeton",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Princeton Tigers",
+    "brandName": "Princeton",
+    "mascot": "Tigers",
+    "displayName": "Princeton Tigers Football",
+    "city": "Princeton",
+    "state": "NJ",
+    "country": "US",
+    "aliases": [
+      "Princeton Tigers football",
+      "Princeton football",
+      "Tigers football"
+    ],
+    "tmSearch": [
+      "Princeton Tigers football",
+      "Princeton football",
+      "Princeton Princeton Tigers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_rhode_island",
+    "schoolKey": "rhode_island",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Rhode Island Rams",
+    "brandName": "Rhode Island",
+    "mascot": "Rams",
+    "displayName": "Rhode Island Rams Football",
+    "city": "Kingston",
+    "state": "RI",
+    "country": "US",
+    "aliases": [
+      "Rhode Island Rams football",
+      "Rhode Island football",
+      "Rams football"
+    ],
+    "tmSearch": [
+      "Rhode Island Rams football",
+      "Rhode Island football",
+      "Kingston Rhode Island Rams"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_richmond",
+    "schoolKey": "richmond",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Richmond Spiders",
+    "brandName": "Richmond",
+    "mascot": "Spiders",
+    "displayName": "Richmond Spiders Football",
+    "city": "Richmond",
+    "state": "VA",
+    "country": "US",
+    "aliases": [
+      "Richmond Spiders football",
+      "Richmond football",
+      "Spiders football"
+    ],
+    "tmSearch": [
+      "Richmond Spiders football",
+      "Richmond football",
+      "Richmond Richmond Spiders"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_robert_morris",
+    "schoolKey": "robert_morris",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Robert Morris Colonials",
+    "brandName": "Robert Morris",
+    "mascot": "Colonials",
+    "displayName": "Robert Morris Colonials Football",
+    "city": "Moon Township",
+    "state": "PA",
+    "country": "US",
+    "aliases": [
+      "Robert Morris Colonials football",
+      "Robert Morris football",
+      "Colonials football"
+    ],
+    "tmSearch": [
+      "Robert Morris Colonials football",
+      "Robert Morris football",
+      "Moon Township Robert Morris Colonials"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_sacred_heart",
+    "schoolKey": "sacred_heart",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Sacred Heart Pioneers",
+    "brandName": "Sacred Heart",
+    "mascot": "Pioneers",
+    "displayName": "Sacred Heart Pioneers Football",
+    "city": "Fairfield",
+    "state": "CT",
+    "country": "US",
+    "aliases": [
+      "Sacred Heart Pioneers football",
+      "Sacred Heart football",
+      "Pioneers football"
+    ],
+    "tmSearch": [
+      "Sacred Heart Pioneers football",
+      "Sacred Heart football",
+      "Fairfield Sacred Heart Pioneers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_sacramento_state",
+    "schoolKey": "sacramento_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Sacramento State Hornets",
+    "brandName": "Sacramento State",
+    "mascot": "Hornets",
+    "displayName": "Sacramento State Hornets Football",
+    "city": "Sacramento",
+    "state": "CA",
+    "country": "US",
+    "aliases": [
+      "Sacramento State Hornets football",
+      "Sacramento State football",
+      "Hornets football"
+    ],
+    "tmSearch": [
+      "Sacramento State Hornets football",
+      "Sacramento State football",
+      "Sacramento Sacramento State Hornets"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_saint_francis",
+    "schoolKey": "saint_francis",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Saint Francis Red Flash",
+    "brandName": "Saint Francis",
+    "mascot": "Red Flash",
+    "displayName": "Saint Francis Red Flash Football",
+    "city": "Loretto",
+    "state": "PA",
+    "country": "US",
+    "aliases": [
+      "Saint Francis Red Flash football",
+      "Saint Francis football",
+      "Saint Francis PA football",
+      "Red Flash football"
+    ],
+    "tmSearch": [
+      "Saint Francis Red Flash football",
+      "Saint Francis PA football",
+      "Loretto Saint Francis Red Flash"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_samford",
+    "schoolKey": "samford",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Samford Bulldogs",
+    "brandName": "Samford",
+    "mascot": "Bulldogs",
+    "displayName": "Samford Bulldogs Football",
+    "city": "Homewood",
+    "state": "AL",
+    "country": "US",
+    "aliases": [
+      "Samford Bulldogs football",
+      "Samford football",
+      "Bulldogs football"
+    ],
+    "tmSearch": [
+      "Samford Bulldogs football",
+      "Samford football",
+      "Homewood Samford Bulldogs"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_san_diego",
+    "schoolKey": "san_diego",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "San Diego Toreros",
+    "brandName": "San Diego",
+    "mascot": "Toreros",
+    "displayName": "San Diego Toreros Football",
+    "city": "San Diego",
+    "state": "CA",
+    "country": "US",
+    "aliases": [
+      "San Diego Toreros football",
+      "San Diego football",
+      "Toreros football"
+    ],
+    "tmSearch": [
+      "San Diego Toreros football",
+      "San Diego football",
+      "San Diego San Diego Toreros"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_south_carolina_state",
+    "schoolKey": "south_carolina_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "South Carolina State Bulldogs",
+    "brandName": "South Carolina State",
+    "mascot": "Bulldogs",
+    "displayName": "South Carolina State Bulldogs Football",
+    "city": "Orangeburg",
+    "state": "SC",
+    "country": "US",
+    "aliases": [
+      "South Carolina State Bulldogs football",
+      "South Carolina State football",
+      "Bulldogs football"
+    ],
+    "tmSearch": [
+      "South Carolina State Bulldogs football",
+      "South Carolina State football",
+      "Orangeburg South Carolina State Bulldogs"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_south_dakota",
+    "schoolKey": "south_dakota",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "South Dakota Coyotes",
+    "brandName": "South Dakota",
+    "mascot": "Coyotes",
+    "displayName": "South Dakota Coyotes Football",
+    "city": "Vermillion",
+    "state": "SD",
+    "country": "US",
+    "aliases": [
+      "South Dakota Coyotes football",
+      "South Dakota football",
+      "Coyotes football"
+    ],
+    "tmSearch": [
+      "South Dakota Coyotes football",
+      "South Dakota football",
+      "Vermillion South Dakota Coyotes"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_south_dakota_state",
+    "schoolKey": "south_dakota_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "South Dakota State Jackrabbits",
+    "brandName": "South Dakota State",
+    "mascot": "Jackrabbits",
+    "displayName": "South Dakota State Jackrabbits Football",
+    "city": "Brookings",
+    "state": "SD",
+    "country": "US",
+    "aliases": [
+      "South Dakota State Jackrabbits football",
+      "South Dakota State football",
+      "Jackrabbits football"
+    ],
+    "tmSearch": [
+      "South Dakota State Jackrabbits football",
+      "South Dakota State football",
+      "Brookings South Dakota State Jackrabbits"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_southeast_missouri_state",
+    "schoolKey": "southeast_missouri_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Southeast Missouri State Redhawks",
+    "brandName": "Southeast Missouri State",
+    "mascot": "Redhawks",
+    "displayName": "Southeast Missouri State Redhawks Football",
+    "city": "Cape Girardeau",
+    "state": "MO",
+    "country": "US",
+    "aliases": [
+      "Southeast Missouri State Redhawks football",
+      "Southeast Missouri State football",
+      "SEMO football",
+      "Redhawks football"
+    ],
+    "tmSearch": [
+      "Southeast Missouri State Redhawks football",
+      "Southeast Missouri State football",
+      "Cape Girardeau Southeast Missouri State Redhawks"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_southeastern_louisiana",
+    "schoolKey": "southeastern_louisiana",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Southeastern Louisiana Lions",
+    "brandName": "Southeastern Louisiana",
+    "mascot": "Lions",
+    "displayName": "Southeastern Louisiana Lions Football",
+    "city": "Hammond",
+    "state": "LA",
+    "country": "US",
+    "aliases": [
+      "Southeastern Louisiana Lions football",
+      "Southeastern Louisiana football",
+      "Lions football"
+    ],
+    "tmSearch": [
+      "Southeastern Louisiana Lions football",
+      "Southeastern Louisiana football",
+      "Hammond Southeastern Louisiana Lions"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_southern",
+    "schoolKey": "southern",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Southern Jaguars",
+    "brandName": "Southern",
+    "mascot": "Jaguars",
+    "displayName": "Southern Jaguars Football",
+    "city": "Baton Rouge",
+    "state": "LA",
+    "country": "US",
+    "aliases": [
+      "Southern Jaguars football",
+      "Southern football",
+      "Jaguars football"
+    ],
+    "tmSearch": [
+      "Southern Jaguars football",
+      "Southern football",
+      "Baton Rouge Southern Jaguars"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_southern_illinois",
+    "schoolKey": "southern_illinois",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Southern Illinois Salukis",
+    "brandName": "Southern Illinois",
+    "mascot": "Salukis",
+    "displayName": "Southern Illinois Salukis Football",
+    "city": "Carbondale",
+    "state": "IL",
+    "country": "US",
+    "aliases": [
+      "Southern Illinois Salukis football",
+      "Southern Illinois football",
+      "Salukis football"
+    ],
+    "tmSearch": [
+      "Southern Illinois Salukis football",
+      "Southern Illinois football",
+      "Carbondale Southern Illinois Salukis"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_southern_utah",
+    "schoolKey": "southern_utah",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Southern Utah Thunderbirds",
+    "brandName": "Southern Utah",
+    "mascot": "Thunderbirds",
+    "displayName": "Southern Utah Thunderbirds Football",
+    "city": "Cedar City",
+    "state": "UT",
+    "country": "US",
+    "aliases": [
+      "Southern Utah Thunderbirds football",
+      "Southern Utah football",
+      "Thunderbirds football"
+    ],
+    "tmSearch": [
+      "Southern Utah Thunderbirds football",
+      "Southern Utah football",
+      "Cedar City Southern Utah Thunderbirds"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_st_thomas_mn",
+    "schoolKey": "st_thomas_mn",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "St. Thomas Tommies",
+    "brandName": "St. Thomas",
+    "mascot": "Tommies",
+    "displayName": "St. Thomas Tommies Football",
+    "city": "Saint Paul",
+    "state": "MN",
+    "country": "US",
+    "aliases": [
+      "St. Thomas Tommies football",
+      "St. Thomas football",
+      "St Thomas football",
+      "Tommies football",
+      "St. Thomas Minnesota football"
+    ],
+    "tmSearch": [
+      "St. Thomas Tommies football",
+      "St. Thomas football",
+      "Saint Paul St. Thomas Tommies"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_stonehill",
+    "schoolKey": "stonehill",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Stonehill Skyhawks",
+    "brandName": "Stonehill",
+    "mascot": "Skyhawks",
+    "displayName": "Stonehill Skyhawks Football",
+    "city": "Easton",
+    "state": "MA",
+    "country": "US",
+    "aliases": [
+      "Stonehill Skyhawks football",
+      "Stonehill football",
+      "Skyhawks football"
+    ],
+    "tmSearch": [
+      "Stonehill Skyhawks football",
+      "Stonehill football",
+      "Easton Stonehill Skyhawks"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_stony_brook",
+    "schoolKey": "stony_brook",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Stony Brook Seawolves",
+    "brandName": "Stony Brook",
+    "mascot": "Seawolves",
+    "displayName": "Stony Brook Seawolves Football",
+    "city": "Stony Brook",
+    "state": "NY",
+    "country": "US",
+    "aliases": [
+      "Stony Brook Seawolves football",
+      "Stony Brook football",
+      "Seawolves football"
+    ],
+    "tmSearch": [
+      "Stony Brook Seawolves football",
+      "Stony Brook football",
+      "Stony Brook Stony Brook Seawolves"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_tarleton_state",
+    "schoolKey": "tarleton_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Tarleton State Texans",
+    "brandName": "Tarleton State",
+    "mascot": "Texans",
+    "displayName": "Tarleton State Texans Football",
+    "city": "Stephenville",
+    "state": "TX",
+    "country": "US",
+    "aliases": [
+      "Tarleton State Texans football",
+      "Tarleton State football",
+      "Texans football"
+    ],
+    "tmSearch": [
+      "Tarleton State Texans football",
+      "Tarleton State football",
+      "Stephenville Tarleton State Texans"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_tennessee_state",
+    "schoolKey": "tennessee_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Tennessee State Tigers",
+    "brandName": "Tennessee State",
+    "mascot": "Tigers",
+    "displayName": "Tennessee State Tigers Football",
+    "city": "Nashville",
+    "state": "TN",
+    "country": "US",
+    "aliases": [
+      "Tennessee State Tigers football",
+      "Tennessee State football",
+      "Tigers football"
+    ],
+    "tmSearch": [
+      "Tennessee State Tigers football",
+      "Tennessee State football",
+      "Nashville Tennessee State Tigers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_tennessee_tech",
+    "schoolKey": "tennessee_tech",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Tennessee Tech Golden Eagles",
+    "brandName": "Tennessee Tech",
+    "mascot": "Golden Eagles",
+    "displayName": "Tennessee Tech Golden Eagles Football",
+    "city": "Cookeville",
+    "state": "TN",
+    "country": "US",
+    "aliases": [
+      "Tennessee Tech Golden Eagles football",
+      "Tennessee Tech football",
+      "Golden Eagles football"
+    ],
+    "tmSearch": [
+      "Tennessee Tech Golden Eagles football",
+      "Tennessee Tech football",
+      "Cookeville Tennessee Tech Golden Eagles"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_texas_a&m_commerce",
+    "schoolKey": "texas_a&m_commerce",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "East Texas A&M Lions",
+    "brandName": "East Texas A&M",
+    "mascot": "Lions",
+    "displayName": "East Texas A&M Lions Football",
+    "city": "Commerce",
+    "state": "TX",
+    "country": "US",
+    "aliases": [
+      "East Texas A&M Lions football",
+      "East Texas A&M football",
+      "Texas A&M-Commerce football",
+      "Lions football"
+    ],
+    "tmSearch": [
+      "East Texas A&M Lions football",
+      "East Texas A&M football",
+      "Commerce East Texas A&M Lions"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_towson",
+    "schoolKey": "towson",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Towson Tigers",
+    "brandName": "Towson",
+    "mascot": "Tigers",
+    "displayName": "Towson Tigers Football",
+    "city": "Towson",
+    "state": "MD",
+    "country": "US",
+    "aliases": [
+      "Towson Tigers football",
+      "Towson football",
+      "Tigers football"
+    ],
+    "tmSearch": [
+      "Towson Tigers football",
+      "Towson football",
+      "Towson Towson Tigers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_uc_davis",
+    "schoolKey": "uc_davis",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "UC Davis Aggies",
+    "brandName": "UC Davis",
+    "mascot": "Aggies",
+    "displayName": "UC Davis Aggies Football",
+    "city": "Davis",
+    "state": "CA",
+    "country": "US",
+    "aliases": [
+      "UC Davis Aggies football",
+      "UC Davis football",
+      "Aggies football"
+    ],
+    "tmSearch": [
+      "UC Davis Aggies football",
+      "UC Davis football",
+      "Davis UC Davis Aggies"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_ut_martin",
+    "schoolKey": "ut_martin",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "UT Martin Skyhawks",
+    "brandName": "UT Martin",
+    "mascot": "Skyhawks",
+    "displayName": "UT Martin Skyhawks Football",
+    "city": "Martin",
+    "state": "TN",
+    "country": "US",
+    "aliases": [
+      "UT Martin Skyhawks football",
+      "UT Martin football",
+      "Skyhawks football"
+    ],
+    "tmSearch": [
+      "UT Martin Skyhawks football",
+      "UT Martin football",
+      "Martin UT Martin Skyhawks"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_ut_rio_grande_valley",
+    "schoolKey": "ut_rio_grande_valley",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "UTRGV Vaqueros",
+    "brandName": "UTRGV",
+    "mascot": "Vaqueros",
+    "displayName": "UTRGV Vaqueros Football",
+    "city": "Edinburg",
+    "state": "TX",
+    "country": "US",
+    "aliases": [
+      "UTRGV Vaqueros football",
+      "UTRGV football",
+      "UT Rio Grande Valley football",
+      "Vaqueros football"
+    ],
+    "tmSearch": [
+      "UTRGV Vaqueros football",
+      "UTRGV football",
+      "Edinburg UTRGV Vaqueros"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_valparaiso",
+    "schoolKey": "valparaiso",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Valparaiso Beacons",
+    "brandName": "Valparaiso",
+    "mascot": "Beacons",
+    "displayName": "Valparaiso Beacons Football",
+    "city": "Valparaiso",
+    "state": "IN",
+    "country": "US",
+    "aliases": [
+      "Valparaiso Beacons football",
+      "Valparaiso football",
+      "Beacons football"
+    ],
+    "tmSearch": [
+      "Valparaiso Beacons football",
+      "Valparaiso football",
+      "Valparaiso Valparaiso Beacons"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_villanova",
+    "schoolKey": "villanova",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Villanova Wildcats",
+    "brandName": "Villanova",
+    "mascot": "Wildcats",
+    "displayName": "Villanova Wildcats Football",
+    "city": "Villanova",
+    "state": "PA",
+    "country": "US",
+    "aliases": [
+      "Villanova Wildcats football",
+      "Villanova football",
+      "Wildcats football"
+    ],
+    "tmSearch": [
+      "Villanova Wildcats football",
+      "Villanova football",
+      "Villanova Villanova Wildcats"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_vmi",
+    "schoolKey": "vmi",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "VMI Keydets",
+    "brandName": "VMI",
+    "mascot": "Keydets",
+    "displayName": "VMI Keydets Football",
+    "city": "Lexington",
+    "state": "VA",
+    "country": "US",
+    "aliases": [
+      "VMI Keydets football",
+      "VMI football",
+      "Keydets football"
+    ],
+    "tmSearch": [
+      "VMI Keydets football",
+      "VMI football",
+      "Lexington VMI Keydets"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_wagner",
+    "schoolKey": "wagner",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Wagner Seahawks",
+    "brandName": "Wagner",
+    "mascot": "Seahawks",
+    "displayName": "Wagner Seahawks Football",
+    "city": "Staten Island",
+    "state": "NY",
+    "country": "US",
+    "aliases": [
+      "Wagner Seahawks football",
+      "Wagner football",
+      "Seahawks football"
+    ],
+    "tmSearch": [
+      "Wagner Seahawks football",
+      "Wagner football",
+      "Staten Island Wagner Seahawks"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_weber_state",
+    "schoolKey": "weber_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Weber State Wildcats",
+    "brandName": "Weber State",
+    "mascot": "Wildcats",
+    "displayName": "Weber State Wildcats Football",
+    "city": "Ogden",
+    "state": "UT",
+    "country": "US",
+    "aliases": [
+      "Weber State Wildcats football",
+      "Weber State football",
+      "Wildcats football"
+    ],
+    "tmSearch": [
+      "Weber State Wildcats football",
+      "Weber State football",
+      "Ogden Weber State Wildcats"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_west_georgia",
+    "schoolKey": "west_georgia",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "West Georgia Wolves",
+    "brandName": "West Georgia",
+    "mascot": "Wolves",
+    "displayName": "West Georgia Wolves Football",
+    "city": "Carrollton",
+    "state": "GA",
+    "country": "US",
+    "aliases": [
+      "West Georgia Wolves football",
+      "West Georgia football",
+      "Wolves football"
+    ],
+    "tmSearch": [
+      "West Georgia Wolves football",
+      "West Georgia football",
+      "Carrollton West Georgia Wolves"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_western_carolina",
+    "schoolKey": "western_carolina",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Western Carolina Catamounts",
+    "brandName": "Western Carolina",
+    "mascot": "Catamounts",
+    "displayName": "Western Carolina Catamounts Football",
+    "city": "Cullowhee",
+    "state": "NC",
+    "country": "US",
+    "aliases": [
+      "Western Carolina Catamounts football",
+      "Western Carolina football",
+      "Catamounts football"
+    ],
+    "tmSearch": [
+      "Western Carolina Catamounts football",
+      "Western Carolina football",
+      "Cullowhee Western Carolina Catamounts"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_western_illinois",
+    "schoolKey": "western_illinois",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Western Illinois Leathernecks",
+    "brandName": "Western Illinois",
+    "mascot": "Leathernecks",
+    "displayName": "Western Illinois Leathernecks Football",
+    "city": "Macomb",
+    "state": "IL",
+    "country": "US",
+    "aliases": [
+      "Western Illinois Leathernecks football",
+      "Western Illinois football",
+      "Leathernecks football"
+    ],
+    "tmSearch": [
+      "Western Illinois Leathernecks football",
+      "Western Illinois football",
+      "Macomb Western Illinois Leathernecks"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_william_and_mary",
+    "schoolKey": "william_and_mary",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "William & Mary Tribe",
+    "brandName": "William & Mary",
+    "mascot": "Tribe",
+    "displayName": "William & Mary Tribe Football",
+    "city": "Williamsburg",
+    "state": "VA",
+    "country": "US",
+    "aliases": [
+      "William & Mary Tribe football",
+      "William & Mary football",
+      "Tribe football"
+    ],
+    "tmSearch": [
+      "William & Mary Tribe football",
+      "William & Mary football",
+      "Williamsburg William & Mary Tribe"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_wofford",
+    "schoolKey": "wofford",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Wofford Terriers",
+    "brandName": "Wofford",
+    "mascot": "Terriers",
+    "displayName": "Wofford Terriers Football",
+    "city": "Spartanburg",
+    "state": "SC",
+    "country": "US",
+    "aliases": [
+      "Wofford Terriers football",
+      "Wofford football",
+      "Terriers football"
+    ],
+    "tmSearch": [
+      "Wofford Terriers football",
+      "Wofford football",
+      "Spartanburg Wofford Terriers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_youngstown_state",
+    "schoolKey": "youngstown_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Youngstown State Penguins",
+    "brandName": "Youngstown State",
+    "mascot": "Penguins",
+    "displayName": "Youngstown State Penguins Football",
+    "city": "Youngstown",
+    "state": "OH",
+    "country": "US",
+    "aliases": [
+      "Youngstown State Penguins football",
+      "Youngstown State football",
+      "Penguins football"
+    ],
+    "tmSearch": [
+      "Youngstown State Penguins football",
+      "Youngstown State football",
+      "Youngstown Youngstown State Penguins"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_cal_poly",
+    "schoolKey": "cal_poly",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Cal Poly Mustangs",
+    "brandName": "Cal Poly",
+    "mascot": "Mustangs",
+    "displayName": "Cal Poly Mustangs Football",
+    "city": "San Luis Obispo",
+    "state": "CA",
+    "country": "US",
+    "aliases": [
+      "Cal Poly Mustangs football",
+      "Cal Poly football",
+      "Mustangs football"
+    ],
+    "tmSearch": [
+      "Cal Poly Mustangs football",
+      "Cal Poly football",
+      "San Luis Obispo Cal Poly Mustangs"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_butler",
+    "schoolKey": "butler",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Butler Bulldogs",
+    "brandName": "Butler",
+    "mascot": "Bulldogs",
+    "displayName": "Butler Bulldogs Football",
+    "city": "Indianapolis",
+    "state": "IN",
+    "country": "US",
+    "aliases": [
+      "Butler Bulldogs football",
+      "Butler football",
+      "Bulldogs football"
+    ],
+    "tmSearch": [
+      "Butler Bulldogs football",
+      "Butler football",
+      "Indianapolis Butler Bulldogs"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_arkansas_pine_bluff",
+    "schoolKey": "arkansas_pine_bluff",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Arkansas-Pine Bluff Golden Lions",
+    "brandName": "Arkansas-Pine Bluff",
+    "mascot": "Golden Lions",
+    "displayName": "Arkansas-Pine Bluff Golden Lions Football",
+    "city": "Pine Bluff",
+    "state": "AR",
+    "country": "US",
+    "aliases": [
+      "Arkansas-Pine Bluff Golden Lions football",
+      "Arkansas-Pine Bluff football",
+      "Golden Lions football"
+    ],
+    "tmSearch": [
+      "Arkansas-Pine Bluff Golden Lions football",
+      "Arkansas-Pine Bluff football",
+      "Pine Bluff Arkansas-Pine Bluff Golden Lions"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_florida_a&m",
+    "schoolKey": "florida_a&m",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Florida A&M Rattlers",
+    "brandName": "Florida A&M",
+    "mascot": "Rattlers",
+    "displayName": "Florida A&M Rattlers Football",
+    "city": "Tallahassee",
+    "state": "FL",
+    "country": "US",
+    "aliases": [
+      "Florida A&M Rattlers football",
+      "Florida A&M football",
+      "Rattlers football"
+    ],
+    "tmSearch": [
+      "Florida A&M Rattlers football",
+      "Florida A&M football",
+      "Tallahassee Florida A&M Rattlers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_texas_southern",
+    "schoolKey": "texas_southern",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Texas Southern Tigers",
+    "brandName": "Texas Southern",
+    "mascot": "Tigers",
+    "displayName": "Texas Southern Tigers Football",
+    "city": "Houston",
+    "state": "TX",
+    "country": "US",
+    "aliases": [
+      "Texas Southern Tigers football",
+      "Texas Southern football",
+      "Tigers football"
+    ],
+    "tmSearch": [
+      "Texas Southern Tigers football",
+      "Texas Southern football",
+      "Houston Texas Southern Tigers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_delaware_state",
+    "schoolKey": "delaware_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Delaware State Hornets",
+    "brandName": "Delaware State",
+    "mascot": "Hornets",
+    "displayName": "Delaware State Hornets Football",
+    "city": "Dover",
+    "state": "DE",
+    "country": "US",
+    "aliases": [
+      "Delaware State Hornets football",
+      "Delaware State football",
+      "Hornets football"
+    ],
+    "tmSearch": [
+      "Delaware State Hornets football",
+      "Delaware State football",
+      "Dover Delaware State Hornets"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_norfolk_state",
+    "schoolKey": "norfolk_state",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Norfolk State Spartans",
+    "brandName": "Norfolk State",
+    "mascot": "Spartans",
+    "displayName": "Norfolk State Spartans Football",
+    "city": "Norfolk",
+    "state": "VA",
+    "country": "US",
+    "aliases": [
+      "Norfolk State Spartans football",
+      "Norfolk State football",
+      "Spartans football"
+    ],
+    "tmSearch": [
+      "Norfolk State Spartans football",
+      "Norfolk State football",
+      "Norfolk Norfolk State Spartans"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_liu",
+    "schoolKey": "liu",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "LIU Sharks",
+    "brandName": "LIU",
+    "mascot": "Sharks",
+    "displayName": "LIU Sharks Football",
+    "city": "Brookville",
+    "state": "NY",
+    "country": "US",
+    "aliases": [
+      "LIU football",
+      "LIU Sharks football",
+      "Long Island football"
+    ],
+    "tmSearch": [
+      "LIU Sharks football",
+      "LIU football",
+      "Brookville LIU Sharks"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_lamar",
+    "schoolKey": "lamar",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Lamar Cardinals",
+    "brandName": "Lamar",
+    "mascot": "Cardinals",
+    "displayName": "Lamar Cardinals Football",
+    "city": "Beaumont",
+    "state": "TX",
+    "country": "US",
+    "aliases": [
+      "Lamar Cardinals football",
+      "Lamar football",
+      "Cardinals football"
+    ],
+    "tmSearch": [
+      "Lamar Cardinals football",
+      "Lamar football",
+      "Beaumont Lamar Cardinals"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_stephen_f_austin",
+    "schoolKey": "stephen_f_austin",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Stephen F. Austin Lumberjacks",
+    "brandName": "Stephen F. Austin",
+    "mascot": "Lumberjacks",
+    "displayName": "Stephen F. Austin Lumberjacks Football",
+    "city": "Nacogdoches",
+    "state": "TX",
+    "country": "US",
+    "aliases": [
+      "Stephen F. Austin Lumberjacks football",
+      "Stephen F. Austin football",
+      "Lumberjacks football"
+    ],
+    "tmSearch": [
+      "Stephen F. Austin Lumberjacks football",
+      "Stephen F. Austin football",
+      "Nacogdoches Stephen F. Austin Lumberjacks"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_north_alabama",
+    "schoolKey": "north_alabama",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "North Alabama Lions",
+    "brandName": "North Alabama",
+    "mascot": "Lions",
+    "displayName": "North Alabama Lions Football",
+    "city": "Florence",
+    "state": "AL",
+    "country": "US",
+    "aliases": [
+      "North Alabama Lions football",
+      "North Alabama football",
+      "Lions football"
+    ],
+    "tmSearch": [
+      "North Alabama Lions football",
+      "North Alabama football",
+      "Florence North Alabama Lions"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_utah_tech",
+    "schoolKey": "utah_tech",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "Utah Tech Trailblazers",
+    "brandName": "Utah Tech",
+    "mascot": "Trailblazers",
+    "displayName": "Utah Tech Trailblazers Football",
+    "city": "St. George",
+    "state": "UT",
+    "country": "US",
+    "aliases": [
+      "Utah Tech Trailblazers football",
+      "Utah Tech football",
+      "Trailblazers football"
+    ],
+    "tmSearch": [
+      "Utah Tech Trailblazers football",
+      "Utah Tech football",
+      "St. George Utah Tech Trailblazers"
+    ]
+  },
+  {
+    "id": "ncaa_football_fcs_the_citadel",
+    "schoolKey": "the_citadel",
+    "sport": "football",
+    "ncaaDivision": "I",
+    "subdivision": "FCS",
+    "teamName": "The Citadel Bulldogs",
+    "brandName": "The Citadel",
+    "mascot": "Bulldogs",
+    "displayName": "The Citadel Bulldogs Football",
+    "city": "Charleston",
+    "state": "SC",
+    "country": "US",
+    "aliases": [
+      "The Citadel Bulldogs football",
+      "The Citadel football",
+      "Bulldogs football"
+    ],
+    "tmSearch": [
+      "The Citadel Bulldogs football",
+      "The Citadel football",
+      "Charleston The Citadel Bulldogs"
+    ]
+  }
+]

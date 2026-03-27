@@ -1,0 +1,51 @@
+{
+  "193f1dc148": {
+    "id": "193f1dc148",
+    "createdAt": "2026-03-19T03:42:18.437Z",
+    "updatedAt": "2026-03-19T03:42:18.437Z",
+    "version": 1,
+    "trip": {
+      "rowKey": "A_NOIATA_2026-03-31_2026-04-04_90_us,ca_edmonton, ab",
+      "tripStyle": "A",
+      "destIata": "",
+      "cityState": "Edmonton, AB",
+      "startYMD": "2026-03-30",
+      "endYMD": "2026-04-03",
+      "radiusMiles": 90,
+      "countryCode": "US,CA",
+      "airport": "",
+      "anchor": {
+        "date": "2026-03-31",
+        "name": "Edmonton Oilers vs. Seattle Kraken",
+        "location": "Edmonton, AB",
+        "genre": "Hockey",
+        "url": "https://www.ticketmaster.ca/edmonton-oilers-vs-seattle-kraken-edmonton-alberta-03-31-2026/event/1100630EB48947FA",
+        "lat": 53.546911,
+        "lon": -113.497237,
+        "localTime": "19:00:00"
+      },
+      "events": [
+        {
+          "date": "2026-03-31",
+          "name": "Edmonton Oilers vs. Seattle Kraken",
+          "location": "Edmonton, AB",
+          "genre": "Hockey",
+          "url": "https://www.ticketmaster.ca/edmonton-oilers-vs-seattle-kraken-edmonton-alberta-03-31-2026/event/1100630EB48947FA",
+          "lat": 53.546911,
+          "lon": -113.497237,
+          "localTime": "19:00:00"
+        },
+        {
+          "date": "2026-04-02",
+          "name": "Edmonton Oilers vs. Chicago Blackhawks",
+          "location": "Edmonton, AB",
+          "genre": "Hockey",
+          "url": "https://www.ticketmaster.ca/edmonton-oilers-vs-chicago-blackhawks-edmonton-alberta-04-02-2026/event/1100630EB48E4802",
+          "lat": 53.546911,
+          "lon": -113.497237,
+          "localTime": "19:00:00"
+        }
+      ]
+    }
+  }
+}

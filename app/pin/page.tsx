@@ -1,10 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 export default function PinPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   const [pin, setPin] = useState("");
@@ -13,6 +12,8 @@ export default function PinPage() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (busy) return;
+
     setBusy(true);
     setError("");
 
@@ -29,15 +30,15 @@ export default function PinPage() {
 
       if (!res.ok || !data?.ok) {
         setError(data?.error || "Incorrect PIN");
+        setBusy(false);
         return;
       }
 
+      // ✅ HARD redirect ensures cookie is recognized immediately (fixes mobile double-tap issue)
       const next = searchParams.get("next") || "/";
-      router.replace(next);
-      router.refresh();
+      window.location.href = next;
     } catch {
       setError("Something went wrong.");
-    } finally {
       setBusy(false);
     }
   }
@@ -45,8 +46,12 @@ export default function PinPage() {
   return (
     <main className="min-h-screen flex items-center justify-center bg-white px-6">
       <div className="w-full max-w-sm rounded-2xl border border-neutral-200 p-6 shadow-sm">
-        <h1 className="text-2xl font-semibold mb-2">Enter PIN</h1>
-        <p className="text-sm text-neutral-600 mb-5">
+        
+        <h1 className="text-2xl font-semibold mb-2 text-slate-900">
+          Enter PIN
+        </h1>
+
+        <p className="text-sm text-slate-700 mb-5">
           This site is protected. Enter the access PIN to continue.
         </p>
 
@@ -56,7 +61,7 @@ export default function PinPage() {
             value={pin}
             onChange={(e) => setPin(e.target.value)}
             placeholder="PIN"
-            className="w-full rounded-xl border border-neutral-300 px-4 py-3 outline-none focus:border-neutral-500"
+            className="w-full rounded-xl border border-neutral-300 px-4 py-3 text-slate-900 placeholder:text-slate-400 outline-none focus:border-neutral-500"
             autoFocus
           />
 
@@ -72,6 +77,7 @@ export default function PinPage() {
             {busy ? "Checking..." : "Continue"}
           </button>
         </form>
+
       </div>
     </main>
   );

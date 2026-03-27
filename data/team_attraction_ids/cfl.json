@@ -1,0 +1,38 @@
+{
+  "BC Lions": {
+    "teamName": "BC Lions",
+    "attractionId": "K8vZ91710cV"
+  },
+  "Calgary Stampeders": {
+    "teamName": "Calgary Stampeders",
+    "attractionId": "K8vZ91710m7"
+  },
+  "Edmonton Elks": {
+    "teamName": "Edmonton Elks",
+    "attractionId": "K8vZ917101f"
+  },
+  "Hamilton Tiger-Cats": {
+    "teamName": "Hamilton Tiger-Cats",
+    "attractionId": "K8vZ91710cf"
+  },
+  "Montreal Alouettes": {
+    "teamName": "Montreal Alouettes",
+    "attractionId": "K8vZ91710aV"
+  },
+  "Ottawa Redblacks": {
+    "teamName": "Ottawa Redblacks",
+    "attractionId": "K8vZ91732A7"
+  },
+  "Saskatchewan Roughriders": {
+    "teamName": "Saskatchewan Roughriders",
+    "attractionId": "K8vZ9171017"
+  },
+  "Toronto Argonauts": {
+    "teamName": "Toronto Argonauts",
+    "attractionId": "K8vZ91710c7"
+  },
+  "Winnipeg Blue Bombers": {
+    "teamName": "Winnipeg Blue Bombers",
+    "attractionId": "K8vZ91710c0"
+  }
+}

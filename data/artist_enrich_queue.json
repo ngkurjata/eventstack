@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-03-18T23:29:13.436Z",
+  "updatedAt": "2026-03-20T23:46:59.433Z",
   "items": [
     {
       "name": "Golf",
@@ -245,6 +245,76 @@
       "id": "K8vZ9179Qp7",
       "sourceQuery": "Garth",
       "discoveredAt": "2026-03-18T23:29:13.436Z",
+      "status": "pending"
+    },
+    {
+      "name": "ATP: Alberta Theatre Projects",
+      "id": "K8vZ91750XV",
+      "sourceQuery": "atp",
+      "discoveredAt": "2026-03-19T20:35:23.723Z",
+      "status": "pending"
+    },
+    {
+      "name": "Senior Pga",
+      "id": "K8vZ917GWsV",
+      "sourceQuery": "PGA",
+      "discoveredAt": "2026-03-19T21:02:27.319Z",
+      "status": "pending"
+    },
+    {
+      "name": "UFC Hall of Fame Induction Ceremony",
+      "id": "Z7r9jZa1IN",
+      "sourceQuery": "ufc",
+      "discoveredAt": "2026-03-19T23:27:50.863Z",
+      "status": "pending"
+    },
+    {
+      "name": "Phillies Blunt",
+      "id": "K8vZ9178mh7",
+      "sourceQuery": "Phillies",
+      "discoveredAt": "2026-03-20T23:31:43.210Z",
+      "status": "pending"
+    },
+    {
+      "name": "Philadelphia Brass",
+      "id": "K8vZ9175CR0",
+      "sourceQuery": "Philadelphia",
+      "discoveredAt": "2026-03-20T23:46:58.983Z",
+      "status": "pending"
+    },
+    {
+      "name": "Opera Philadelphia",
+      "id": "K8vZ917f1P0",
+      "sourceQuery": "Philadelphia",
+      "discoveredAt": "2026-03-20T23:46:59.049Z",
+      "status": "pending"
+    },
+    {
+      "name": "Opera Company of Philadelphia",
+      "id": "Z7r9jZakQ8",
+      "sourceQuery": "Philadelphia",
+      "discoveredAt": "2026-03-20T23:46:59.113Z",
+      "status": "pending"
+    },
+    {
+      "name": "Meg Mackay and Billy Philadelphia",
+      "id": "K8vZ9173kzf",
+      "sourceQuery": "Philadelphia",
+      "discoveredAt": "2026-03-20T23:46:59.223Z",
+      "status": "pending"
+    },
+    {
+      "name": "It's Always Sunny in Philadelphia - Live",
+      "id": "Z7r9jZa70t",
+      "sourceQuery": "Philadelphia",
+      "discoveredAt": "2026-03-20T23:46:59.305Z",
+      "status": "pending"
+    },
+    {
+      "name": "From Philadelphia To Monaco: Grace Kelly - Beyond the Icon",
+      "id": "K8vZ917o4Af",
+      "sourceQuery": "Philadelphia",
+      "discoveredAt": "2026-03-20T23:46:59.433Z",
       "status": "pending"
     }
   ]

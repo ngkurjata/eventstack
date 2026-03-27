@@ -1,0 +1,22 @@
+[
+  { "name": "Barrie Colts", "league": "OHL", "sport": "hockey", "country": "CA", "region": "ON", "city": "Barrie", "aliases": ["Colts", "Barrie"] },
+  { "name": "Brantford Bulldogs", "league": "OHL", "sport": "hockey", "country": "CA", "region": "ON", "city": "Brantford", "aliases": ["Bulldogs Brantford", "Brantford"] },
+  { "name": "Erie Otters", "league": "OHL", "sport": "hockey", "country": "US", "region": "PA", "city": "Erie", "aliases": ["Otters", "Erie"] },
+  { "name": "Flint Firebirds", "league": "OHL", "sport": "hockey", "country": "US", "region": "MI", "city": "Flint", "aliases": ["Firebirds Flint", "Flint"] },
+  { "name": "Guelph Storm", "league": "OHL", "sport": "hockey", "country": "CA", "region": "ON", "city": "Guelph", "aliases": ["Storm", "Guelph"] },
+  { "name": "Hamilton Bulldogs", "league": "OHL", "sport": "hockey", "country": "CA", "region": "ON", "city": "Hamilton", "aliases": ["Bulldogs Hamilton", "Hamilton"] },
+  { "name": "Kingston Frontenacs", "league": "OHL", "sport": "hockey", "country": "CA", "region": "ON", "city": "Kingston", "aliases": ["Frontenacs", "Kingston"] },
+  { "name": "Kitchener Rangers", "league": "OHL", "sport": "hockey", "country": "CA", "region": "ON", "city": "Kitchener", "aliases": ["Rangers Kitchener", "Kitchener"] },
+  { "name": "London Knights", "league": "OHL", "sport": "hockey", "country": "CA", "region": "ON", "city": "London", "aliases": ["Knights London", "London"] },
+  { "name": "Mississauga Steelheads", "league": "OHL", "sport": "hockey", "country": "CA", "region": "ON", "city": "Mississauga", "aliases": ["Steelheads", "Mississauga"] },
+  { "name": "Niagara IceDogs", "league": "OHL", "sport": "hockey", "country": "CA", "region": "ON", "city": "St. Catharines", "aliases": ["IceDogs", "Niagara"] },
+  { "name": "North Bay Battalion", "league": "OHL", "sport": "hockey", "country": "CA", "region": "ON", "city": "North Bay", "aliases": ["Battalion", "North Bay"] },
+  { "name": "Oshawa Generals", "league": "OHL", "sport": "hockey", "country": "CA", "region": "ON", "city": "Oshawa", "aliases": ["Generals", "Oshawa"] },
+  { "name": "Ottawa 67's", "league": "OHL", "sport": "hockey", "country": "CA", "region": "ON", "city": "Ottawa", "aliases": ["67s", "Ottawa 67s", "Ottawa"] },
+  { "name": "Owen Sound Attack", "league": "OHL", "sport": "hockey", "country": "CA", "region": "ON", "city": "Owen Sound", "aliases": ["Attack", "Owen Sound"] },
+  { "name": "Peterborough Petes", "league": "OHL", "sport": "hockey", "country": "CA", "region": "ON", "city": "Peterborough", "aliases": ["Petes", "Peterborough"] },
+  { "name": "Saginaw Spirit", "league": "OHL", "sport": "hockey", "country": "US", "region": "MI", "city": "Saginaw", "aliases": ["Spirit", "Saginaw"] },
+  { "name": "Sarnia Sting", "league": "OHL", "sport": "hockey", "country": "CA", "region": "ON", "city": "Sarnia", "aliases": ["Sting", "Sarnia"] },
+  { "name": "Sudbury Wolves", "league": "OHL", "sport": "hockey", "country": "CA", "region": "ON", "city": "Sudbury", "aliases": ["Wolves Sudbury", "Sudbury"] },
+  { "name": "Windsor Spitfires", "league": "OHL", "sport": "hockey", "country": "CA", "region": "ON", "city": "Windsor", "aliases": ["Spitfires", "Windsor"] }
+]

@@ -1,0 +1,130 @@
+{
+  "Anaheim Ducks": {
+    "teamName": "Anaheim Ducks",
+    "attractionId": "K8vZ91713ef"
+  },
+  "Utah Mammoth": {
+    "teamName": "Utah Mammoth",
+    "attractionId": "K8vZ917jBRf"
+  },
+  "Boston Bruins": {
+    "teamName": "Boston Bruins",
+    "attractionId": "K8vZ9171o27"
+  },
+  "Buffalo Sabres": {
+    "teamName": "Buffalo Sabres",
+    "attractionId": "K8vZ9171oz7"
+  },
+  "Calgary Flames": {
+    "teamName": "Calgary Flames",
+    "attractionId": "K8vZ9171oB7"
+  },
+  "Carolina Hurricanes": {
+    "teamName": "Carolina Hurricanes",
+    "attractionId": "K8vZ9171o2f"
+  },
+  "Chicago Blackhawks": {
+    "teamName": "Chicago Blackhawks",
+    "attractionId": "K8vZ9171oz0"
+  },
+  "Colorado Avalanche": {
+    "teamName": "Colorado Avalanche",
+    "attractionId": "K8vZ9171KM7"
+  },
+  "Columbus Blue Jackets": {
+    "teamName": "Columbus Blue Jackets",
+    "attractionId": "K8vZ9171-C0"
+  },
+  "Dallas Stars": {
+    "teamName": "Dallas Stars",
+    "attractionId": "K8vZ9171ozV"
+  },
+  "Detroit Red Wings": {
+    "teamName": "Detroit Red Wings",
+    "attractionId": "K8vZ9171o20"
+  },
+  "Edmonton Oilers": {
+    "teamName": "Edmonton Oilers",
+    "attractionId": "K8vZ9171oy7"
+  },
+  "Florida Panthers": {
+    "teamName": "Florida Panthers",
+    "attractionId": "K8vZ9171pMf"
+  },
+  "Los Angeles Kings": {
+    "teamName": "Los Angeles Kings",
+    "attractionId": "K8vZ9171ozf"
+  },
+  "Minnesota Wild": {
+    "teamName": "Minnesota Wild",
+    "attractionId": "K8vZ9171-9f"
+  },
+  "Montreal Canadiens": {
+    "teamName": "Montreal Canadiens",
+    "attractionId": "K8vZ9171oyf"
+  },
+  "Nashville Predators": {
+    "teamName": "Nashville Predators",
+    "attractionId": "K8vZ9171_Y7"
+  },
+  "New Jersey Devils": {
+    "teamName": "New Jersey Devils",
+    "attractionId": "K8vZ9171oyV"
+  },
+  "New York Islanders": {
+    "teamName": "New York Islanders",
+    "attractionId": "K8vZ9171o_0"
+  },
+  "New York Rangers": {
+    "teamName": "New York Rangers",
+    "attractionId": "K8vZ9171o87"
+  },
+  "Ottawa Senators": {
+    "teamName": "Ottawa Senators",
+    "attractionId": "K8vZ9171oB0"
+  },
+  "Philadelphia Flyers": {
+    "teamName": "Philadelphia Flyers",
+    "attractionId": "K8vZ9171oy0"
+  },
+  "Pittsburgh Penguins": {
+    "teamName": "Pittsburgh Penguins",
+    "attractionId": "K8vZ9171o8f"
+  },
+  "San Jose Sharks": {
+    "teamName": "San Jose Sharks",
+    "attractionId": "K8vZ9171oBf"
+  },
+  "Seattle Kraken": {
+    "teamName": "Seattle Kraken",
+    "attractionId": "K8vZ917_vgV"
+  },
+  "St. Louis Blues": {
+    "teamName": "St. Louis Blues",
+    "attractionId": "K8vZ9171o2V"
+  },
+  "Tampa Bay Lightning": {
+    "teamName": "Tampa Bay Lightning",
+    "attractionId": "K8vZ9171oBV"
+  },
+  "Toronto Maple Leafs": {
+    "teamName": "Toronto Maple Leafs",
+    "attractionId": "K8vZ9171o80"
+  },
+  "Vancouver Canucks": {
+    "teamName": "Vancouver Canucks",
+    "attractionId": "K8vZ9171oH7"
+  },
+  "Vegas Golden Knights": {
+    "teamName": "Vegas Golden Knights",
+    "attractionId": "K8vZ917pkPf"
+  },
+  "Washington Capitals": {
+    "teamName": "Washington Capitals",
+    "attractionId": "K8vZ9171o8V"
+  },
+  "Winnipeg Jets": {
+    "teamName": "Winnipeg Jets",
+    "attractionId": "K8vZ917Cly7"
+  }
+}

@@ -53,6 +53,29 @@ function json(payload, status = 200, extraHeaders = {}) {
   });
 }
 
+function hash32(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function seededShuffle(arr, seedStr) {
+  const a = arr.slice();
+  let seed = hash32(seedStr || "seed");
+  for (let i = a.length - 1; i > 0; i--) {
+    // xorshift32
+    seed ^= seed << 13;
+    seed ^= seed >>> 17;
+    seed ^= seed << 5;
+    const j = seed % (i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function isYMD(s) {
@@ -321,14 +344,27 @@ export async function POST(req) {
     return json({ ok: false, error: `Invalid range: end (${endYMD}) is before start (${startYMD}).` }, 400);
   }
 
-  const sortedCities = cities.slice().sort((a, b) => {
-    const aHas = a.airportIata ? 0 : 1;
-    const bHas = b.airportIata ? 0 : 1;
-    if (aHas !== bHas) return aHas - bHas;
-    return cityLabel(a).localeCompare(cityLabel(b));
-  });
+  // Prefer airport cities first, then sample broadly (not alphabetical)
 
-  const candidateCities = sortedCities.slice(0, probeCities);
+const base = cities.slice().sort((a, b) => {
+  const aHas = a.airportIata ? 0 : 1;
+  const bHas = b.airportIata ? 0 : 1;
+  if (aHas !== bHas) return aHas - bHas;
+  return cityLabel(a).localeCompare(cityLabel(b));
+});
+
+// Seed ensures stable but varied probing based on favorites + date window
+const seedStr = [
+  parsedFavorites.map((f) => f.key).join(","),
+  startYMD,
+  endYMD,
+  String(radiusMiles),
+  countryCode,
+].join("|");
+
+const shuffled = seededShuffle(base, seedStr);
+
+const candidateCities = shuffled.slice(0, probeCities);
 
   const jobs = [];
   for (const c of candidateCities) {

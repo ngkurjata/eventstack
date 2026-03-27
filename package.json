@@ -12,12 +12,14 @@
   },
   "dependencies": {
     "@upstash/ratelimit": "^2.0.8",
-    "@upstash/redis": "^1.36.2",
+    "@upstash/redis": "^1.37.0",
     "@vercel/kv": "^3.0.0",
+    "date-fns": "^4.1.0",
     "dotenv": "^17.3.1",
     "next": "16.1.6",
     "next-pwa": "^5.6.0",
     "react": "19.2.3",
+    "react-day-picker": "^9.14.0",
     "react-dom": "19.2.3"
   },
   "devDependencies": {
@@ -29,7 +31,8 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
+    "ts-node": "^10.9.2",
     "tsx": "^4.20.6",
-    "typescript": "^5"
+    "typescript": "^5.9.3"
   }
 }

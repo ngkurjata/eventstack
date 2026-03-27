@@ -1,0 +1,146 @@
+[
+  {
+    "name": "Angel City FC",
+    "league": "NWSL",
+    "sport": "soccer",
+    "country": "US",
+    "region": "CA",
+    "city": "Los Angeles",
+    "aliases": ["Angel City", "ACFC", "Los Angeles"]
+  },
+  {
+    "name": "Bay FC",
+    "league": "NWSL",
+    "sport": "soccer",
+    "country": "US",
+    "region": "CA",
+    "city": "San Francisco Bay Area",
+    "aliases": ["Bay", "Bay Area"]
+  },
+  {
+    "name": "Boston Legacy FC",
+    "league": "NWSL",
+    "sport": "soccer",
+    "country": "US",
+    "region": "MA",
+    "city": "Boston",
+    "aliases": ["Boston Legacy", "Legacy", "Boston"]
+  },
+  {
+    "name": "Chicago Stars FC",
+    "league": "NWSL",
+    "sport": "soccer",
+    "country": "US",
+    "region": "IL",
+    "city": "Chicago",
+    "aliases": ["Chicago Stars", "Stars", "Chicago"]
+  },
+  {
+    "name": "Denver Summit FC",
+    "league": "NWSL",
+    "sport": "soccer",
+    "country": "US",
+    "region": "CO",
+    "city": "Denver",
+    "aliases": ["Denver Summit", "Summit", "Denver"]
+  },
+  {
+    "name": "Houston Dash",
+    "league": "NWSL",
+    "sport": "soccer",
+    "country": "US",
+    "region": "TX",
+    "city": "Houston",
+    "aliases": ["Dash", "Houston"]
+  },
+  {
+    "name": "Kansas City Current",
+    "league": "NWSL",
+    "sport": "soccer",
+    "country": "US",
+    "region": "MO",
+    "city": "Kansas City",
+    "aliases": ["Current", "KC Current", "Kansas City"]
+  },
+  {
+    "name": "Gotham FC",
+    "league": "NWSL",
+    "sport": "soccer",
+    "country": "US",
+    "region": "NJ",
+    "city": "New York / New Jersey",
+    "aliases": ["NJ/NY Gotham FC", "NJNY Gotham FC", "Gotham", "NY Gotham", "New York Gotham"]
+  },
+  {
+    "name": "North Carolina Courage",
+    "league": "NWSL",
+    "sport": "soccer",
+    "country": "US",
+    "region": "NC",
+    "city": "Cary",
+    "aliases": ["Courage", "North Carolina"]
+  },
+  {
+    "name": "Orlando Pride",
+    "league": "NWSL",
+    "sport": "soccer",
+    "country": "US",
+    "region": "FL",
+    "city": "Orlando",
+    "aliases": ["Pride", "Orlando"]
+  },
+  {
+    "name": "Portland Thorns FC",
+    "league": "NWSL",
+    "sport": "soccer",
+    "country": "US",
+    "region": "OR",
+    "city": "Portland",
+    "aliases": ["Portland Thorns", "Thorns", "Portland"]
+  },
+  {
+    "name": "Racing Louisville FC",
+    "league": "NWSL",
+    "sport": "soccer",
+    "country": "US",
+    "region": "KY",
+    "city": "Louisville",
+    "aliases": ["Racing Louisville", "Louisville"]
+  },
+  {
+    "name": "San Diego Wave FC",
+    "league": "NWSL",
+    "sport": "soccer",
+    "country": "US",
+    "region": "CA",
+    "city": "San Diego",
+    "aliases": ["San Diego Wave", "Wave", "San Diego"]
+  },
+  {
+    "name": "Seattle Reign FC",
+    "league": "NWSL",
+    "sport": "soccer",
+    "country": "US",
+    "region": "WA",
+    "city": "Seattle",
+    "aliases": ["Seattle Reign", "Reign", "Seattle"]
+  },
+  {
+    "name": "Utah Royals FC",
+    "league": "NWSL",
+    "sport": "soccer",
+    "country": "US",
+    "region": "UT",
+    "city": "Salt Lake City",
+    "aliases": ["Utah Royals", "Royals", "Utah"]
+  },
+  {
+    "name": "Washington Spirit",
+    "league": "NWSL",
+    "sport": "soccer",
+    "country": "US",
+    "region": "DC",
+    "city": "Washington",
+    "aliases": ["Spirit", "Washington"]
+  }
+]

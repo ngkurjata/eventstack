@@ -13,7 +13,11 @@ import {
   uniqueStrings,
 } from "@/lib/events/match";
 import { allVisibleGenreLabels } from "@/lib/events/genres";
-import { anchorWindowYMD, isYMD, ymdToTmRangeInclusive } from "@/lib/time/window";
+import {
+  anchorWindowYMD,
+  isYMD,
+  ymdToTmRangeInclusive,
+} from "@/lib/time/window";
 
 function json(payload: any, status = 200) {
   return NextResponse.json(payload, { status });
@@ -81,7 +85,9 @@ function pickAnchor(body: Body): AnchorInput | null {
     return { localDate: aLocalDate, lat: aLat, lon: aLon, city: a?.city };
   }
 
-  const bLocalDate = body.anchorLocalDate ? String(body.anchorLocalDate).trim() : "";
+  const bLocalDate = body.anchorLocalDate
+    ? String(body.anchorLocalDate).trim()
+    : "";
   const bLat = toFiniteNumber(body.anchorLat);
   const bLon = toFiniteNumber(body.anchorLon);
 
@@ -105,7 +111,9 @@ function isIncompleteEvent(e: NormEvent): boolean {
   if (!e.url?.trim()) return true;
   if (!e.city?.trim()) return true;
   if (!e.venueName?.trim()) return true;
-  if (!Array.isArray(e.canonicalGenres) || e.canonicalGenres.length === 0) return true;
+  if (!Array.isArray(e.canonicalGenres) || e.canonicalGenres.length === 0) {
+    return true;
+  }
 
   const name = e.name.trim().toLowerCase();
   const city = e.city.trim().toLowerCase();
@@ -126,7 +134,9 @@ function eventQualityScore(e: NormEvent): number {
   if (e.city && !e.city.toLowerCase().includes("tbd")) score += 5;
   if (e.venueName && !e.venueName.toLowerCase().includes("tbd")) score += 3;
   if (e.localTime) score += 1;
-  if (Array.isArray(e.canonicalGenres) && e.canonicalGenres.length > 0) score += 2;
+  if (Array.isArray(e.canonicalGenres) && e.canonicalGenres.length > 0) {
+    score += 2;
+  }
 
   return score;
 }
@@ -192,12 +202,20 @@ export async function POST(req: Request) {
       );
     }
 
-    const userGenres = sanitizeUserGenres((body.genres || []).map((s) => String(s).trim()));
+    const userGenres = sanitizeUserGenres(
+      (body.genres || []).map((s) => String(s).trim())
+    );
 
     const w = anchorWindowYMD(anchor.localDate, 2);
-    const { startDateTime, endDateTime } = ymdToTmRangeInclusive(w.start, w.end);
+    const { startDateTime, endDateTime } = ymdToTmRangeInclusive(
+      w.start,
+      w.end
+    );
 
-    const radiusMiles = Math.max(5, Math.min(200, Number(body.radiusMiles ?? 90) || 90));
+    const radiusMiles = Math.max(
+      5,
+      Math.min(200, Number(body.radiusMiles ?? 90) || 90)
+    );
     const countryCode = String(body.countryCode || "US,CA").trim() || "US,CA";
 
     const tmEvents = await TM.tmSearchEventsAll(
@@ -221,7 +239,9 @@ export async function POST(req: Request) {
       if (!ne) continue;
       if (isIncompleteEvent(ne)) continue;
 
-      const embeddedAttractions: string[] = ((tm?._embedded?.attractions || []) as any[])
+      const embeddedAttractions: string[] = (
+        (tm?._embedded?.attractions || []) as any[]
+      )
         .map((a: any) => String(a?.id || ""))
         .filter((id: string) => Boolean(id));
 
@@ -232,7 +252,6 @@ export async function POST(req: Request) {
       });
 
       ne.pillLabel = ne.canonicalGenres[0] || null;
-
       normalized.push(ne);
     }
 
@@ -242,7 +261,9 @@ export async function POST(req: Request) {
     for (const event of deduped) {
       const key =
         event.canonicalKey ||
-        `${event.ts || ""}|${event.name || ""}|${event.venueName || event.city || ""}`;
+        `${event.ts || ""}|${event.name || ""}|${
+          event.venueName || event.city || ""
+        }`;
 
       const prev = byKey.get(key);
 
@@ -276,13 +297,22 @@ export async function POST(req: Request) {
 
     const requiredFavoriteIds = favorites.map((f) => f.id);
 
-    const requirementsMet =
-      requiredFavoriteIds.every((id) =>
-        presentFavorites.some((pf) => normalizeToken(pf) === normalizeToken(id))
-      ) &&
-      userGenres.every((g) =>
-        presentGenres.some((pg) => normalizeToken(pg) === normalizeToken(g))
-      );
+    const favoriteRequirementMet =
+      favorites.length === 1
+        ? true
+        : requiredFavoriteIds.every((id) =>
+            presentFavorites.some(
+              (pf) => normalizeToken(pf) === normalizeToken(id)
+            )
+          );
+
+    const genreRequirementMet = userGenres.every((g) =>
+      presentGenres.some((pg) =>
+        normalizeToken(pg).includes(normalizeToken(g))
+      )
+    );
+
+    const requirementsMet = favoriteRequirementMet && genreRequirementMet;
 
     const hasTwoFavs = favorites.length >= 2;
     const crossoverInWindow =
@@ -325,9 +355,15 @@ export async function POST(req: Request) {
   } catch (e: any) {
     const msg = String(e?.message || "Failed");
 
-    if (msg.toLowerCase().includes("quota") || msg.toLowerCase().includes("rate limit")) {
+    if (
+      msg.toLowerCase().includes("quota") ||
+      msg.toLowerCase().includes("rate limit")
+    ) {
       console.error("api/trip/context rate-limited:", e);
-      return json({ error: "Ticketmaster rate limit hit. Wait a bit, then try again." }, 429);
+      return json(
+        { error: "Ticketmaster rate limit hit. Wait a bit, then try again." },
+        429
+      );
     }
 
     console.error("api/trip/context error:", e);

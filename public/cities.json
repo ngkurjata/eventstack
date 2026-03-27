@@ -1,5025 +1,564 @@
 [
   {
-    "id": "CA|BC|Abbotsford",
-    "label": "Abbotsford, BC",
-    "lat": 49.025299,
-    "lon": -122.361,
-    "country": "CA",
-    "airportIata": "YXX"
-  },
-  {
-    "id": "US|SD|Aberdeen",
-    "label": "Aberdeen, SD",
-    "lat": 45.449100494384766,
-    "lon": -98.42179870605469,
-    "country": "US",
-    "airportIata": "ABR"
-  },
-  {
-    "id": "US|TX|Abilene",
-    "label": "Abilene, TX",
-    "lat": 32.4113006592,
-    "lon": -99.68190002440001,
-    "country": "US",
-    "airportIata": "ABI"
-  },
-  {
-  "id": "US|CA|Anaheim",
-  "label": "Anaheim, CA, USA",
-  "lat": 33.8366,
-  "lon": -117.9143,
-  "country": "US"
-},
-  {
-    "id": "US|AK|Adak",
-    "label": "Adak, AK",
-    "lat": 51.883564,
-    "lon": -176.642783,
-    "country": "US",
-    "airportIata": "ADK"
-  },
-  {
-    "id": "US|OH|Akron",
-    "label": "Akron, OH",
-    "lat": 40.916099548339844,
-    "lon": -81.44219970703125,
-    "country": "US",
-    "airportIata": "CAK"
-  },
-  {
-    "id": "US|CO|Alamosa",
-    "label": "Alamosa, CO",
-    "lat": 37.434898,
-    "lon": -105.866997,
-    "country": "US",
-    "airportIata": "ALS"
-  },
-  {
-    "id": "US|GA|Albany",
-    "label": "Albany, GA",
-    "lat": 31.532946,
-    "lon": -84.196215,
-    "country": "US",
-    "airportIata": "ABY"
-  },
-  {
-    "id": "US|NY|Albany",
-    "label": "Albany, NY",
-    "lat": 42.748299,
-    "lon": -73.801697,
-    "country": "US",
-    "airportIata": "ALB"
-  },
-  {
-    "id": "US|NM|Albuquerque",
-    "label": "Albuquerque, NM",
-    "lat": 35.039976,
-    "lon": -106.608925,
-    "country": "US",
-    "airportIata": "ABQ"
-  },
-  {
-    "id": "US|AK|Aleknagik",
-    "label": "Aleknagik, AK",
-    "lat": 59.2826004028,
-    "lon": -158.617996216,
-    "country": "US",
-    "airportIata": "WKK"
-  },
-  {
-    "id": "US|LA|Alexandria",
-    "label": "Alexandria, LA",
-    "lat": 31.325828,
-    "lon": -92.546702,
-    "country": "US",
-    "airportIata": "AEX"
-  },
-  {
-    "id": "US|PA|Allentown/Bethlehem",
-    "label": "Allentown/Bethlehem, PA",
-    "lat": 40.651773,
-    "lon": -75.442797,
-    "country": "US",
-    "airportIata": "ABE"
-  },
-  {
-    "id": "US|NE|Alliance",
-    "label": "Alliance, NE",
-    "lat": 42.052543,
-    "lon": -102.803965,
-    "country": "US",
-    "airportIata": "AIA"
-  },
-  {
-    "id": "US|MI|Alpena",
-    "label": "Alpena, MI",
-    "lat": 45.0780983,
-    "lon": -83.56030273,
-    "country": "US",
-    "airportIata": "APN"
-  },
-  {
-    "id": "US|PA|Altoona",
-    "label": "Altoona, PA",
-    "lat": 40.296398,
-    "lon": -78.32,
-    "country": "US",
-    "airportIata": "AOO"
-  },
-  {
-    "id": "US|TX|Amarillo",
-    "label": "Amarillo, TX",
-    "lat": 35.217857,
-    "lon": -101.706444,
-    "country": "US",
-    "airportIata": "AMA"
-  },
-  {
-    "id": "US|AK|Ambler",
-    "label": "Ambler, AK",
-    "lat": 67.105529,
-    "lon": -157.855339,
-    "country": "US",
-    "airportIata": "ABL"
-  },
-  {
-    "id": "CA|BC|Anahim Lake",
-    "label": "Anahim Lake, BC",
-    "lat": 52.451501,
-    "lon": -125.303776,
-    "country": "CA",
-    "airportIata": "YAA"
-  },
-  {
-    "id": "US|AK|Anaktuvuk Pass",
-    "label": "Anaktuvuk Pass, AK",
-    "lat": 68.133598,
-    "lon": -151.742996,
-    "country": "US",
-    "airportIata": "AKP"
-  },
-  {
-    "id": "US|AK|Anchorage",
-    "label": "Anchorage, AK",
-    "lat": 61.179004,
-    "lon": -149.992561,
-    "country": "US",
-    "airportIata": "ANC"
-  },
-  {
-    "id": "US|AK|Aniak",
-    "label": "Aniak, AK",
-    "lat": 61.581600189208984,
-    "lon": -159.54299926757812,
-    "country": "US",
-    "airportIata": "ANI"
-  },
-  {
-    "id": "US|AK|Anvik",
-    "label": "Anvik, AK",
-    "lat": 62.646702,
-    "lon": -160.190994,
-    "country": "US",
-    "airportIata": "ANV"
-  },
-  {
-    "id": "US|WI|Appleton",
-    "label": "Appleton, WI",
-    "lat": 44.258515,
-    "lon": -88.519,
-    "country": "US",
-    "airportIata": "ATW"
-  },
-  {
-    "id": "US|CA|Arcata/Eureka",
-    "label": "Arcata/Eureka, CA",
-    "lat": 40.978101,
-    "lon": -124.109,
-    "country": "US",
-    "airportIata": "ACV"
-  },
-  {
-    "id": "US|AK|Arctic Village",
-    "label": "Arctic Village, AK",
-    "lat": 68.1147,
-    "lon": -145.578995,
-    "country": "US",
-    "airportIata": "ARC"
-  },
-  {
-    "id": "US|NC|Asheville",
-    "label": "Asheville, NC",
-    "lat": 35.435488,
-    "lon": -82.541853,
-    "country": "US",
-    "airportIata": "AVL"
-  },
-  {
-    "id": "US|CO|Aspen",
-    "label": "Aspen, CO",
-    "lat": 39.223202,
-    "lon": -106.869003,
-    "country": "US",
-    "airportIata": "ASE"
-  },
-  {
-    "id": "US|GA|Atlanta",
-    "label": "Atlanta, GA",
-    "lat": 33.6367,
-    "lon": -84.428101,
-    "country": "US",
-    "airportIata": "ATL"
-  },
-  {
-    "id": "US|NJ|Atlantic City",
-    "label": "Atlantic City, NJ",
-    "lat": 39.456201,
-    "lon": -74.577511,
-    "country": "US",
-    "airportIata": "ACY"
-  },
-  {
-    "id": "US|AK|Atqasuk",
-    "label": "Atqasuk, AK",
-    "lat": 70.46704,
-    "lon": -157.436013,
-    "country": "US",
-    "airportIata": "ATK"
-  },
-  {
-    "id": "US|GA|Augusta",
-    "label": "Augusta, GA",
-    "lat": 33.3699,
-    "lon": -81.9645,
-    "country": "US",
-    "airportIata": "AGS"
-  },
-  {
-    "id": "US|ME|Augusta",
-    "label": "Augusta, ME",
-    "lat": 44.320598602299995,
-    "lon": -69.7973022461,
-    "country": "US",
-    "airportIata": "AUG"
-  },
-  {
-    "id": "US|TX|Austin",
-    "label": "Austin, TX",
-    "lat": 30.197535,
-    "lon": -97.662015,
-    "country": "US",
-    "airportIata": "AUS"
-  },
-  {
-    "id": "CA|QC|Baie-Comeau",
-    "label": "Baie-Comeau, QC",
-    "lat": 49.1325,
-    "lon": -68.204399,
-    "country": "CA",
-    "airportIata": "YBC"
-  },
-  {
-    "id": "CA|NU|Baker Lake",
-    "label": "Baker Lake, NU",
-    "lat": 64.29889678960001,
-    "lon": -96.077796936,
-    "country": "CA",
-    "airportIata": "YBK"
-  },
-  {
-    "id": "US|CA|Bakersfield",
-    "label": "Bakersfield, CA",
-    "lat": 35.433601,
-    "lon": -119.056999,
-    "country": "US",
-    "airportIata": "BFL"
-  },
-  {
-    "id": "US|MD|Baltimore",
-    "label": "Baltimore, MD",
-    "lat": 39.1754,
-    "lon": -76.668297,
-    "country": "US",
-    "airportIata": "BWI"
-  },
-  {
-    "id": "US|ME|Bangor",
-    "label": "Bangor, ME",
-    "lat": 44.806364,
-    "lon": -68.826668,
-    "country": "US",
-    "airportIata": "BGR"
-  },
-  {
-    "id": "US|ME|Bar Harbor",
-    "label": "Bar Harbor, ME",
-    "lat": 44.45000076,
-    "lon": -68.3615036,
-    "country": "US",
-    "airportIata": "BHB"
-  },
-  {
-    "id": "CA|ON|Barrie",
-    "label": "Barrie, ON",
-    "lat": 44.485056,
-    "lon": -79.554663,
-    "country": "CA",
-    "airportIata": "YLK"
-  },
-  {
-    "id": "US|AK|Barter Island",
-    "label": "Barter Island, AK",
-    "lat": 70.134003,
-    "lon": -143.582001,
-    "country": "US",
-    "airportIata": "BTI"
-  },
-  {
-    "id": "US|LA|Baton Rouge",
-    "label": "Baton Rouge, LA",
-    "lat": 30.533199,
-    "lon": -91.149597,
-    "country": "US",
-    "airportIata": "BTR"
-  },
-  {
-    "id": "US|TX|Beaumont/Port Arthur",
-    "label": "Beaumont/Port Arthur, TX",
-    "lat": 29.9508,
-    "lon": -94.020699,
-    "country": "US",
-    "airportIata": "BPT"
-  },
-  {
-    "id": "US|WV|Beaver",
-    "label": "Beaver, WV",
-    "lat": 37.7873,
-    "lon": -81.124199,
-    "country": "US",
-    "airportIata": "BKW"
-  },
-  {
-    "id": "US|MA|Bedford",
-    "label": "Bedford, MA",
-    "lat": 42.470001,
-    "lon": -71.289001,
-    "country": "US",
-    "airportIata": "BED"
-  },
-  {
-    "id": "CA|BC|Bella Bella",
-    "label": "Bella Bella, BC",
-    "lat": 52.185001,
-    "lon": -128.156994,
-    "country": "CA",
-    "airportIata": "ZEL"
-  },
-  {
-    "id": "CA|BC|Bella Coola",
-    "label": "Bella Coola, BC",
-    "lat": 52.387501,
-    "lon": -126.596001,
-    "country": "CA",
-    "airportIata": "QBC"
-  },
-  {
-    "id": "US|IL|Belleville",
-    "label": "Belleville, IL",
-    "lat": 38.5452,
-    "lon": -89.835197,
-    "country": "US",
-    "airportIata": "BLV"
-  },
-  {
-    "id": "US|WA|Bellingham",
-    "label": "Bellingham, WA",
-    "lat": 48.79280090332031,
-    "lon": -122.53800201416016,
-    "country": "US",
-    "airportIata": "BLI"
-  },
-  {
-    "id": "US|AK|Bethel",
-    "label": "Bethel, AK",
-    "lat": 60.77980042,
-    "lon": -161.8379974,
-    "country": "US",
-    "airportIata": "BET"
-  },
-  {
-    "id": "US|MT|Billings",
-    "label": "Billings, MT",
-    "lat": 45.807824,
-    "lon": -108.533667,
-    "country": "US",
-    "airportIata": "BIL"
-  },
-  {
-    "id": "US|NY|Binghamton",
-    "label": "Binghamton, NY",
-    "lat": 42.20869827,
-    "lon": -75.97979736,
-    "country": "US",
-    "airportIata": "BGM"
-  },
-  {
-    "id": "US|AL|Birmingham",
-    "label": "Birmingham, AL",
-    "lat": 33.562877,
-    "lon": -86.750712,
-    "country": "US",
-    "airportIata": "BHM"
-  },
-  {
-    "id": "US|CA|Bishop",
-    "label": "Bishop, CA",
-    "lat": 37.3731,
-    "lon": -118.363998,
-    "country": "US",
-    "airportIata": "BIH"
-  },
-  {
-    "id": "US|ND|Bismarck",
-    "label": "Bismarck, ND",
-    "lat": 46.772734,
-    "lon": -100.746874,
-    "country": "US",
-    "airportIata": "BIS"
-  },
-  {
-    "id": "CA|QC|Blanc-Sablon",
-    "label": "Blanc-Sablon, QC",
-    "lat": 51.4436,
-    "lon": -57.185299,
-    "country": "CA",
-    "airportIata": "YBX"
-  },
-  {
-    "id": "US|IL|Bloomington/Normal",
-    "label": "Bloomington/Normal, IL",
-    "lat": 40.4771,
-    "lon": -88.915901,
-    "country": "US",
-    "airportIata": "BMI"
-  },
-  {
-    "id": "US|TN|Blountville",
-    "label": "Blountville, TN",
-    "lat": 36.475201,
-    "lon": -82.407401,
-    "country": "US",
-    "airportIata": "TRI"
-  },
-  {
-    "id": "US|ID|Boise",
-    "label": "Boise, ID",
-    "lat": 43.5644,
-    "lon": -116.223,
-    "country": "US",
-    "airportIata": "BOI"
-  },
-  {
-    "id": "CA|QC|Bonaventure",
-    "label": "Bonaventure, QC",
-    "lat": 48.071098,
-    "lon": -65.460297,
-    "country": "CA",
-    "airportIata": "YVB"
-  },
-  {
-    "id": "CA|AB|Bonnyville",
-    "label": "Bonnyville, AB",
-    "lat": 54.304199,
-    "lon": -110.744003,
-    "country": "CA",
-    "airportIata": "YBY"
-  },
-  {
-    "id": "US|MA|Boston",
-    "label": "Boston, MA",
-    "lat": 42.36197,
-    "lon": -71.0079,
-    "country": "US",
-    "airportIata": "BOS"
-  },
-  {
-    "id": "US|NV|Boulder City",
-    "label": "Boulder City, NV",
-    "lat": 35.947161,
-    "lon": -114.858799,
-    "country": "US",
-    "airportIata": "BLD"
-  },
-  {
-    "id": "US|MT|Bozeman",
-    "label": "Bozeman, MT",
-    "lat": 45.778853,
-    "lon": -111.153711,
-    "country": "US",
-    "airportIata": "BZN"
-  },
-  {
-    "id": "US|PA|Bradford",
-    "label": "Bradford, PA",
-    "lat": 41.8031005859375,
-    "lon": -78.64009857177734,
-    "country": "US",
-    "airportIata": "BFD"
-  },
-  {
-    "id": "US|MN|Brainerd",
-    "label": "Brainerd, MN",
-    "lat": 46.402861,
-    "lon": -94.129727,
-    "country": "US",
-    "airportIata": "BRD"
-  },
-  {
-    "id": "CA|MB|Brandon",
-    "label": "Brandon, MB",
-    "lat": 49.91,
-    "lon": -99.951897,
-    "country": "CA",
-    "airportIata": "YBR"
-  },
-  {
-    "id": "US|MO|Branson",
-    "label": "Branson, MO",
-    "lat": 36.532082,
-    "lon": -93.200544,
-    "country": "US",
-    "airportIata": "BKG"
-  },
-  {
-    "id": "CA|ON|Breslau",
-    "label": "Breslau, ON",
-    "lat": 43.4608,
-    "lon": -80.378601,
-    "country": "CA",
-    "airportIata": "YKF"
-  },
-  {
-    "id": "US|WV|Bridgeport",
-    "label": "Bridgeport, WV",
-    "lat": 39.2966,
-    "lon": -80.228104,
-    "country": "US",
-    "airportIata": "CKB"
-  },
-  {
-    "id": "US|TX|Brownsville",
-    "label": "Brownsville, TX",
-    "lat": 25.907238,
-    "lon": -97.425235,
-    "country": "US",
-    "airportIata": "BRO"
-  },
-  {
-    "id": "US|GA|Brunswick",
-    "label": "Brunswick, GA",
-    "lat": 31.258801,
-    "lon": -81.466499,
-    "country": "US",
-    "airportIata": "BQK"
-  },
-  {
-    "id": "US|NY|Buffalo",
-    "label": "Buffalo, NY",
-    "lat": 42.940498,
-    "lon": -78.732201,
-    "country": "US",
-    "airportIata": "BUF"
-  },
-  {
-    "id": "US|CA|Burbank",
-    "label": "Burbank, CA",
-    "lat": 34.202834,
-    "lon": -118.35805,
-    "country": "US",
-    "airportIata": "BUR"
-  },
-  {
-    "id": "US|IA|Burlington",
-    "label": "Burlington, IA",
-    "lat": 40.783199310302734,
-    "lon": -91.12550354003906,
-    "country": "US",
-    "airportIata": "BRL"
-  },
-  {
-    "id": "US|VT|Burlington",
-    "label": "Burlington, VT",
-    "lat": 44.471901,
-    "lon": -73.153297,
-    "country": "US",
-    "airportIata": "BTV"
-  },
-  {
-    "id": "CA|BC|Burns Lake",
-    "label": "Burns Lake, BC",
-    "lat": 54.3764,
-    "lon": -125.950996,
-    "country": "CA",
-    "airportIata": "YPZ"
-  },
-  {
-    "id": "US|MT|Butte",
-    "label": "Butte, MT",
-    "lat": 45.95479965209961,
-    "lon": -112.49700164794922,
-    "country": "US",
-    "airportIata": "BTM"
-  },
-  {
-    "id": "CA|AB|Calgary",
-    "label": "Calgary, AB",
-    "lat": 51.118822,
-    "lon": -114.009933,
-    "country": "CA",
-    "airportIata": "YYC"
-  },
-  {
-    "id": "CA|NU|Cambridge Bay",
-    "label": "Cambridge Bay, NU",
-    "lat": 69.1081008911,
-    "lon": -105.138000488,
-    "country": "CA",
-    "airportIata": "YCB"
-  },
-  {
-    "id": "CA|BC|Campbell River",
-    "label": "Campbell River, BC",
-    "lat": 49.950802,
-    "lon": -125.271004,
-    "country": "CA",
-    "airportIata": "YBL"
-  },
-  {
-    "id": "US|MO|Cape Girardeau",
-    "label": "Cape Girardeau, MO",
-    "lat": 37.2253,
-    "lon": -89.570801,
-    "country": "US",
-    "airportIata": "CGI"
-  },
-  {
-    "id": "US|AK|Cape Lisburne",
-    "label": "Cape Lisburne, AK",
-    "lat": 68.875099,
-    "lon": -166.110001,
-    "country": "US",
-    "airportIata": "LUR"
-  },
-  {
-    "id": "US|CA|Carlsbad",
-    "label": "Carlsbad, CA",
-    "lat": 33.1283,
-    "lon": -117.279999,
-    "country": "US",
-    "airportIata": "CLD"
-  },
-  {
-    "id": "US|NM|Carlsbad",
-    "label": "Carlsbad, NM",
-    "lat": 32.337501525878906,
-    "lon": -104.26300048828125,
-    "country": "US",
-    "airportIata": "CNM"
-  },
-  {
-    "id": "US|WY|Casper",
-    "label": "Casper, WY",
-    "lat": 42.907381,
-    "lon": -106.461609,
-    "country": "US",
-    "airportIata": "CPR"
-  },
-  {
-    "id": "CA|BC|Castlegar",
-    "label": "Castlegar, BC",
-    "lat": 49.296398,
-    "lon": -117.632004,
-    "country": "CA",
-    "airportIata": "YCG"
-  },
-  {
-    "id": "US|UT|Cedar City",
-    "label": "Cedar City, UT",
-    "lat": 37.70100021362305,
-    "lon": -113.0989990234375,
-    "country": "US",
-    "airportIata": "CDC"
-  },
-  {
-    "id": "US|IA|Cedar Rapids",
-    "label": "Cedar Rapids, IA",
-    "lat": 41.884701,
-    "lon": -91.7108,
-    "country": "US",
-    "airportIata": "CID"
-  },
-  {
-    "id": "US|NE|Chadron",
-    "label": "Chadron, NE",
-    "lat": 42.837601,
-    "lon": -103.095001,
-    "country": "US",
-    "airportIata": "CDR"
-  },
-  {
-    "id": "US|SC|Charleston",
-    "label": "Charleston, SC",
-    "lat": 32.896159,
-    "lon": -80.038151,
-    "country": "US",
-    "airportIata": "CHS"
-  },
-  {
-    "id": "US|WV|Charleston",
-    "label": "Charleston, WV",
-    "lat": 38.3731,
-    "lon": -81.593201,
-    "country": "US",
-    "airportIata": "CRW"
-  },
-  {
-    "id": "CA|NB|Charlo",
-    "label": "Charlo, NB",
-    "lat": 47.990799,
-    "lon": -66.330299,
-    "country": "CA",
-    "airportIata": "YCL"
-  },
-  {
-    "id": "US|NC|Charlotte",
-    "label": "Charlotte, NC",
-    "lat": 35.2140007019043,
-    "lon": -80.94309997558594,
-    "country": "US",
-    "airportIata": "CLT"
-  },
-  {
-    "id": "US|VA|Charlottesville",
-    "label": "Charlottesville, VA",
-    "lat": 38.13859939575195,
-    "lon": -78.4529037475586,
-    "country": "US",
-    "airportIata": "CHO"
-  },
-  {
-    "id": "CA|PE|Charlottetown",
-    "label": "Charlottetown, PE",
-    "lat": 46.288911,
-    "lon": -63.125174,
-    "country": "CA",
-    "airportIata": "YYG"
-  },
-  {
-    "id": "US|TN|Chattanooga",
-    "label": "Chattanooga, TN",
-    "lat": 35.035301,
-    "lon": -85.203796,
-    "country": "US",
-    "airportIata": "CHA"
-  },
-  {
-    "id": "US|WY|Cheyenne",
-    "label": "Cheyenne, WY",
-    "lat": 41.155701,
-    "lon": -104.811997,
-    "country": "US",
-    "airportIata": "CYS"
-  },
-  {
-    "id": "CA|QC|Chibougamau",
-    "label": "Chibougamau, QC",
-    "lat": 49.77190017700195,
-    "lon": -74.5280990600586,
-    "country": "CA",
-    "airportIata": "YMT"
-  },
-  {
-    "id": "US|IL|Chicago",
-    "label": "Chicago, IL",
-    "lat": 41.785999,
-    "lon": -87.752403,
-    "country": "US",
-    "airportIata": "MDW"
-  },
-  {
-    "id": "US|IL|Chicago/Rockford",
-    "label": "Chicago/Rockford, IL",
-    "lat": 42.1954,
-    "lon": -89.097198,
-    "country": "US",
-    "airportIata": "RFD"
-  },
-  {
-    "id": "CA|MB|Churchill",
-    "label": "Churchill, MB",
-    "lat": 58.739200592041016,
-    "lon": -94.06500244140625,
-    "country": "CA",
-    "airportIata": "YYQ"
-  },
-  {
-    "id": "US|KY|Cincinnati / Covington",
-    "label": "Cincinnati / Covington, KY",
-    "lat": 39.048801,
-    "lon": -84.667801,
-    "country": "US",
-    "airportIata": "CVG"
-  },
-  {
-    "id": "US|OH|Cincinnati",
-    "label": "Cincinnati, OH",
-    "lat": 39.102357,
-    "lon": -84.418945,
-    "country": "US",
-    "airportIata": "LUK"
-  },
-  {
-    "id": "US|OH|Cleveland",
-    "label": "Cleveland, OH",
-    "lat": 41.411701,
-    "lon": -81.8498,
-    "country": "US",
-    "airportIata": "CLE"
-  },
-  {
-    "id": "US|NM|Clovis",
-    "label": "Clovis, NM",
-    "lat": 34.426594,
-    "lon": -103.078794,
-    "country": "US",
-    "airportIata": "CVN"
-  },
-  {
-    "id": "US|WY|Cody",
-    "label": "Cody, WY",
-    "lat": 44.520199,
-    "lon": -109.024002,
-    "country": "US",
-    "airportIata": "COD"
-  },
-  {
-    "id": "US|AK|Cold Bay",
-    "label": "Cold Bay, AK",
-    "lat": 55.207871,
-    "lon": -162.725029,
-    "country": "US",
-    "airportIata": "CDB"
-  },
-  {
-    "id": "US|TX|College Station",
-    "label": "College Station, TX",
-    "lat": 30.5886,
-    "lon": -96.3638,
-    "country": "US",
-    "airportIata": "CLL"
-  },
-  {
-    "id": "US|CO|Colorado Springs",
-    "label": "Colorado Springs, CO",
-    "lat": 38.805801,
-    "lon": -104.700996,
-    "country": "US",
-    "airportIata": "COS"
-  },
-  {
-    "id": "US|MO|Columbia",
-    "label": "Columbia, MO",
-    "lat": 38.8181,
-    "lon": -92.219597,
-    "country": "US",
-    "airportIata": "COU"
-  },
-  {
-    "id": "US|SC|Columbia",
-    "label": "Columbia, SC",
-    "lat": 33.938172,
-    "lon": -81.117499,
-    "country": "US",
-    "airportIata": "CAE"
-  },
-  {
-    "id": "US|GA|Columbus",
-    "label": "Columbus, GA",
-    "lat": 32.516415,
-    "lon": -84.939602,
-    "country": "US",
-    "airportIata": "CSG"
-  },
-  {
-    "id": "US|OH|Columbus",
-    "label": "Columbus, OH",
-    "lat": 39.998001,
-    "lon": -82.891899,
-    "country": "US",
-    "airportIata": "CMH"
-  },
-  {
-    "id": "US|MS|Columbus/W Point/Starkville",
-    "label": "Columbus/W Point/Starkville, MS",
-    "lat": 33.450298,
-    "lon": -88.5914,
-    "country": "US",
-    "airportIata": "GTR"
-  },
-  {
-    "id": "CA|BC|Comox",
-    "label": "Comox, BC",
-    "lat": 49.7108,
-    "lon": -124.887001,
-    "country": "CA",
-    "airportIata": "YQQ"
-  },
-  {
-    "id": "US|CA|Concord",
-    "label": "Concord, CA",
-    "lat": 37.9897,
-    "lon": -122.056999,
-    "country": "US",
-    "airportIata": "CCR"
-  },
-  {
-    "id": "US|NC|Concord",
-    "label": "Concord, NC",
-    "lat": 35.387798,
-    "lon": -80.709099,
-    "country": "US",
-    "airportIata": "USA"
-  },
-  {
-    "id": "CA|NU|Coral Harbour",
-    "label": "Coral Harbour, NU",
-    "lat": 64.1932983398,
-    "lon": -83.3593978882,
-    "country": "CA",
-    "airportIata": "YZS"
-  },
-  {
-    "id": "US|AK|Cordova",
-    "label": "Cordova, AK",
-    "lat": 60.491798,
-    "lon": -145.477997,
-    "country": "US",
-    "airportIata": "CDV"
-  },
-  {
-    "id": "US|TX|Corpus Christi",
-    "label": "Corpus Christi, TX",
-    "lat": 27.770399,
-    "lon": -97.501198,
-    "country": "US",
-    "airportIata": "CRP"
-  },
-  {
-    "id": "US|CO|Cortez",
-    "label": "Cortez, CO",
-    "lat": 37.303001,
-    "lon": -108.627998,
-    "country": "US",
-    "airportIata": "CEZ"
-  },
-  {
-    "id": "CA|BC|Cranbrook",
-    "label": "Cranbrook, BC",
-    "lat": 49.610802,
-    "lon": -115.781998,
-    "country": "CA",
-    "airportIata": "YXC"
-  },
-  {
-    "id": "US|CA|Crescent City",
-    "label": "Crescent City, CA",
-    "lat": 41.778929,
-    "lon": -124.236403,
-    "country": "US",
-    "airportIata": "CEC"
-  },
-  {
-    "id": "US|TX|Dallas-Fort Worth",
-    "label": "Dallas-Fort Worth, TX",
-    "lat": 32.896801,
-    "lon": -97.038002,
-    "country": "US",
-    "airportIata": "DFW"
-  },
-  {
-    "id": "US|TX|Dallas",
-    "label": "Dallas, TX",
-    "lat": 32.844776,
-    "lon": -96.847653,
-    "country": "US",
-    "airportIata": "DAL"
-  },
-  {
-    "id": "CA|MB|Dauphin",
-    "label": "Dauphin, MB",
-    "lat": 51.1008,
-    "lon": -100.052002,
-    "country": "CA",
-    "airportIata": "YDN"
-  },
-  {
-    "id": "CA|YT|Dawson City",
-    "label": "Dawson City, YT",
-    "lat": 64.04309844970703,
-    "lon": -139.1280059814453,
-    "country": "CA",
-    "airportIata": "YDA"
-  },
-  {
-    "id": "US|OH|Dayton",
-    "label": "Dayton, OH",
-    "lat": 39.902401,
-    "lon": -84.219398,
-    "country": "US",
-    "airportIata": "DAY"
-  },
-  {
-    "id": "US|FL|Daytona Beach",
-    "label": "Daytona Beach, FL",
-    "lat": 29.18255,
-    "lon": -81.059464,
-    "country": "US",
-    "airportIata": "DAB"
-  },
-  {
-    "id": "US|AK|Deadhorse",
-    "label": "Deadhorse, AK",
-    "lat": 70.19470215,
-    "lon": -148.4649963,
-    "country": "US",
-    "airportIata": "SCC"
-  },
-  {
-    "id": "US|IL|Decatur",
-    "label": "Decatur, IL",
-    "lat": 39.834598541259766,
-    "lon": -88.8656997680664,
-    "country": "US",
-    "airportIata": "DEC"
-  },
-  {
-    "id": "CA|NL|Deer Lake",
-    "label": "Deer Lake, NL",
-    "lat": 49.208159,
-    "lon": -57.396147,
-    "country": "CA",
-    "airportIata": "YDF"
-  },
-  {
-    "id": "US|AK|Deering",
-    "label": "Deering, AK",
-    "lat": 66.068901,
-    "lon": -162.766914,
-    "country": "US",
-    "airportIata": "DRG"
-  },
-  {
-    "id": "US|CO|Denver",
-    "label": "Denver, CO",
-    "lat": 39.860027,
-    "lon": -104.673792,
-    "country": "US",
-    "airportIata": "DEN"
-  },
-  {
-    "id": "US|IA|Des Moines",
-    "label": "Des Moines, IA",
-    "lat": 41.534027,
-    "lon": -93.656719,
-    "country": "US",
-    "airportIata": "DSM"
-  },
-  {
-    "id": "US|FL|Destin",
-    "label": "Destin, FL",
-    "lat": 30.400101,
-    "lon": -86.471497,
-    "country": "US",
-    "airportIata": "DSI"
-  },
-  {
-    "id": "US|MI|Detroit",
-    "label": "Detroit, MI",
-    "lat": 42.21377,
-    "lon": -83.353786,
-    "country": "US",
-    "airportIata": "DTW"
-  },
-  {
-    "id": "US|ND|Devils Lake",
-    "label": "Devils Lake, ND",
-    "lat": 48.115454,
-    "lon": -98.908796,
-    "country": "US",
-    "airportIata": "DVL"
-  },
-  {
-    "id": "US|ND|Dickinson",
-    "label": "Dickinson, ND",
-    "lat": 46.797533,
-    "lon": -102.801905,
-    "country": "US",
-    "airportIata": "DIK"
-  },
-  {
-    "id": "US|AK|Dillingham",
-    "label": "Dillingham, AK",
-    "lat": 59.04470062,
-    "lon": -158.5050049,
-    "country": "US",
-    "airportIata": "DLG"
-  },
-  {
-    "id": "US|KS|Dodge City",
-    "label": "Dodge City, KS",
-    "lat": 37.76340103149414,
-    "lon": -99.9655990600586,
-    "country": "US",
-    "airportIata": "DDC"
-  },
-  {
-    "id": "US|AL|Dothan",
-    "label": "Dothan, AL",
-    "lat": 31.321300506591797,
-    "lon": -85.44960021972656,
-    "country": "US",
-    "airportIata": "DHN"
-  },
-  {
-    "id": "US|DE|Dover",
-    "label": "Dover, DE",
-    "lat": 39.129501,
-    "lon": -75.466003,
-    "country": "US",
-    "airportIata": "DOV"
-  },
-  {
-    "id": "US|PA|Dubois",
-    "label": "Dubois, PA",
-    "lat": 41.17829895,
-    "lon": -78.8986969,
-    "country": "US",
-    "airportIata": "DUJ"
-  },
-  {
-    "id": "US|IA|Dubuque",
-    "label": "Dubuque, IA",
-    "lat": 42.402,
-    "lon": -90.709503,
-    "country": "US",
-    "airportIata": "DBQ"
-  },
-  {
-    "id": "US|VA|Dulles",
-    "label": "Dulles, VA",
-    "lat": 38.9445,
-    "lon": -77.455803,
-    "country": "US",
-    "airportIata": "IAD"
-  },
-  {
-    "id": "US|MN|Duluth",
-    "label": "Duluth, MN",
-    "lat": 46.842098,
-    "lon": -92.193604,
-    "country": "US",
-    "airportIata": "DLH"
-  },
-  {
-    "id": "US|CO|Durango",
-    "label": "Durango, CO",
-    "lat": 37.151501,
-    "lon": -107.753998,
-    "country": "US",
-    "airportIata": "DRO"
-  },
-  {
-    "id": "US|CO|Eagle",
-    "label": "Eagle, CO",
-    "lat": 39.64260101,
-    "lon": -106.9179993,
-    "country": "US",
-    "airportIata": "EGE"
-  },
-  {
-    "id": "US|WA|Eastsound",
-    "label": "Eastsound, WA",
-    "lat": 48.708199,
-    "lon": -122.910004,
-    "country": "US",
-    "airportIata": "ESD"
-  },
-  {
-    "id": "US|WI|Eau Claire",
-    "label": "Eau Claire, WI",
-    "lat": 44.86579895019531,
-    "lon": -91.48429870605469,
-    "country": "US",
-    "airportIata": "EAU"
-  },
-  {
-    "id": "CA|AB|Edmonton",
-    "label": "Edmonton, AB",
-    "lat": 53.3097,
-    "lon": -113.580002,
-    "country": "CA",
-    "airportIata": "YEG"
-  },
-  {
-    "id": "US|AK|Egegik",
-    "label": "Egegik, AK",
-    "lat": 58.184386,
-    "lon": -157.374873,
-    "country": "US",
-    "airportIata": "EGX"
-  },
-  {
-    "id": "US|AR|El Dorado",
-    "label": "El Dorado, AR",
-    "lat": 33.221001,
-    "lon": -92.813301,
-    "country": "US",
-    "airportIata": "ELD"
-  },
-  {
-    "id": "US|TX|El Paso",
-    "label": "El Paso, TX",
-    "lat": 31.809908,
-    "lon": -106.375607,
-    "country": "US",
-    "airportIata": "ELP"
-  },
-  {
-    "id": "US|NV|Elko",
-    "label": "Elko, NV",
-    "lat": 40.82490158081055,
-    "lon": -115.79199981689453,
-    "country": "US",
-    "airportIata": "EKO"
-  },
-  {
-    "id": "US|NY|Elmira/Corning",
-    "label": "Elmira/Corning, NY",
-    "lat": 42.1599006652832,
-    "lon": -76.8916015625,
-    "country": "US",
-    "airportIata": "ELM"
-  },
-  {
-    "id": "US|AK|Emmonak",
-    "label": "Emmonak, AK",
-    "lat": 62.78609848,
-    "lon": -164.4909973,
-    "country": "US",
-    "airportIata": "EMK"
-  },
-  {
-    "id": "US|PA|Erie",
-    "label": "Erie, PA",
-    "lat": 42.083127,
-    "lon": -80.173867,
-    "country": "US",
-    "airportIata": "ERI"
-  },
-  {
-    "id": "US|MI|Escanaba",
-    "label": "Escanaba, MI",
-    "lat": 45.723199,
-    "lon": -87.088623,
-    "country": "US",
-    "airportIata": "ESC"
-  },
-  {
-    "id": "US|OR|Eugene",
-    "label": "Eugene, OR",
-    "lat": 44.124599,
-    "lon": -123.211998,
-    "country": "US",
-    "airportIata": "EUG"
-  },
-  {
-    "id": "US|IN|Evansville",
-    "label": "Evansville, IN",
-    "lat": 38.0369987488,
-    "lon": -87.5324020386,
-    "country": "US",
-    "airportIata": "EVV"
-  },
-  {
-    "id": "US|WA|Everett",
-    "label": "Everett, WA",
-    "lat": 47.9063,
-    "lon": -122.281998,
-    "country": "US",
-    "airportIata": "PAE"
-  },
-  {
-    "id": "US|NJ|Ewing Township",
-    "label": "Ewing Township, NJ",
-    "lat": 40.276699,
-    "lon": -74.813499,
-    "country": "US",
-    "airportIata": "TTN"
-  },
-  {
-    "id": "US|AK|Fairbanks",
-    "label": "Fairbanks, AK",
-    "lat": 64.815102,
-    "lon": -147.856003,
-    "country": "US",
-    "airportIata": "FAI"
-  },
-  {
-    "id": "US|ND|Fargo",
-    "label": "Fargo, ND",
-    "lat": 46.9207,
-    "lon": -96.815804,
-    "country": "US",
-    "airportIata": "FAR"
-  },
-  {
-    "id": "US|NC|Fayetteville",
-    "label": "Fayetteville, NC",
-    "lat": 34.991199,
-    "lon": -78.880302,
-    "country": "US",
-    "airportIata": "FAY"
-  },
-  {
-    "id": "US|AR|Fayetteville/Springdale/Rogers",
-    "label": "Fayetteville/Springdale/Rogers, AR",
-    "lat": 36.281898,
-    "lon": -94.306801,
-    "country": "US",
-    "airportIata": "XNA"
-  },
-  {
-    "id": "US|AZ|Flagstaff",
-    "label": "Flagstaff, AZ",
-    "lat": 35.139757,
-    "lon": -111.669826,
-    "country": "US",
-    "airportIata": "FLG"
-  },
-  {
-    "id": "US|MI|Flint",
-    "label": "Flint, MI",
-    "lat": 42.969294,
-    "lon": -83.743355,
-    "country": "US",
-    "airportIata": "FNT"
-  },
-  {
-    "id": "US|SC|Florence",
-    "label": "Florence, SC",
-    "lat": 34.18539810180664,
-    "lon": -79.7238998413086,
-    "country": "US",
-    "airportIata": "FLO"
-  },
-  {
-    "id": "US|TX|Fort Cavazos",
-    "label": "Fort Cavazos, TX",
-    "lat": 31.0672,
-    "lon": -97.828903,
-    "country": "US",
-    "airportIata": "GRK"
-  },
-  {
-    "id": "CA|AB|Fort Chipewyan",
-    "label": "Fort Chipewyan, AB",
-    "lat": 58.7672004699707,
-    "lon": -111.11699676513672,
-    "country": "CA",
-    "airportIata": "YPY"
-  },
-  {
-    "id": "US|IA|Fort Dodge",
-    "label": "Fort Dodge, IA",
-    "lat": 42.552624,
-    "lon": -94.191237,
-    "country": "US",
-    "airportIata": "FOD"
-  },
-  {
-    "id": "CA|ON|Fort Frances",
-    "label": "Fort Frances, ON",
-    "lat": 48.655749,
-    "lon": -93.44349,
-    "country": "CA",
-    "airportIata": "YAG"
-  },
-  {
-    "id": "US|FL|Fort Lauderdale",
-    "label": "Fort Lauderdale, FL",
-    "lat": 26.072599,
-    "lon": -80.152702,
-    "country": "US",
-    "airportIata": "FLL"
-  },
-  {
-    "id": "US|MO|Fort Leonard Wood",
-    "label": "Fort Leonard Wood, MO",
-    "lat": 37.7416,
-    "lon": -92.140701,
-    "country": "US",
-    "airportIata": "TBN"
-  },
-  {
-    "id": "CA|AB|Fort McMurray",
-    "label": "Fort McMurray, AB",
-    "lat": 56.653301,
-    "lon": -111.222,
-    "country": "CA",
-    "airportIata": "YMM"
-  },
-  {
-    "id": "US|FL|Fort Myers",
-    "label": "Fort Myers, FL",
-    "lat": 26.534685,
-    "lon": -81.752816,
-    "country": "US",
-    "airportIata": "RSW"
-  },
-  {
-    "id": "CA|BC|Fort Nelson",
-    "label": "Fort Nelson, BC",
-    "lat": 58.8363990784,
-    "lon": -122.597000122,
-    "country": "CA",
-    "airportIata": "YYE"
-  },
-  {
-    "id": "CA|BC|Fort Saint John",
-    "label": "Fort Saint John, BC",
-    "lat": 56.238098,
-    "lon": -120.739998,
-    "country": "CA",
-    "airportIata": "YXJ"
-  },
-  {
-    "id": "CA|NT|Fort Simpson",
-    "label": "Fort Simpson, NT",
-    "lat": 61.76020050048828,
-    "lon": -121.23699951171875,
-    "country": "CA",
-    "airportIata": "YFS"
-  },
-  {
-    "id": "US|AR|Fort Smith",
-    "label": "Fort Smith, AR",
-    "lat": 35.336601,
-    "lon": -94.367401,
-    "country": "US",
-    "airportIata": "FSM"
-  },
-  {
-    "id": "CA|NT|Fort Smith",
-    "label": "Fort Smith, NT",
-    "lat": 60.020302,
-    "lon": -111.961998,
-    "country": "CA",
-    "airportIata": "YSM"
-  },
-  {
-    "id": "US|IN|Fort Wayne",
-    "label": "Fort Wayne, IN",
-    "lat": 40.978896,
-    "lon": -85.194465,
-    "country": "US",
-    "airportIata": "FWA"
-  },
-  {
-    "id": "US|TX|Fort Worth",
-    "label": "Fort Worth, TX",
-    "lat": 32.819919,
-    "lon": -97.360818,
-    "country": "US",
-    "airportIata": "FTW"
-  },
-  {
-    "id": "US|AK|Fort Yukon",
-    "label": "Fort Yukon, AK",
-    "lat": 66.571651,
-    "lon": -145.249987,
-    "country": "US",
-    "airportIata": "FYU"
-  },
-  {
-    "id": "CA|NB|Fredericton",
-    "label": "Fredericton, NB",
-    "lat": 45.868697,
-    "lon": -66.529891,
-    "country": "CA",
-    "airportIata": "YFC"
-  },
-  {
-    "id": "US|MI|Freeland",
-    "label": "Freeland, MI",
-    "lat": 43.533181,
-    "lon": -84.083104,
-    "country": "US",
-    "airportIata": "MBS"
-  },
-  {
-    "id": "US|CA|Fresno",
-    "label": "Fresno, CA",
-    "lat": 36.775767,
-    "lon": -119.718018,
-    "country": "US",
-    "airportIata": "FAT"
-  },
-  {
-    "id": "US|WA|Friday Harbor",
-    "label": "Friday Harbor, WA",
-    "lat": 48.523654,
-    "lon": -123.024645,
-    "country": "US",
-    "airportIata": "FRD"
-  },
-  {
-    "id": "US|FL|Gainesville",
-    "label": "Gainesville, FL",
-    "lat": 29.6900997162,
-    "lon": -82.2717971802,
-    "country": "US",
-    "airportIata": "GNV"
-  },
-  {
-    "id": "US|AK|Galena",
-    "label": "Galena, AK",
-    "lat": 64.736198,
-    "lon": -156.936997,
-    "country": "US",
-    "airportIata": "GAL"
-  },
-  {
-    "id": "US|NM|Gallup",
-    "label": "Gallup, NM",
-    "lat": 35.511653,
-    "lon": -108.788166,
-    "country": "US",
-    "airportIata": "GUP"
-  },
-  {
-    "id": "US|AK|Gambell",
-    "label": "Gambell, AK",
-    "lat": 63.767694,
-    "lon": -171.733303,
-    "country": "US",
-    "airportIata": "GAM"
-  },
-  {
-    "id": "CA|NL|Gander",
-    "label": "Gander, NL",
-    "lat": 48.936258,
-    "lon": -54.567719,
-    "country": "CA",
-    "airportIata": "YQX"
-  },
-  {
-    "id": "US|KS|Garden City",
-    "label": "Garden City, KS",
-    "lat": 37.9275016785,
-    "lon": -100.723999023,
-    "country": "US",
-    "airportIata": "GCK"
-  },
-  {
-    "id": "US|IN|Gary",
-    "label": "Gary, IN",
-    "lat": 41.617087,
-    "lon": -87.413206,
-    "country": "US",
-    "airportIata": "GYY"
-  },
-  {
-    "id": "CA|QC|Gaspé",
-    "label": "Gaspé, QC",
-    "lat": 48.774915,
-    "lon": -64.481893,
-    "country": "CA",
-    "airportIata": "YGP"
-  },
-  {
-    "id": "CA|QC|Gatineau",
-    "label": "Gatineau, QC",
-    "lat": 45.521702,
-    "lon": -75.563599,
-    "country": "CA",
-    "airportIata": "YND"
-  },
-  {
-    "id": "US|WY|Gillette",
-    "label": "Gillette, WY",
-    "lat": 44.3489,
-    "lon": -105.539001,
-    "country": "US",
-    "airportIata": "GCC"
-  },
-  {
-    "id": "US|MT|Glasgow",
-    "label": "Glasgow, MT",
-    "lat": 48.212502,
-    "lon": -106.614998,
-    "country": "US",
-    "airportIata": "GGW"
-  },
-  {
-    "id": "US|MT|Glendive",
-    "label": "Glendive, MT",
-    "lat": 47.137658,
-    "lon": -104.80691,
-    "country": "US",
-    "airportIata": "GDV"
-  },
-  {
-    "id": "CA|NL|Goose Bay",
-    "label": "Goose Bay, NL",
-    "lat": 53.3191986084,
-    "lon": -60.4258003235,
-    "country": "CA",
-    "airportIata": "YYR"
-  },
-  {
-    "id": "US|AZ|Grand Canyon - Tusayan",
-    "label": "Grand Canyon - Tusayan, AZ",
-    "lat": 35.9524,
-    "lon": -112.147003,
-    "country": "US",
-    "airportIata": "GCN"
-  },
-  {
-    "id": "US|ND|Grand Forks",
-    "label": "Grand Forks, ND",
-    "lat": 47.949299,
-    "lon": -97.176102,
-    "country": "US",
-    "airportIata": "GFK"
-  },
-  {
-    "id": "US|NE|Grand Island",
-    "label": "Grand Island, NE",
-    "lat": 40.967498779296875,
-    "lon": -98.30960083007812,
-    "country": "US",
-    "airportIata": "GRI"
-  },
-  {
-    "id": "US|CO|Grand Junction",
-    "label": "Grand Junction, CO",
-    "lat": 39.126663,
-    "lon": -108.529387,
-    "country": "US",
-    "airportIata": "GJT"
-  },
-  {
-    "id": "US|MI|Grand Rapids",
-    "label": "Grand Rapids, MI",
-    "lat": 42.880798,
-    "lon": -85.522797,
-    "country": "US",
-    "airportIata": "GRR"
-  },
-  {
-    "id": "CA|AB|Grande Prairie",
-    "label": "Grande Prairie, AB",
-    "lat": 55.1796989441,
-    "lon": -118.885002136,
-    "country": "CA",
-    "airportIata": "YQU"
-  },
-  {
-    "id": "CA|ON|Gravenhurst",
-    "label": "Gravenhurst, ON",
-    "lat": 44.975376,
-    "lon": -79.306546,
-    "country": "CA",
-    "airportIata": "YQA"
-  },
-  {
-    "id": "US|MT|Great Falls",
-    "label": "Great Falls, MT",
-    "lat": 47.481998,
-    "lon": -111.371002,
-    "country": "US",
-    "airportIata": "GTF"
-  },
-  {
-    "id": "US|WI|Green Bay",
-    "label": "Green Bay, WI",
-    "lat": 44.483459,
-    "lon": -88.130805,
-    "country": "US",
-    "airportIata": "GRB"
-  },
-  {
-    "id": "US|NC|Greensboro",
-    "label": "Greensboro, NC",
-    "lat": 36.09937,
-    "lon": -79.937262,
-    "country": "US",
-    "airportIata": "GSO"
-  },
-  {
-    "id": "US|MS|Greenville",
-    "label": "Greenville, MS",
-    "lat": 33.482899,
-    "lon": -90.985603,
-    "country": "US",
-    "airportIata": "GLH"
-  },
-  {
-    "id": "US|NC|Greenville",
-    "label": "Greenville, NC",
-    "lat": 35.635535,
-    "lon": -77.384262,
-    "country": "US",
-    "airportIata": "PGV"
-  },
-  {
-    "id": "US|SC|Greenville/Greer/Spartanburg",
-    "label": "Greenville/Greer/Spartanburg, SC",
-    "lat": 34.895699,
-    "lon": -82.218903,
-    "country": "US",
-    "airportIata": "GSP"
-  },
-  {
-    "id": "US|MS|Gulfport",
-    "label": "Gulfport, MS",
-    "lat": 30.405582,
-    "lon": -89.069836,
-    "country": "US",
-    "airportIata": "GPT"
-  },
-  {
-    "id": "US|AK|Gulkana",
-    "label": "Gulkana, AK",
-    "lat": 62.155859,
-    "lon": -145.454662,
-    "country": "US",
-    "airportIata": "GKN"
-  },
-  {
-    "id": "US|CO|Gunnison",
-    "label": "Gunnison, CO",
-    "lat": 38.534672,
-    "lon": -106.934566,
-    "country": "US",
-    "airportIata": "GUC"
-  },
-  {
-    "id": "US|AK|Gustavus",
-    "label": "Gustavus, AK",
-    "lat": 58.4253006,
-    "lon": -135.7070007,
-    "country": "US",
-    "airportIata": "GST"
-  },
-  {
-    "id": "US|MI|Gwinn",
-    "label": "Gwinn, MI",
-    "lat": 46.351498,
-    "lon": -87.395884,
-    "country": "US",
-    "airportIata": "MQT"
-  },
-  {
-    "id": "US|MD|Hagerstown",
-    "label": "Hagerstown, MD",
-    "lat": 39.708771,
-    "lon": -77.728014,
-    "country": "US",
-    "airportIata": "HGR"
-  },
-  {
-    "id": "US|ID|Hailey",
-    "label": "Hailey, ID",
-    "lat": 43.50439835,
-    "lon": -114.2959976,
-    "country": "US",
-    "airportIata": "SUN"
-  },
-  {
-    "id": "US|AK|Haines",
-    "label": "Haines, AK",
-    "lat": 59.243921,
-    "lon": -135.523925,
-    "country": "US",
-    "airportIata": "HNS"
-  },
-  {
-    "id": "CA|NS|Halifax",
-    "label": "Halifax, NS",
-    "lat": 44.8807983398,
-    "lon": -63.5085983276,
-    "country": "CA",
-    "airportIata": "YHZ"
-  },
-  {
-    "id": "CA|ON|Hamilton",
-    "label": "Hamilton, ON",
-    "lat": 43.17348,
-    "lon": -79.931185,
-    "country": "CA",
-    "airportIata": "YHM"
-  },
-  {
-    "id": "US|HI|Hana",
-    "label": "Hana, HI",
-    "lat": 20.795601,
-    "lon": -156.014008,
-    "country": "US",
-    "airportIata": "HNM"
-  },
-  {
-    "id": "US|MI|Hancock",
-    "label": "Hancock, MI",
-    "lat": 47.168399810791016,
-    "lon": -88.48909759521484,
-    "country": "US",
-    "airportIata": "CMX"
-  },
-  {
-    "id": "US|TX|Harlingen",
-    "label": "Harlingen, TX",
-    "lat": 26.228500366210938,
-    "lon": -97.65440368652344,
-    "country": "US",
-    "airportIata": "HRL"
-  },
-  {
-    "id": "US|PA|Harrisburg",
-    "label": "Harrisburg, PA",
-    "lat": 40.192838,
-    "lon": -76.762333,
-    "country": "US",
-    "airportIata": "MDT"
-  },
-  {
-    "id": "US|AR|Harrison",
-    "label": "Harrison, AR",
-    "lat": 36.26150131225586,
-    "lon": -93.15470123291016,
-    "country": "US",
-    "airportIata": "HRO"
-  },
-  {
-    "id": "US|CT|Hartford",
-    "label": "Hartford, CT",
-    "lat": 41.938555,
-    "lon": -72.688016,
-    "country": "US",
-    "airportIata": "BDL"
-  },
-  {
-    "id": "CA|QC|Havre-Saint-Pierre",
-    "label": "Havre-Saint-Pierre, QC",
-    "lat": 50.281898,
-    "lon": -63.611401,
-    "country": "CA",
-    "airportIata": "YGV"
-  },
-  {
-    "id": "US|MT|Havre",
-    "label": "Havre, MT",
-    "lat": 48.541387,
-    "lon": -109.762859,
-    "country": "US",
-    "airportIata": "HVR"
-  },
-  {
-    "id": "US|CA|Hawthorne",
-    "label": "Hawthorne, CA",
-    "lat": 33.922798,
-    "lon": -118.334999,
-    "country": "US",
-    "airportIata": "HHR"
-  },
-  {
-    "id": "CA|NT|Hay River",
-    "label": "Hay River, NT",
-    "lat": 60.8396987915,
-    "lon": -115.782997131,
-    "country": "CA",
-    "airportIata": "YHY"
-  },
-  {
-    "id": "US|CO|Hayden",
-    "label": "Hayden, CO",
-    "lat": 40.481201,
-    "lon": -107.218002,
-    "country": "US",
-    "airportIata": "HDN"
-  },
-  {
-    "id": "US|KS|Hays",
-    "label": "Hays, KS",
-    "lat": 38.844521,
-    "lon": -99.273148,
-    "country": "US",
-    "airportIata": "HYS"
-  },
-  {
-    "id": "US|MT|Helena",
-    "label": "Helena, MT",
-    "lat": 46.6068,
-    "lon": -111.983002,
-    "country": "US",
-    "airportIata": "HLN"
-  },
-  {
-    "id": "US|MN|Hibbing",
-    "label": "Hibbing, MN",
-    "lat": 47.384831,
-    "lon": -92.836905,
-    "country": "US",
-    "airportIata": "HIB"
-  },
-  {
-    "id": "CA|AB|High Level",
-    "label": "High Level, AB",
-    "lat": 58.62139892578125,
-    "lon": -117.16500091552734,
-    "country": "CA",
-    "airportIata": "YOJ"
-  },
-  {
-    "id": "US|HI|Hilo",
-    "label": "Hilo, HI",
-    "lat": 19.72135,
-    "lon": -155.045428,
-    "country": "US",
-    "airportIata": "ITO"
-  },
-  {
-    "id": "US|SC|Hilton Head Island",
-    "label": "Hilton Head Island, SC",
-    "lat": 32.2244,
-    "lon": -80.697502,
-    "country": "US",
-    "airportIata": "HHH"
-  },
-  {
-    "id": "US|NM|Hobbs",
-    "label": "Hobbs, NM",
-    "lat": 32.6875,
-    "lon": -103.217003,
-    "country": "US",
-    "airportIata": "HOB"
-  },
-  {
-    "id": "US|AK|Holy Cross",
-    "label": "Holy Cross, AK",
-    "lat": 62.18830108642578,
-    "lon": -159.77499389648438,
-    "country": "US",
-    "airportIata": "HCR"
-  },
-  {
-    "id": "US|AK|Homer",
-    "label": "Homer, AK",
-    "lat": 59.644456,
-    "lon": -151.479235,
-    "country": "US",
-    "airportIata": "HOM"
-  },
-  {
-    "id": "US|HI|Honolulu, Oahu",
-    "label": "Honolulu, Oahu, HI",
-    "lat": 21.318387,
-    "lon": -157.92567,
-    "country": "US",
-    "airportIata": "HNL"
-  },
-  {
-    "id": "US|AR|Hot Springs",
-    "label": "Hot Springs, AR",
-    "lat": 34.4788,
-    "lon": -93.096262,
-    "country": "US",
-    "airportIata": "HOT"
-  },
-  {
-    "id": "US|TX|Houston",
-    "label": "Houston, TX",
-    "lat": 29.645336,
-    "lon": -95.276812,
-    "country": "US",
-    "airportIata": "HOU"
-  },
-  {
-    "id": "US|WV|Huntington",
-    "label": "Huntington, WV",
-    "lat": 38.366699,
-    "lon": -82.557999,
-    "country": "US",
-    "airportIata": "HTS"
-  },
-  {
-    "id": "US|AL|Huntsville",
-    "label": "Huntsville, AL",
-    "lat": 34.636244,
-    "lon": -86.774378,
-    "country": "US",
-    "airportIata": "HSV"
-  },
-  {
-    "id": "US|AK|Huslia",
-    "label": "Huslia, AK",
-    "lat": 65.697899,
-    "lon": -156.350998,
-    "country": "US",
-    "airportIata": "HSL"
-  },
-  {
-    "id": "US|MA|Hyannis",
-    "label": "Hyannis, MA",
-    "lat": 41.6693,
-    "lon": -70.280403,
-    "country": "US",
-    "airportIata": "HYA"
-  },
-  {
-    "id": "US|ID|Idaho Falls",
-    "label": "Idaho Falls, ID",
-    "lat": 43.514599,
-    "lon": -112.070999,
-    "country": "US",
-    "airportIata": "IDA"
-  },
-  {
-    "id": "US|AK|Iliamna",
-    "label": "Iliamna, AK",
-    "lat": 59.754398,
-    "lon": -154.910996,
-    "country": "US",
-    "airportIata": "ILI"
-  },
-  {
-    "id": "US|CA|Imperial",
-    "label": "Imperial, CA",
-    "lat": 32.83539,
-    "lon": -115.574026,
-    "country": "US",
-    "airportIata": "IPL"
-  },
-  {
-    "id": "US|IN|Indianapolis",
-    "label": "Indianapolis, IN",
-    "lat": 39.7173,
-    "lon": -86.294403,
-    "country": "US",
-    "airportIata": "IND"
-  },
-  {
-    "id": "US|MN|International Falls",
-    "label": "International Falls, MN",
-    "lat": 48.566200256347656,
-    "lon": -93.4030990600586,
-    "country": "US",
-    "airportIata": "INL"
-  },
-  {
-    "id": "CA|NT|Inuvik",
-    "label": "Inuvik, NT",
-    "lat": 68.30419921880001,
-    "lon": -133.483001709,
-    "country": "CA",
-    "airportIata": "YEV"
-  },
-  {
-    "id": "CA|NU|Iqaluit",
-    "label": "Iqaluit, NU",
-    "lat": 63.756402,
-    "lon": -68.555801,
-    "country": "CA",
-    "airportIata": "YFB"
-  },
-  {
-    "id": "CA|MB|Island Lake",
-    "label": "Island Lake, MB",
-    "lat": 53.857200622558594,
-    "lon": -94.65360260009766,
-    "country": "CA",
-    "airportIata": "YIV"
-  },
-  {
-    "id": "US|NY|Islip",
-    "label": "Islip, NY",
-    "lat": 40.796324,
-    "lon": -73.101703,
-    "country": "US",
-    "airportIata": "ISP"
-  },
-  {
-    "id": "US|NY|Ithaca",
-    "label": "Ithaca, NY",
-    "lat": 42.49100112915039,
-    "lon": -76.4583969116211,
-    "country": "US",
-    "airportIata": "ITH"
-  },
-  {
-    "id": "US|MS|Jackson",
-    "label": "Jackson, MS",
-    "lat": 32.311199,
-    "lon": -90.075897,
-    "country": "US",
-    "airportIata": "JAN"
-  },
-  {
-    "id": "US|TN|Jackson",
-    "label": "Jackson, TN",
-    "lat": 35.599899,
-    "lon": -88.915604,
-    "country": "US",
-    "airportIata": "MKL"
-  },
-  {
-    "id": "US|WY|Jackson",
-    "label": "Jackson, WY",
-    "lat": 43.6073,
-    "lon": -110.737999,
-    "country": "US",
-    "airportIata": "JAC"
-  },
-  {
-    "id": "US|FL|Jacksonville",
-    "label": "Jacksonville, FL",
-    "lat": 30.492469,
-    "lon": -81.687813,
-    "country": "US",
-    "airportIata": "JAX"
-  },
-  {
-    "id": "US|ND|Jamestown",
-    "label": "Jamestown, ND",
-    "lat": 46.92969894,
-    "lon": -98.67819977,
-    "country": "US",
-    "airportIata": "JMS"
-  },
-  {
-    "id": "US|PA|Johnstown",
-    "label": "Johnstown, PA",
-    "lat": 40.31610107421875,
-    "lon": -78.83390045166016,
-    "country": "US",
-    "airportIata": "JST"
-  },
-  {
-    "id": "US|AR|Jonesboro",
-    "label": "Jonesboro, AR",
-    "lat": 35.83169937133789,
-    "lon": -90.64640045166016,
-    "country": "US",
-    "airportIata": "JBR"
-  },
-  {
-    "id": "US|MO|Joplin",
-    "label": "Joplin, MO",
-    "lat": 37.151798,
-    "lon": -94.498299,
-    "country": "US",
-    "airportIata": "JLN"
-  },
-  {
-    "id": "US|AK|Juneau",
-    "label": "Juneau, AK",
-    "lat": 58.354935,
-    "lon": -134.574416,
-    "country": "US",
-    "airportIata": "JNU"
-  },
-  {
-    "id": "US|HI|Kahului",
-    "label": "Kahului, HI",
-    "lat": 20.896263,
-    "lon": -156.431837,
-    "country": "US",
-    "airportIata": "OGG"
-  },
-  {
-    "id": "US|HI|Kailua-Kona",
-    "label": "Kailua-Kona, HI",
-    "lat": 19.738783,
-    "lon": -156.045603,
-    "country": "US",
-    "airportIata": "KOA"
-  },
-  {
-    "id": "US|MI|Kalamazoo",
-    "label": "Kalamazoo, MI",
-    "lat": 42.232105,
-    "lon": -85.549637,
-    "country": "US",
-    "airportIata": "AZO"
-  },
-  {
-    "id": "US|MT|Kalispell",
-    "label": "Kalispell, MT",
-    "lat": 48.310501,
-    "lon": -114.255997,
-    "country": "US",
-    "airportIata": "FCA"
-  },
-  {
-    "id": "CA|BC|Kamloops",
-    "label": "Kamloops, BC",
-    "lat": 50.703038,
-    "lon": -120.448641,
-    "country": "CA",
-    "airportIata": "YKA"
-  },
-  {
-    "id": "US|MO|Kansas City",
-    "label": "Kansas City, MO",
-    "lat": 39.2976,
-    "lon": -94.713898,
-    "country": "US",
-    "airportIata": "MCI"
-  },
-  {
-    "id": "CA|ON|Kasabonika",
-    "label": "Kasabonika, ON",
-    "lat": 53.52470016479492,
-    "lon": -88.6427993774414,
-    "country": "CA",
-    "airportIata": "XKS"
-  },
-  {
-    "id": "US|HI|Kaunakakai",
-    "label": "Kaunakakai, HI",
-    "lat": 21.152901,
-    "lon": -157.095993,
-    "country": "US",
-    "airportIata": "MKK"
-  },
-  {
-    "id": "US|NE|Kearney",
-    "label": "Kearney, NE",
-    "lat": 40.727001,
-    "lon": -99.006798,
-    "country": "US",
-    "airportIata": "EAR"
-  },
-  {
-    "id": "CA|BC|Kelowna",
-    "label": "Kelowna, BC",
-    "lat": 49.9561,
-    "lon": -119.377998,
-    "country": "CA",
-    "airportIata": "YLW"
-  },
-  {
-    "id": "US|AK|Kenai",
-    "label": "Kenai, AK",
-    "lat": 60.570946,
-    "lon": -151.245174,
-    "country": "US",
-    "airportIata": "ENA"
-  },
-  {
-    "id": "CA|ON|Kenora",
-    "label": "Kenora, ON",
-    "lat": 49.788299560546875,
-    "lon": -94.36309814453125,
-    "country": "CA",
-    "airportIata": "YQK"
-  },
-  {
-    "id": "US|AK|Ketchikan",
-    "label": "Ketchikan, AK",
-    "lat": 55.35559845,
-    "lon": -131.7140045,
-    "country": "US",
-    "airportIata": "KTN"
-  },
-  {
-    "id": "US|FL|Key West",
-    "label": "Key West, FL",
-    "lat": 24.556101,
-    "lon": -81.759598,
-    "country": "US",
-    "airportIata": "EYW"
-  },
-  {
-    "id": "US|AK|Kiana",
-    "label": "Kiana, AK",
-    "lat": 66.976128,
-    "lon": -160.439014,
-    "country": "US",
-    "airportIata": "IAN"
-  },
-  {
-    "id": "US|MI|Kincheloe",
-    "label": "Kincheloe, MI",
-    "lat": 46.242038,
-    "lon": -84.462082,
-    "country": "US",
-    "airportIata": "CIU"
-  },
-  {
-    "id": "US|AK|King Salmon",
-    "label": "King Salmon, AK",
-    "lat": 58.677845,
-    "lon": -156.651965,
-    "country": "US",
-    "airportIata": "AKN"
-  },
-  {
-    "id": "US|MI|Kingsford",
-    "label": "Kingsford, MI",
-    "lat": 45.81911,
-    "lon": -88.114557,
-    "country": "US",
-    "airportIata": "IMT"
-  },
-  {
-    "id": "US|MO|Kirksville",
-    "label": "Kirksville, MO",
-    "lat": 40.09349822998047,
-    "lon": -92.5448989868164,
-    "country": "US",
-    "airportIata": "IRK"
-  },
-  {
-    "id": "US|AK|Klawock",
-    "label": "Klawock, AK",
-    "lat": 55.579201,
-    "lon": -133.076004,
-    "country": "US",
-    "airportIata": "KLW"
-  },
-  {
-    "id": "US|TN|Knoxville/Maryville",
-    "label": "Knoxville/Maryville, TN",
-    "lat": 35.811001,
-    "lon": -83.994003,
-    "country": "US",
-    "airportIata": "TYS"
-  },
-  {
-    "id": "US|AK|Kodiak",
-    "label": "Kodiak, AK",
-    "lat": 57.75,
-    "lon": -152.4940033,
-    "country": "US",
-    "airportIata": "ADQ"
-  },
-  {
-    "id": "US|AK|Kotzebue",
-    "label": "Kotzebue, AK",
-    "lat": 66.88469696,
-    "lon": -162.598999,
-    "country": "US",
-    "airportIata": "OTZ"
-  },
-  {
-    "id": "CA|QC|Kuujjuaq",
-    "label": "Kuujjuaq, QC",
-    "lat": 58.096099853515625,
-    "lon": -68.4269027709961,
-    "country": "CA",
-    "airportIata": "YVP"
-  },
-  {
-    "id": "CA|QC|Kuujjuarapik",
-    "label": "Kuujjuarapik, QC",
-    "lat": 55.281898498535156,
-    "lon": -77.76529693603516,
-    "country": "CA",
-    "airportIata": "YGW"
-  },
-  {
-    "id": "US|WI|La Crosse",
-    "label": "La Crosse, WI",
-    "lat": 43.879002,
-    "lon": -91.256699,
-    "country": "US",
-    "airportIata": "LSE"
-  },
-  {
-    "id": "CA|QC|La Grande Rivière",
-    "label": "La Grande Rivière, QC",
-    "lat": 53.625301361083984,
-    "lon": -77.7042007446289,
-    "country": "CA",
-    "airportIata": "YGL"
-  },
-  {
-    "id": "CA|SK|La Ronge",
-    "label": "La Ronge, SK",
-    "lat": 55.151401519800004,
-    "lon": -105.262001038,
-    "country": "CA",
-    "airportIata": "YVC"
-  },
-  {
-    "id": "US|LA|Lafayette",
-    "label": "Lafayette, LA",
-    "lat": 30.205299,
-    "lon": -91.987602,
-    "country": "US",
-    "airportIata": "LFT"
-  },
-  {
-    "id": "US|HI|Lahaina",
-    "label": "Lahaina, HI",
-    "lat": 20.9629,
-    "lon": -156.673004,
-    "country": "US",
-    "airportIata": "JHM"
-  },
-  {
-    "id": "US|LA|Lake Charles",
-    "label": "Lake Charles, LA",
-    "lat": 30.126100540161133,
-    "lon": -93.22329711914062,
-    "country": "US",
-    "airportIata": "LCH"
-  },
-  {
-    "id": "US|AZ|Lake Havasu City",
-    "label": "Lake Havasu City, AZ",
-    "lat": 34.570506,
-    "lon": -114.357745,
-    "country": "US",
-    "airportIata": "HII"
-  },
-  {
-    "id": "US|FL|Lakeland",
-    "label": "Lakeland, FL",
-    "lat": 27.989113,
-    "lon": -82.018521,
-    "country": "US",
-    "airportIata": "LAL"
-  },
-  {
-    "id": "US|HI|Lanai City",
-    "label": "Lanai City, HI",
-    "lat": 20.785675,
-    "lon": -156.951324,
-    "country": "US",
-    "airportIata": "LNY"
-  },
-  {
-    "id": "US|PA|Lancaster",
-    "label": "Lancaster, PA",
-    "lat": 40.121700286865234,
-    "lon": -76.29609680175781,
-    "country": "US",
-    "airportIata": "LNS"
-  },
-  {
-    "id": "US|MI|Lansing",
-    "label": "Lansing, MI",
-    "lat": 42.777582,
-    "lon": -84.585721,
-    "country": "US",
-    "airportIata": "LAN"
-  },
-  {
-    "id": "US|WY|Laramie",
-    "label": "Laramie, WY",
-    "lat": 41.31209945678711,
-    "lon": -105.67500305175781,
-    "country": "US",
-    "airportIata": "LAR"
-  },
-  {
-    "id": "US|TX|Laredo",
-    "label": "Laredo, TX",
-    "lat": 27.5438,
-    "lon": -99.461601,
-    "country": "US",
-    "airportIata": "LRD"
-  },
-  {
-    "id": "US|NM|Las Cruces",
-    "label": "Las Cruces, NM",
-    "lat": 32.289398,
-    "lon": -106.921997,
-    "country": "US",
-    "airportIata": "LRU"
-  },
-  {
-    "id": "US|NV|Las Vegas",
-    "label": "Las Vegas, NV",
-    "lat": 36.083361,
-    "lon": -115.151817,
-    "country": "US",
-    "airportIata": "LAS"
-  },
-  {
-    "id": "US|PA|Latrobe",
-    "label": "Latrobe, PA",
-    "lat": 40.275902,
-    "lon": -79.4048,
-    "country": "US",
-    "airportIata": "LBE"
-  },
-  {
-    "id": "US|OK|Lawton",
-    "label": "Lawton, OK",
-    "lat": 34.567699,
-    "lon": -98.416603,
-    "country": "US",
-    "airportIata": "LAW"
-  },
-  {
-    "id": "US|NH|Lebanon",
-    "label": "Lebanon, NH",
-    "lat": 43.626098632799994,
-    "lon": -72.30419921880001,
-    "country": "US",
-    "airportIata": "LEB"
-  },
-  {
-    "id": "CA|QC|Les Îles-de-la-Madeleine",
-    "label": "Les Îles-de-la-Madeleine, QC",
-    "lat": 47.425242,
-    "lon": -61.778612,
-    "country": "CA",
-    "airportIata": "YGR"
-  },
-  {
-    "id": "CA|AB|Lethbridge",
-    "label": "Lethbridge, AB",
-    "lat": 49.6302986145,
-    "lon": -112.800003052,
-    "country": "CA",
-    "airportIata": "YQL"
-  },
-  {
-    "id": "US|WV|Lewisburg",
-    "label": "Lewisburg, WV",
-    "lat": 37.857914,
-    "lon": -80.400438,
-    "country": "US",
-    "airportIata": "LWB"
-  },
-  {
-    "id": "US|ID|Lewiston",
-    "label": "Lewiston, ID",
-    "lat": 46.3745002746582,
-    "lon": -117.01499938964844,
-    "country": "US",
-    "airportIata": "LWS"
-  },
-  {
-    "id": "US|KY|Lexington",
-    "label": "Lexington, KY",
-    "lat": 38.035066,
-    "lon": -84.606738,
-    "country": "US",
-    "airportIata": "LEX"
-  },
-  {
-    "id": "US|KS|Liberal",
-    "label": "Liberal, KS",
-    "lat": 37.0442009,
-    "lon": -100.9599991,
-    "country": "US",
-    "airportIata": "LBL"
-  },
-  {
-    "id": "US|HI|Lihue, Kauai",
-    "label": "Lihue, Kauai, HI",
-    "lat": 21.974393,
-    "lon": -159.337146,
-    "country": "US",
-    "airportIata": "LIH"
-  },
-  {
-    "id": "US|NE|Lincoln",
-    "label": "Lincoln, NE",
-    "lat": 40.844882,
-    "lon": -96.76178,
-    "country": "US",
-    "airportIata": "LNK"
-  },
-  {
-    "id": "US|AR|Little Rock",
-    "label": "Little Rock, AR",
-    "lat": 34.729222,
-    "lon": -92.223591,
-    "country": "US",
-    "airportIata": "LIT"
-  },
-  {
-    "id": "CA|AB|Lloydminster",
-    "label": "Lloydminster, AB",
-    "lat": 53.3092,
-    "lon": -110.072998,
-    "country": "CA",
-    "airportIata": "YLL"
-  },
-  {
-    "id": "CA|ON|London",
-    "label": "London, ON",
-    "lat": 43.032845,
-    "lon": -81.149003,
-    "country": "CA",
-    "airportIata": "YXU"
-  },
-  {
-    "id": "US|CA|Long Beach",
-    "label": "Long Beach, CA",
-    "lat": 33.816523,
-    "lon": -118.149891,
-    "country": "US",
-    "airportIata": "LGB"
-  },
-  {
-    "id": "US|TX|Longview",
-    "label": "Longview, TX",
-    "lat": 32.38399887084961,
-    "lon": -94.71150207519531,
-    "country": "US",
-    "airportIata": "GGG"
-  },
-  {
-    "id": "US|CA|Los Angeles",
-    "label": "Los Angeles, CA",
-    "lat": 33.942501,
-    "lon": -118.407997,
-    "country": "US",
-    "airportIata": "LAX"
-  },
-  {
-    "id": "US|KY|Louisville",
-    "label": "Louisville, KY",
-    "lat": 38.1706,
-    "lon": -85.735076,
-    "country": "US",
-    "airportIata": "SDF"
-  },
-  {
-    "id": "US|TX|Lubbock",
-    "label": "Lubbock, TX",
-    "lat": 33.663601,
-    "lon": -101.822998,
-    "country": "US",
-    "airportIata": "LBB"
-  },
-  {
-    "id": "US|VA|Lynchburg",
-    "label": "Lynchburg, VA",
-    "lat": 37.326698,
-    "lon": -79.200401,
-    "country": "US",
-    "airportIata": "LYH"
-  },
-  {
-    "id": "CA|MB|Lynn Lake",
-    "label": "Lynn Lake, MB",
-    "lat": 56.86389923095703,
-    "lon": -101.07599639892578,
-    "country": "CA",
-    "airportIata": "YYL"
-  },
-  {
-    "id": "US|GA|Macon",
-    "label": "Macon, GA",
-    "lat": 32.69279861450195,
-    "lon": -83.64920043945312,
-    "country": "US",
-    "airportIata": "MCN"
-  },
-  {
-    "id": "US|WI|Madison",
-    "label": "Madison, WI",
-    "lat": 43.1399,
-    "lon": -89.337502,
-    "country": "US",
-    "airportIata": "MSN"
-  },
-  {
-    "id": "US|NH|Manchester",
-    "label": "Manchester, NH",
-    "lat": 42.932598,
-    "lon": -71.435699,
-    "country": "US",
-    "airportIata": "MHT"
-  },
-  {
-    "id": "US|KS|Manhattan",
-    "label": "Manhattan, KS",
-    "lat": 39.14099884033203,
-    "lon": -96.6707992553711,
-    "country": "US",
-    "airportIata": "MHK"
-  },
-  {
-    "id": "US|IL|Marion",
-    "label": "Marion, IL",
-    "lat": 37.751208,
-    "lon": -89.016568,
-    "country": "US",
-    "airportIata": "MWA"
-  },
-  {
-    "id": "US|IA|Mason City",
-    "label": "Mason City, IA",
-    "lat": 43.159801,
-    "lon": -93.329716,
-    "country": "US",
-    "airportIata": "MCW"
-  },
-  {
-    "id": "US|NY|Massena",
-    "label": "Massena, NY",
-    "lat": 44.936157,
-    "lon": -74.844304,
-    "country": "US",
-    "airportIata": "MSS"
-  },
-  {
-    "id": "CA|BC|Masset",
-    "label": "Masset, BC",
-    "lat": 54.0275,
-    "lon": -132.125,
-    "country": "CA",
-    "airportIata": "ZMT"
-  },
-  {
-    "id": "US|TX|McAllen",
-    "label": "McAllen, TX",
-    "lat": 26.176141,
-    "lon": -98.237965,
-    "country": "US",
-    "airportIata": "MFE"
-  },
-  {
-    "id": "US|ID|McCall",
-    "label": "McCall, ID",
-    "lat": 44.888837,
-    "lon": -116.101112,
-    "country": "US",
-    "airportIata": "MYL"
-  },
-  {
-    "id": "US|NE|McCook",
-    "label": "McCook, NE",
-    "lat": 40.207787,
-    "lon": -100.592794,
-    "country": "US",
-    "airportIata": "MCK"
-  },
-  {
-    "id": "US|AK|McGrath",
-    "label": "McGrath, AK",
-    "lat": 62.95289993,
-    "lon": -155.6060028,
-    "country": "US",
-    "airportIata": "MCG"
-  },
-  {
-    "id": "US|OR|Medford",
-    "label": "Medford, OR",
-    "lat": 42.374199,
-    "lon": -122.873001,
-    "country": "US",
-    "airportIata": "MFR"
-  },
-  {
-    "id": "CA|AB|Medicine Hat",
-    "label": "Medicine Hat, AB",
-    "lat": 50.018902,
-    "lon": -110.721001,
-    "country": "CA",
-    "airportIata": "YXH"
-  },
-  {
-    "id": "US|AK|Mekoryuk",
-    "label": "Mekoryuk, AK",
-    "lat": 60.372338,
-    "lon": -166.269751,
-    "country": "US",
-    "airportIata": "MYU"
-  },
-  {
-    "id": "US|FL|Melbourne",
-    "label": "Melbourne, FL",
-    "lat": 28.102009,
-    "lon": -80.641088,
-    "country": "US",
-    "airportIata": "MLB"
-  },
-  {
-    "id": "US|TN|Memphis",
-    "label": "Memphis, TN",
-    "lat": 35.043845,
-    "lon": -89.97634,
-    "country": "US",
-    "airportIata": "MEM"
-  },
-  {
-    "id": "US|CA|Merced",
-    "label": "Merced, CA",
-    "lat": 37.284698,
-    "lon": -120.514,
-    "country": "US",
-    "airportIata": "MCE"
-  },
-  {
-    "id": "US|MS|Meridian",
-    "label": "Meridian, MS",
-    "lat": 32.3326,
-    "lon": -88.7519,
-    "country": "US",
-    "airportIata": "MEI"
-  },
-  {
-    "id": "US|AZ|Mesa",
-    "label": "Mesa, AZ",
-    "lat": 33.3078,
-    "lon": -111.654999,
-    "country": "US",
-    "airportIata": "AZA"
-  },
-  {
-    "id": "US|FL|Miami",
-    "label": "Miami, FL",
-    "lat": 25.7932,
-    "lon": -80.290604,
-    "country": "US",
-    "airportIata": "MIA"
-  },
-  {
-    "id": "US|IN|Michigan City",
-    "label": "Michigan City, IN",
-    "lat": 41.7033,
-    "lon": -86.821198,
-    "country": "US",
-    "airportIata": "MGC"
-  },
-  {
-    "id": "US|TX|Midland",
-    "label": "Midland, TX",
-    "lat": 31.942499,
-    "lon": -102.202003,
-    "country": "US",
-    "airportIata": "MAF"
-  },
-  {
-    "id": "US|WI|Milwaukee",
-    "label": "Milwaukee, WI",
-    "lat": 42.947201,
-    "lon": -87.896599,
-    "country": "US",
-    "airportIata": "MKE"
-  },
-  {
-    "id": "US|TX|Mineral Wells",
-    "label": "Mineral Wells, TX",
-    "lat": 32.781601,
-    "lon": -98.060204,
-    "country": "US",
-    "airportIata": "MWL"
-  },
-  {
-    "id": "US|MN|Minneapolis",
-    "label": "Minneapolis, MN",
-    "lat": 44.880081,
-    "lon": -93.221741,
-    "country": "US",
-    "airportIata": "MSP"
-  },
-  {
-    "id": "US|ND|Minot",
-    "label": "Minot, ND",
-    "lat": 48.25801,
-    "lon": -101.279123,
-    "country": "US",
-    "airportIata": "MOT"
-  },
-  {
-    "id": "US|MT|Missoula",
-    "label": "Missoula, MT",
-    "lat": 46.915816,
-    "lon": -114.091107,
-    "country": "US",
-    "airportIata": "MSO"
-  },
-  {
-    "id": "US|UT|Moab",
-    "label": "Moab, UT",
-    "lat": 38.755001,
-    "lon": -109.754997,
-    "country": "US",
-    "airportIata": "CNY"
-  },
-  {
-    "id": "US|AL|Mobile",
-    "label": "Mobile, AL",
-    "lat": 30.6912,
-    "lon": -88.242798,
-    "country": "US",
-    "airportIata": "MOB"
-  },
-  {
-    "id": "US|IL|Moline",
-    "label": "Moline, IL",
-    "lat": 41.448502,
-    "lon": -90.5075,
-    "country": "US",
-    "airportIata": "MLI"
-  },
-  {
-    "id": "CA|NB|Moncton",
-    "label": "Moncton, NB",
-    "lat": 46.113189,
-    "lon": -64.67719,
-    "country": "CA",
-    "airportIata": "YQM"
-  },
-  {
-    "id": "US|LA|Monroe",
-    "label": "Monroe, LA",
-    "lat": 32.510899,
-    "lon": -92.037697,
-    "country": "US",
-    "airportIata": "MLU"
-  },
-  {
-    "id": "CA|QC|Mont-Joli",
-    "label": "Mont-Joli, QC",
-    "lat": 48.60860061645508,
-    "lon": -68.20809936523438,
-    "country": "CA",
-    "airportIata": "YYY"
-  },
-  {
-    "id": "US|CA|Monterey",
-    "label": "Monterey, CA",
-    "lat": 36.586777,
-    "lon": -121.844183,
-    "country": "US",
-    "airportIata": "MRY"
-  },
-  {
-    "id": "US|AL|Montgomery",
-    "label": "Montgomery, AL",
-    "lat": 32.300598,
-    "lon": -86.393997,
-    "country": "US",
-    "airportIata": "MGM"
-  },
-  {
-    "id": "CA|QC|Montréal",
-    "label": "Montréal, QC",
-    "lat": 45.679501,
-    "lon": -74.038696,
-    "country": "CA",
-    "airportIata": "YMX"
-  },
-  {
-    "id": "US|CO|Montrose",
-    "label": "Montrose, CO",
-    "lat": 38.5098,
-    "lon": -107.893997,
-    "country": "US",
-    "airportIata": "MTJ"
-  },
-  {
-    "id": "CA|ON|Moosonee",
-    "label": "Moosonee, ON",
-    "lat": 51.291099548339844,
-    "lon": -80.60780334472656,
-    "country": "CA",
-    "airportIata": "YMO"
-  },
-  {
-    "id": "US|WV|Morgantown",
-    "label": "Morgantown, WV",
-    "lat": 39.643305,
-    "lon": -79.917598,
-    "country": "US",
-    "airportIata": "MGW"
-  },
-  {
-    "id": "US|MS|Moselle",
-    "label": "Moselle, MS",
-    "lat": 31.4671,
-    "lon": -89.337097,
-    "country": "US",
-    "airportIata": "PIB"
-  },
-  {
-    "id": "US|WI|Mosinee",
-    "label": "Mosinee, WI",
-    "lat": 44.777448,
-    "lon": -89.670238,
-    "country": "US",
-    "airportIata": "CWA"
-  },
-  {
-    "id": "US|AL|Muscle Shoals",
-    "label": "Muscle Shoals, AL",
-    "lat": 34.745123,
-    "lon": -87.612981,
-    "country": "US",
-    "airportIata": "MSL"
-  },
-  {
-    "id": "US|MI|Muskegon",
-    "label": "Muskegon, MI",
-    "lat": 43.169498,
-    "lon": -86.238197,
-    "country": "US",
-    "airportIata": "MKG"
-  },
-  {
-    "id": "US|SC|Myrtle Beach",
-    "label": "Myrtle Beach, SC",
-    "lat": 33.679699,
-    "lon": -78.928299,
-    "country": "US",
-    "airportIata": "MYR"
-  },
-  {
-    "id": "CA|ON|Nakina",
-    "label": "Nakina, ON",
-    "lat": 50.18280029296875,
-    "lon": -86.69640350341797,
-    "country": "CA",
-    "airportIata": "YQN"
-  },
-  {
-    "id": "CA|BC|Nanaimo",
-    "label": "Nanaimo, BC",
-    "lat": 49.05497,
-    "lon": -123.869863,
-    "country": "CA",
-    "airportIata": "YCD"
-  },
-  {
-    "id": "US|MA|Nantucket",
-    "label": "Nantucket, MA",
-    "lat": 41.25310135,
-    "lon": -70.06020355,
-    "country": "US",
-    "airportIata": "ACK"
-  },
-  {
-    "id": "US|TN|Nashville",
-    "label": "Nashville, TN",
-    "lat": 36.1245,
-    "lon": -86.6782,
-    "country": "US",
-    "airportIata": "BNA"
-  },
-  {
-    "id": "CA|QC|Natashquan",
-    "label": "Natashquan, QC",
-    "lat": 50.190114,
-    "lon": -61.78898,
-    "country": "CA",
-    "airportIata": "YNA"
-  },
-  {
-    "id": "US|MA|New Bedford",
-    "label": "New Bedford, MA",
-    "lat": 41.67610168457031,
-    "lon": -70.95690155029297,
-    "country": "US",
-    "airportIata": "EWB"
-  },
-  {
-    "id": "US|NC|New Bern",
-    "label": "New Bern, NC",
-    "lat": 35.0730018616,
-    "lon": -77.04290008539999,
-    "country": "US",
-    "airportIata": "EWN"
-  },
-  {
-    "id": "US|CT|New Haven",
-    "label": "New Haven, CT",
-    "lat": 41.262869,
-    "lon": -72.887694,
-    "country": "US",
-    "airportIata": "HVN"
-  },
-  {
-    "id": "US|LA|New Orleans",
-    "label": "New Orleans, LA",
-    "lat": 29.993401,
-    "lon": -90.258003,
-    "country": "US",
-    "airportIata": "MSY"
-  },
-  {
-    "id": "US|NY|New York",
     "label": "New York, NY",
-    "lat": 40.639447,
-    "lon": -73.779317,
+    "lat": 40.7128,
+    "lon": -74.006,
     "country": "US",
     "airportIata": "JFK"
   },
   {
-    "id": "US|NJ|Newark",
-    "label": "Newark, NJ",
-    "lat": 40.692501,
-    "lon": -74.168701,
+    "label": "Los Angeles, CA",
+    "lat": 34.0522,
+    "lon": -118.2437,
     "country": "US",
-    "airportIata": "EWR"
+    "airportIata": "LAX"
   },
   {
-    "id": "US|NY|Newburgh",
-    "label": "Newburgh, NY",
-    "lat": 41.501731,
-    "lon": -74.100435,
+    "label": "Chicago, IL",
+    "lat": 41.8781,
+    "lon": -87.6298,
     "country": "US",
-    "airportIata": "SWF"
+    "airportIata": "ORD"
   },
   {
-    "id": "US|VA|Newport News",
-    "label": "Newport News, VA",
-    "lat": 37.131901,
-    "lon": -76.492996,
+    "label": "Houston, TX",
+    "lat": 29.7604,
+    "lon": -95.3698,
     "country": "US",
-    "airportIata": "PHF"
+    "airportIata": "IAH"
   },
   {
-    "id": "US|NY|Niagara Falls",
-    "label": "Niagara Falls, NY",
-    "lat": 43.1073,
-    "lon": -78.946198,
-    "country": "US",
-    "airportIata": "IAG"
-  },
-  {
-    "id": "CA|ON|Niagara-on-the-Lake",
-    "label": "Niagara-on-the-Lake, ON",
-    "lat": 43.191598,
-    "lon": -79.171686,
-    "country": "CA",
-    "airportIata": "YCM"
-  },
-  {
-    "id": "US|AK|Nome",
-    "label": "Nome, AK",
-    "lat": 64.51219940185547,
-    "lon": -165.44500732421875,
-    "country": "US",
-    "airportIata": "OME"
-  },
-  {
-    "id": "US|VA|Norfolk",
-    "label": "Norfolk, VA",
-    "lat": 36.895341,
-    "lon": -76.201,
-    "country": "US",
-    "airportIata": "ORF"
-  },
-  {
-    "id": "CA|NT|Norman Wells",
-    "label": "Norman Wells, NT",
-    "lat": 65.28160095214844,
-    "lon": -126.7979965209961,
-    "country": "CA",
-    "airportIata": "YVQ"
-  },
-  {
-    "id": "CA|ON|North Bay",
-    "label": "North Bay, ON",
-    "lat": 46.363602,
-    "lon": -79.422798,
-    "country": "CA",
-    "airportIata": "YYB"
-  },
-  {
-    "id": "US|OR|North Bend",
-    "label": "North Bend, OR",
-    "lat": 43.41709899902344,
-    "lon": -124.24600219726562,
-    "country": "US",
-    "airportIata": "OTH"
-  },
-  {
-    "id": "US|NE|North Platte",
-    "label": "North Platte, NE",
-    "lat": 41.12620163,
-    "lon": -100.6839981,
-    "country": "US",
-    "airportIata": "LBF"
-  },
-  {
-    "id": "US|AK|Northway",
-    "label": "Northway, AK",
-    "lat": 62.9613,
-    "lon": -141.929001,
-    "country": "US",
-    "airportIata": "ORT"
-  },
-  {
-    "id": "US|AK|Nuiqsut",
-    "label": "Nuiqsut, AK",
-    "lat": 70.209999,
-    "lon": -151.005998,
-    "country": "US",
-    "airportIata": "NUI"
-  },
-  {
-    "id": "US|CA|Oakland",
-    "label": "Oakland, CA",
-    "lat": 37.720085,
-    "lon": -122.221184,
-    "country": "US",
-    "airportIata": "OAK"
-  },
-  {
-    "id": "US|MD|Ocean City",
-    "label": "Ocean City, MD",
-    "lat": 38.310398,
-    "lon": -75.124001,
-    "country": "US",
-    "airportIata": "OCE"
-  },
-  {
-    "id": "US|UT|Ogden",
-    "label": "Ogden, UT",
-    "lat": 41.195899963379,
-    "lon": -112.0120010376,
-    "country": "US",
-    "airportIata": "OGD"
-  },
-  {
-    "id": "US|NY|Ogdensburg",
-    "label": "Ogdensburg, NY",
-    "lat": 44.6819,
-    "lon": -75.4655,
-    "country": "US",
-    "airportIata": "OGS"
-  },
-  {
-    "id": "US|OK|Oklahoma City",
-    "label": "Oklahoma City, OK",
-    "lat": 35.393388,
-    "lon": -97.598248,
-    "country": "US",
-    "airportIata": "OKC"
-  },
-  {
-    "id": "US|WA|Olympia",
-    "label": "Olympia, WA",
-    "lat": 46.969399,
-    "lon": -122.903,
-    "country": "US",
-    "airportIata": "OLM"
-  },
-  {
-    "id": "US|NE|Omaha",
-    "label": "Omaha, NE",
-    "lat": 41.3032,
-    "lon": -95.894096,
-    "country": "US",
-    "airportIata": "OMA"
-  },
-  {
-    "id": "US|CA|Ontario",
-    "label": "Ontario, CA",
-    "lat": 34.056,
-    "lon": -117.600998,
-    "country": "US",
-    "airportIata": "ONT"
-  },
-  {
-    "id": "US|FL|Orlando",
-    "label": "Orlando, FL",
-    "lat": 28.429399490356445,
-    "lon": -81.30899810791016,
-    "country": "US",
-    "airportIata": "MCO"
-  },
-  {
-    "id": "CA|ON|Ottawa",
-    "label": "Ottawa, ON",
-    "lat": 45.322498,
-    "lon": -75.669197,
-    "country": "CA",
-    "airportIata": "YOW"
-  },
-  {
-    "id": "US|KY|Owensboro",
-    "label": "Owensboro, KY",
-    "lat": 37.74010086,
-    "lon": -87.16680145,
-    "country": "US",
-    "airportIata": "OWB"
-  },
-  {
-    "id": "US|KY|Paducah",
-    "label": "Paducah, KY",
-    "lat": 37.06079864501953,
-    "lon": -88.7738037109375,
-    "country": "US",
-    "airportIata": "PAH"
-  },
-  {
-    "id": "US|AZ|Page",
-    "label": "Page, AZ",
-    "lat": 36.924234,
-    "lon": -111.447716,
-    "country": "US",
-    "airportIata": "PGA"
-  },
-  {
-    "id": "US|CA|Palm Springs",
-    "label": "Palm Springs, CA",
-    "lat": 33.8297,
-    "lon": -116.507004,
-    "country": "US",
-    "airportIata": "PSP"
-  },
-  {
-    "id": "US|FL|Panama City Beach",
-    "label": "Panama City Beach, FL",
-    "lat": 30.357106,
-    "lon": -85.795414,
-    "country": "US",
-    "airportIata": "ECP"
-  },
-  {
-    "id": "US|WV|Parkersburg (Williamstown)",
-    "label": "Parkersburg (Williamstown), WV",
-    "lat": 39.3451,
-    "lon": -81.439201,
-    "country": "US",
-    "airportIata": "PKB"
-  },
-  {
-    "id": "US|WA|Pasco",
-    "label": "Pasco, WA",
-    "lat": 46.264702,
-    "lon": -119.119003,
-    "country": "US",
-    "airportIata": "PSC"
-  },
-  {
-    "id": "CA|AB|Peace River",
-    "label": "Peace River, AB",
-    "lat": 56.226898,
-    "lon": -117.446999,
-    "country": "CA",
-    "airportIata": "YPE"
-  },
-  {
-    "id": "US|MI|Pellston",
-    "label": "Pellston, MI",
-    "lat": 45.57089996,
-    "lon": -84.79669952,
-    "country": "US",
-    "airportIata": "PLN"
-  },
-  {
-    "id": "US|OR|Pendleton",
-    "label": "Pendleton, OR",
-    "lat": 45.695099,
-    "lon": -118.841003,
-    "country": "US",
-    "airportIata": "PDT"
-  },
-  {
-    "id": "US|FL|Pensacola",
-    "label": "Pensacola, FL",
-    "lat": 30.472718,
-    "lon": -87.186639,
-    "country": "US",
-    "airportIata": "PNS"
-  },
-  {
-    "id": "CA|BC|Penticton",
-    "label": "Penticton, BC",
-    "lat": 49.46310043334961,
-    "lon": -119.60199737548828,
-    "country": "CA",
-    "airportIata": "YYF"
-  },
-  {
-    "id": "US|IL|Peoria",
-    "label": "Peoria, IL",
-    "lat": 40.663841,
-    "lon": -89.692631,
-    "country": "US",
-    "airportIata": "PIA"
-  },
-  {
-    "id": "CA|ON|Peterborough",
-    "label": "Peterborough, ON",
-    "lat": 44.232251,
-    "lon": -78.362053,
-    "country": "CA",
-    "airportIata": "YPQ"
-  },
-  {
-    "id": "US|AK|Petersburg",
-    "label": "Petersburg, AK",
-    "lat": 56.80170059,
-    "lon": -132.9450073,
-    "country": "US",
-    "airportIata": "PSG"
-  },
-  {
-    "id": "US|PA|Philadelphia",
-    "label": "Philadelphia, PA",
-    "lat": 39.871899,
-    "lon": -75.241096,
-    "country": "US",
-    "airportIata": "PHL"
-  },
-  {
-    "id": "US|AZ|Phoenix",
     "label": "Phoenix, AZ",
-    "lat": 33.435302,
-    "lon": -112.005905,
+    "lat": 33.4484,
+    "lon": -112.074,
     "country": "US",
     "airportIata": "PHX"
   },
   {
-    "id": "CA|ON|Pickle Lake",
-    "label": "Pickle Lake, ON",
-    "lat": 51.4463996887207,
-    "lon": -90.21420288085938,
-    "country": "CA",
-    "airportIata": "YPL"
-  },
-  {
-    "id": "US|SD|Pierre",
-    "label": "Pierre, SD",
-    "lat": 44.38270187,
-    "lon": -100.2860031,
+    "label": "Philadelphia, PA",
+    "lat": 39.9526,
+    "lon": -75.1652,
     "country": "US",
-    "airportIata": "PIR"
+    "airportIata": "PHL"
   },
   {
-    "id": "US|FL|Pinellas Park",
-    "label": "Pinellas Park, FL",
-    "lat": 27.9102,
-    "lon": -82.687401,
-    "country": "US",
-    "airportIata": "PIE"
-  },
-  {
-    "id": "US|PA|Pittsburgh",
-    "label": "Pittsburgh, PA",
-    "lat": 40.491501,
-    "lon": -80.232903,
-    "country": "US",
-    "airportIata": "PIT"
-  },
-  {
-    "id": "US|AK|Platinum",
-    "label": "Platinum, AK",
-    "lat": 59.017675,
-    "lon": -161.827927,
-    "country": "US",
-    "airportIata": "PTU"
-  },
-  {
-    "id": "US|NY|Plattsburgh",
-    "label": "Plattsburgh, NY",
-    "lat": 44.650902,
-    "lon": -73.468102,
-    "country": "US",
-    "airportIata": "PBG"
-  },
-  {
-    "id": "US|ID|Pocatello",
-    "label": "Pocatello, ID",
-    "lat": 42.9098014831543,
-    "lon": -112.59600067138672,
-    "country": "US",
-    "airportIata": "PIH"
-  },
-  {
-    "id": "US|AK|Point Lay",
-    "label": "Point Lay, AK",
-    "lat": 69.732903,
-    "lon": -163.005005,
-    "country": "US",
-    "airportIata": "PIZ"
-  },
-  {
-    "id": "CA|SK|Points North Landing",
-    "label": "Points North Landing, SK",
-    "lat": 58.27669906616211,
-    "lon": -104.08200073242188,
-    "country": "CA",
-    "airportIata": "YNL"
-  },
-  {
-    "id": "CA|BC|Port Hardy",
-    "label": "Port Hardy, BC",
-    "lat": 50.680599212646484,
-    "lon": -127.36699676513672,
-    "country": "CA",
-    "airportIata": "YZT"
-  },
-  {
-    "id": "US|AK|Port Heiden",
-    "label": "Port Heiden, AK",
-    "lat": 56.957893,
-    "lon": -158.630219,
-    "country": "US",
-    "airportIata": "PTH"
-  },
-  {
-    "id": "CA|QC|Port-Menier",
-    "label": "Port-Menier, QC",
-    "lat": 49.836399,
-    "lon": -64.288597,
-    "country": "CA",
-    "airportIata": "YPN"
-  },
-  {
-    "id": "US|ME|Portland",
-    "label": "Portland, ME",
-    "lat": 43.646198,
-    "lon": -70.309303,
-    "country": "US",
-    "airportIata": "PWM"
-  },
-  {
-    "id": "US|OR|Portland",
-    "label": "Portland, OR",
-    "lat": 45.588699,
-    "lon": -122.598,
-    "country": "US",
-    "airportIata": "PDX"
-  },
-  {
-    "id": "US|NH|Portsmouth",
-    "label": "Portsmouth, NH",
-    "lat": 43.0779,
-    "lon": -70.823303,
-    "country": "US",
-    "airportIata": "PSM"
-  },
-  {
-    "id": "CA|BC|Powell River",
-    "label": "Powell River, BC",
-    "lat": 49.83420181274414,
-    "lon": -124.5,
-    "country": "CA",
-    "airportIata": "YPW"
-  },
-  {
-    "id": "US|AZ|Prescott",
-    "label": "Prescott, AZ",
-    "lat": 34.653502,
-    "lon": -112.419883,
-    "country": "US",
-    "airportIata": "PRC"
-  },
-  {
-    "id": "US|ME|Presque Isle",
-    "label": "Presque Isle, ME",
-    "lat": 46.688999,
-    "lon": -68.0448,
-    "country": "US",
-    "airportIata": "PQI"
-  },
-  {
-    "id": "CA|SK|Prince Albert",
-    "label": "Prince Albert, SK",
-    "lat": 53.214199066199996,
-    "lon": -105.672996521,
-    "country": "CA",
-    "airportIata": "YPA"
-  },
-  {
-    "id": "CA|BC|Prince George",
-    "label": "Prince George, BC",
-    "lat": 53.884311,
-    "lon": -122.666554,
-    "country": "CA",
-    "airportIata": "YXS"
-  },
-  {
-    "id": "CA|BC|Prince Rupert",
-    "label": "Prince Rupert, BC",
-    "lat": 54.286098480199996,
-    "lon": -130.445007324,
-    "country": "CA",
-    "airportIata": "YPR"
-  },
-  {
-    "id": "US|RI|Providence/Warwick",
-    "label": "Providence/Warwick, RI",
-    "lat": 41.725038,
-    "lon": -71.425668,
-    "country": "US",
-    "airportIata": "PVD"
-  },
-  {
-    "id": "US|UT|Provo",
-    "label": "Provo, UT",
-    "lat": 40.218894,
-    "lon": -111.722445,
-    "country": "US",
-    "airportIata": "PVU"
-  },
-  {
-    "id": "US|CO|Pueblo",
-    "label": "Pueblo, CO",
-    "lat": 38.289101,
-    "lon": -104.497002,
-    "country": "US",
-    "airportIata": "PUB"
-  },
-  {
-    "id": "US|WA|Pullman",
-    "label": "Pullman, WA",
-    "lat": 46.741601,
-    "lon": -117.11163,
-    "country": "US",
-    "airportIata": "PUW"
-  },
-  {
-    "id": "US|FL|Punta Gorda",
-    "label": "Punta Gorda, FL",
-    "lat": 26.9202,
-    "lon": -81.990501,
-    "country": "US",
-    "airportIata": "PGD"
-  },
-  {
-    "id": "CA|QC|Puvirnituq",
-    "label": "Puvirnituq, QC",
-    "lat": 60.050598,
-    "lon": -77.286903,
-    "country": "CA",
-    "airportIata": "YPX"
-  },
-  {
-    "id": "CA|BC|Qualicum Beach",
-    "label": "Qualicum Beach, BC",
-    "lat": 49.337456,
-    "lon": -124.393086,
-    "country": "CA",
-    "airportIata": "XQU"
-  },
-  {
-    "id": "CA|QC|Quebec",
-    "label": "Quebec, QC",
-    "lat": 46.7911,
-    "lon": -71.393303,
-    "country": "CA",
-    "airportIata": "YQB"
-  },
-  {
-    "id": "CA|BC|Quesnel",
-    "label": "Quesnel, BC",
-    "lat": 53.026100158691406,
-    "lon": -122.51000213623047,
-    "country": "CA",
-    "airportIata": "YQZ"
-  },
-  {
-    "id": "US|IL|Quincy",
-    "label": "Quincy, IL",
-    "lat": 39.942699,
-    "lon": -91.194603,
-    "country": "US",
-    "airportIata": "UIN"
-  },
-  {
-    "id": "US|NC|Raleigh/Durham",
-    "label": "Raleigh/Durham, NC",
-    "lat": 35.878659,
-    "lon": -78.7873,
-    "country": "US",
-    "airportIata": "RDU"
-  },
-  {
-    "id": "CA|NU|Rankin Inlet",
-    "label": "Rankin Inlet, NU",
-    "lat": 62.8114013672,
-    "lon": -92.1157989502,
-    "country": "CA",
-    "airportIata": "YRT"
-  },
-  {
-    "id": "US|SD|Rapid City",
-    "label": "Rapid City, SD",
-    "lat": 44.0452995300293,
-    "lon": -103.05699920654297,
-    "country": "US",
-    "airportIata": "RAP"
-  },
-  {
-    "id": "CA|ON|Red Lake",
-    "label": "Red Lake, ON",
-    "lat": 51.066898345947266,
-    "lon": -93.79309844970703,
-    "country": "CA",
-    "airportIata": "YRL"
-  },
-  {
-    "id": "US|CA|Redding",
-    "label": "Redding, CA",
-    "lat": 40.50899887,
-    "lon": -122.2929993,
-    "country": "US",
-    "airportIata": "RDD"
-  },
-  {
-    "id": "US|OR|Redmond",
-    "label": "Redmond, OR",
-    "lat": 44.254101,
-    "lon": -121.150002,
-    "country": "US",
-    "airportIata": "RDM"
-  },
-  {
-    "id": "CA|SK|Regina",
-    "label": "Regina, SK",
-    "lat": 50.431938,
-    "lon": -104.660906,
-    "country": "CA",
-    "airportIata": "YQR"
-  },
-  {
-    "id": "US|NV|Reno",
-    "label": "Reno, NV",
-    "lat": 39.4991,
-    "lon": -119.767998,
-    "country": "US",
-    "airportIata": "RNO"
-  },
-  {
-    "id": "CA|NU|Resolute Bay",
-    "label": "Resolute Bay, NU",
-    "lat": 74.7169036865,
-    "lon": -94.9693984985,
-    "country": "CA",
-    "airportIata": "YRB"
-  },
-  {
-    "id": "US|WI|Rhinelander",
-    "label": "Rhinelander, WI",
-    "lat": 45.63119888305664,
-    "lon": -89.46749877929688,
-    "country": "US",
-    "airportIata": "RHI"
-  },
-  {
-    "id": "US|NC|Richlands",
-    "label": "Richlands, NC",
-    "lat": 34.829201,
-    "lon": -77.612099,
-    "country": "US",
-    "airportIata": "OAJ"
-  },
-  {
-    "id": "US|VA|Richmond",
-    "label": "Richmond, VA",
-    "lat": 37.505199,
-    "lon": -77.319702,
-    "country": "US",
-    "airportIata": "RIC"
-  },
-  {
-    "id": "CA|QC|Rimouski",
-    "label": "Rimouski, QC",
-    "lat": 48.477644,
-    "lon": -68.496323,
-    "country": "CA",
-    "airportIata": "YXK"
-  },
-  {
-    "id": "US|WY|Riverton",
-    "label": "Riverton, WY",
-    "lat": 43.064201,
-    "lon": -108.459999,
-    "country": "US",
-    "airportIata": "RIW"
-  },
-  {
-    "id": "US|VA|Roanoke",
-    "label": "Roanoke, VA",
-    "lat": 37.3255,
-    "lon": -79.975403,
-    "country": "US",
-    "airportIata": "ROA"
-  },
-  {
-    "id": "CA|QC|Roberval",
-    "label": "Roberval, QC",
-    "lat": 48.519665,
-    "lon": -72.265735,
-    "country": "CA",
-    "airportIata": "YRJ"
-  },
-  {
-    "id": "US|MN|Rochester",
-    "label": "Rochester, MN",
-    "lat": 43.908298,
-    "lon": -92.5,
-    "country": "US",
-    "airportIata": "RST"
-  },
-  {
-    "id": "US|NY|Rochester",
-    "label": "Rochester, NY",
-    "lat": 43.1189,
-    "lon": -77.672401,
-    "country": "US",
-    "airportIata": "ROC"
-  },
-  {
-    "id": "US|WY|Rock Springs",
-    "label": "Rock Springs, WY",
-    "lat": 41.5942,
-    "lon": -109.065001,
-    "country": "US",
-    "airportIata": "RKS"
-  },
-  {
-    "id": "US|ME|Rockland",
-    "label": "Rockland, ME",
-    "lat": 44.060101,
-    "lon": -69.099197,
-    "country": "US",
-    "airportIata": "RKD"
-  },
-  {
-    "id": "US|NM|Roswell",
-    "label": "Roswell, NM",
-    "lat": 33.301601,
-    "lon": -104.530998,
-    "country": "US",
-    "airportIata": "ROW"
-  },
-  {
-    "id": "CA|QC|Rouyn-Noranda",
-    "label": "Rouyn-Noranda, QC",
-    "lat": 48.20610046386719,
-    "lon": -78.83560180664062,
-    "country": "CA",
-    "airportIata": "YUY"
-  },
-  {
-    "id": "US|AK|Ruby",
-    "label": "Ruby, AK",
-    "lat": 64.727203,
-    "lon": -155.470001,
-    "country": "US",
-    "airportIata": "RBY"
-  },
-  {
-    "id": "US|VT|Rutland",
-    "label": "Rutland, VT",
-    "lat": 43.5294,
-    "lon": -72.9496,
-    "country": "US",
-    "airportIata": "RUT"
-  },
-  {
-    "id": "US|CA|Sacramento",
-    "label": "Sacramento, CA",
-    "lat": 38.6954,
-    "lon": -121.591003,
-    "country": "US",
-    "airportIata": "SMF"
-  },
-  {
-    "id": "CA|QC|Saguenay",
-    "label": "Saguenay, QC",
-    "lat": 48.330123,
-    "lon": -70.992012,
-    "country": "CA",
-    "airportIata": "YBG"
-  },
-  {
-    "id": "US|MN|Saint Cloud",
-    "label": "Saint Cloud, MN",
-    "lat": 45.5466,
-    "lon": -94.059898,
-    "country": "US",
-    "airportIata": "STC"
-  },
-  {
-    "id": "CA|NB|Saint John",
-    "label": "Saint John, NB",
-    "lat": 45.31610107421875,
-    "lon": -65.89029693603516,
-    "country": "CA",
-    "airportIata": "YSJ"
-  },
-  {
-    "id": "CA|NB|Saint-Léonard",
-    "label": "Saint-Léonard, NB",
-    "lat": 47.157097,
-    "lon": -67.836242,
-    "country": "CA",
-    "airportIata": "YSL"
-  },
-  {
-    "id": "US|OR|Salem",
-    "label": "Salem, OR",
-    "lat": 44.9095,
-    "lon": -123.002998,
-    "country": "US",
-    "airportIata": "SLE"
-  },
-  {
-    "id": "US|KS|Salina",
-    "label": "Salina, KS",
-    "lat": 38.79100036621094,
-    "lon": -97.6521987915039,
-    "country": "US",
-    "airportIata": "SLN"
-  },
-  {
-    "id": "US|MD|Salisbury",
-    "label": "Salisbury, MD",
-    "lat": 38.34049987792969,
-    "lon": -75.51029968261719,
-    "country": "US",
-    "airportIata": "SBY"
-  },
-  {
-    "id": "US|ID|Salmon",
-    "label": "Salmon, ID",
-    "lat": 45.122233,
-    "lon": -113.88196,
-    "country": "US",
-    "airportIata": "SMN"
-  },
-  {
-    "id": "US|UT|Salt Lake City",
-    "label": "Salt Lake City, UT",
-    "lat": 40.78886,
-    "lon": -111.979866,
-    "country": "US",
-    "airportIata": "SLC"
-  },
-  {
-    "id": "US|TX|San Angelo",
-    "label": "San Angelo, TX",
-    "lat": 31.35770034790039,
-    "lon": -100.49600219726562,
-    "country": "US",
-    "airportIata": "SJT"
-  },
-  {
-    "id": "US|TX|San Antonio",
     "label": "San Antonio, TX",
-    "lat": 29.533701,
-    "lon": -98.469803,
+    "lat": 29.4241,
+    "lon": -98.4936,
     "country": "US",
     "airportIata": "SAT"
   },
   {
-    "id": "US|CA|San Bernardino",
-    "label": "San Bernardino, CA",
-    "lat": 34.096717,
-    "lon": -117.236596,
-    "country": "US",
-    "airportIata": "SBD"
-  },
-  {
-    "id": "US|CA|San Carlos",
-    "label": "San Carlos, CA",
-    "lat": 37.51313,
-    "lon": -122.250838,
-    "country": "US",
-    "airportIata": "SQL"
-  },
-  {
-    "id": "US|CA|San Diego",
     "label": "San Diego, CA",
-    "lat": 32.733601,
-    "lon": -117.190002,
+    "lat": 32.7157,
+    "lon": -117.1611,
     "country": "US",
     "airportIata": "SAN"
   },
   {
-    "id": "US|CA|San Francisco",
-    "label": "San Francisco, CA",
-    "lat": 37.619806,
-    "lon": -122.374821,
+    "label": "Dallas, TX",
+    "lat": 32.7767,
+    "lon": -96.797,
     "country": "US",
-    "airportIata": "SFO"
+    "airportIata": "DFW"
   },
   {
-    "id": "US|CA|San Jose",
     "label": "San Jose, CA",
-    "lat": 37.362452,
-    "lon": -121.929188,
+    "lat": 37.3382,
+    "lon": -121.8863,
     "country": "US",
     "airportIata": "SJC"
   },
   {
-    "id": "US|CA|San Luis Obispo",
-    "label": "San Luis Obispo, CA",
-    "lat": 35.236801147499996,
-    "lon": -120.641998291,
+    "label": "San Francisco, CA",
+    "lat": 37.7749,
+    "lon": -122.4194,
     "country": "US",
-    "airportIata": "SBP"
+    "airportIata": "SFO"
   },
   {
-    "id": "US|AK|Sand Point",
-    "label": "Sand Point, AK",
-    "lat": 55.313908,
-    "lon": -160.522099,
+    "label": "Oakland, CA",
+    "lat": 37.8044,
+    "lon": -122.2711,
     "country": "US",
-    "airportIata": "SDP"
+    "airportIata": "OAK"
   },
   {
-    "id": "CA|BC|Sandspit",
-    "label": "Sandspit, BC",
-    "lat": 53.25429916379999,
-    "lon": -131.813995361,
-    "country": "CA",
-    "airportIata": "YZP"
-  },
-  {
-    "id": "CA|ON|Sandy Lake",
-    "label": "Sandy Lake, ON",
-    "lat": 53.06420135498047,
-    "lon": -93.34439849853516,
-    "country": "CA",
-    "airportIata": "ZSJ"
-  },
-  {
-    "id": "CA|NU|Sanirajak",
-    "label": "Sanirajak, NU",
-    "lat": 68.7761,
-    "lon": -81.2425,
-    "country": "CA",
-    "airportIata": "YUX"
-  },
-  {
-    "id": "US|CA|Santa Ana",
-    "label": "Santa Ana, CA",
-    "lat": 33.675063,
-    "lon": -117.869281,
+    "label": "Sacramento, CA",
+    "lat": 38.5816,
+    "lon": -121.4944,
     "country": "US",
-    "airportIata": "SNA"
+    "airportIata": "SMF"
   },
   {
-    "id": "US|CA|Santa Barbara",
-    "label": "Santa Barbara, CA",
-    "lat": 34.426201,
-    "lon": -119.839996,
-    "country": "US",
-    "airportIata": "SBA"
-  },
-  {
-    "id": "US|NM|Santa Fe",
-    "label": "Santa Fe, NM",
-    "lat": 35.6171,
-    "lon": -106.088997,
-    "country": "US",
-    "airportIata": "SAF"
-  },
-  {
-    "id": "US|CA|Santa Maria",
-    "label": "Santa Maria, CA",
-    "lat": 34.898899,
-    "lon": -120.457001,
-    "country": "US",
-    "airportIata": "SMX"
-  },
-  {
-    "id": "US|CA|Santa Rosa",
-    "label": "Santa Rosa, CA",
-    "lat": 38.50899887,
-    "lon": -122.8130035,
-    "country": "US",
-    "airportIata": "STS"
-  },
-  {
-    "id": "US|NY|Saranac Lake",
-    "label": "Saranac Lake, NY",
-    "lat": 44.38691,
-    "lon": -74.204629,
-    "country": "US",
-    "airportIata": "SLK"
-  },
-  {
-    "id": "US|FL|Sarasota/Bradenton",
-    "label": "Sarasota/Bradenton, FL",
-    "lat": 27.394631,
-    "lon": -82.554359,
-    "country": "US",
-    "airportIata": "SRQ"
-  },
-  {
-    "id": "CA|SK|Saskatoon",
-    "label": "Saskatoon, SK",
-    "lat": 52.170723,
-    "lon": -106.700793,
-    "country": "CA",
-    "airportIata": "YXE"
-  },
-  {
-    "id": "CA|ON|Sault Ste Marie",
-    "label": "Sault Ste Marie, ON",
-    "lat": 46.483216,
-    "lon": -84.508467,
-    "country": "CA",
-    "airportIata": "YAM"
-  },
-  {
-    "id": "US|GA|Savannah",
-    "label": "Savannah, GA",
-    "lat": 32.126591,
-    "lon": -81.19998,
-    "country": "US",
-    "airportIata": "SAV"
-  },
-  {
-    "id": "US|AK|Savoonga",
-    "label": "Savoonga, AK",
-    "lat": 63.686401,
-    "lon": -170.492996,
-    "country": "US",
-    "airportIata": "SVA"
-  },
-  {
-    "id": "US|IL|Savoy",
-    "label": "Savoy, IL",
-    "lat": 40.039819,
-    "lon": -88.276249,
-    "country": "US",
-    "airportIata": "CMI"
-  },
-  {
-    "id": "CA|QC|Schefferville",
-    "label": "Schefferville, QC",
-    "lat": 54.805301666259766,
-    "lon": -66.8052978515625,
-    "country": "CA",
-    "airportIata": "YKL"
-  },
-  {
-    "id": "US|NE|Scottsbluff",
-    "label": "Scottsbluff, NE",
-    "lat": 41.87400055,
-    "lon": -103.5960007,
-    "country": "US",
-    "airportIata": "BFF"
-  },
-  {
-    "id": "US|WA|Seattle",
     "label": "Seattle, WA",
-    "lat": 47.527042,
-    "lon": -122.29995,
+    "lat": 47.6062,
+    "lon": -122.3321,
     "country": "US",
-    "airportIata": "BFI"
+    "airportIata": "SEA"
   },
   {
-    "id": "CA|QC|Sept-Îles",
-    "label": "Sept-Îles, QC",
-    "lat": 50.22330093383789,
-    "lon": -66.2656021118164,
-    "country": "CA",
-    "airportIata": "YZV"
-  },
-  {
-    "id": "US|WY|Sheridan",
-    "label": "Sheridan, WY",
-    "lat": 44.76919937133789,
-    "lon": -106.9800033569336,
+    "label": "Portland, OR",
+    "lat": 45.5152,
+    "lon": -122.6784,
     "country": "US",
-    "airportIata": "SHR"
+    "airportIata": "PDX"
   },
   {
-    "id": "US|AZ|Show Low",
-    "label": "Show Low, AZ",
-    "lat": 34.264062,
-    "lon": -110.007091,
+    "label": "Las Vegas, NV",
+    "lat": 36.1699,
+    "lon": -115.1398,
     "country": "US",
-    "airportIata": "SOW"
+    "airportIata": "LAS"
   },
   {
-    "id": "US|LA|Shreveport",
-    "label": "Shreveport, LA",
-    "lat": 32.446602,
-    "lon": -93.8256,
+    "label": "Denver, CO",
+    "lat": 39.7392,
+    "lon": -104.9903,
     "country": "US",
-    "airportIata": "SHV"
+    "airportIata": "DEN"
   },
   {
-    "id": "US|MT|Sidney",
-    "label": "Sidney, MT",
-    "lat": 47.705141,
-    "lon": -104.194422,
+    "label": "Miami, FL",
+    "lat": 25.7617,
+    "lon": -80.1918,
     "country": "US",
-    "airportIata": "SDY"
+    "airportIata": "MIA"
   },
   {
-    "id": "US|NM|Silver City",
-    "label": "Silver City, NM",
-    "lat": 32.636701,
-    "lon": -108.154736,
+    "label": "Orlando, FL",
+    "lat": 28.5383,
+    "lon": -81.3792,
     "country": "US",
-    "airportIata": "SVC"
+    "airportIata": "MCO"
   },
   {
-    "id": "US|IA|Sioux City",
-    "label": "Sioux City, IA",
-    "lat": 42.397605,
-    "lon": -96.382237,
-    "country": "US",
-    "airportIata": "SUX"
-  },
-  {
-    "id": "US|SD|Sioux Falls",
-    "label": "Sioux Falls, SD",
-    "lat": 43.585463,
-    "lon": -96.741152,
-    "country": "US",
-    "airportIata": "FSD"
-  },
-  {
-    "id": "CA|ON|Sioux Lookout",
-    "label": "Sioux Lookout, ON",
-    "lat": 50.11389923095703,
-    "lon": -91.9052963256836,
-    "country": "CA",
-    "airportIata": "YXL"
-  },
-  {
-    "id": "US|AK|Sitka",
-    "label": "Sitka, AK",
-    "lat": 57.04710006713867,
-    "lon": -135.36199951171875,
-    "country": "US",
-    "airportIata": "SIT"
-  },
-  {
-    "id": "CA|BC|Smithers",
-    "label": "Smithers, BC",
-    "lat": 54.82469940185547,
-    "lon": -127.18299865722656,
-    "country": "CA",
-    "airportIata": "YYD"
-  },
-  {
-    "id": "US|IN|South Bend",
-    "label": "South Bend, IN",
-    "lat": 41.708304,
-    "lon": -86.316922,
-    "country": "US",
-    "airportIata": "SBN"
-  },
-  {
-    "id": "CA|NB|South Tetagouche",
-    "label": "South Tetagouche, NB",
-    "lat": 47.6297,
-    "lon": -65.738899,
-    "country": "CA",
-    "airportIata": "ZBF"
-  },
-  {
-    "id": "US|WA|Spokane",
-    "label": "Spokane, WA",
-    "lat": 47.6199,
-    "lon": -117.533997,
-    "country": "US",
-    "airportIata": "GEG"
-  },
-  {
-    "id": "US|IL|Springfield",
-    "label": "Springfield, IL",
-    "lat": 39.844101,
-    "lon": -89.677902,
-    "country": "US",
-    "airportIata": "SPI"
-  },
-  {
-    "id": "US|MO|Springfield",
-    "label": "Springfield, MO",
-    "lat": 37.245047,
-    "lon": -93.388596,
-    "country": "US",
-    "airportIata": "SGF"
-  },
-  {
-    "id": "US|FL|St Augustine",
-    "label": "St Augustine, FL",
-    "lat": 29.9592,
-    "lon": -81.339798,
-    "country": "US",
-    "airportIata": "UST"
-  },
-  {
-    "id": "US|AK|St George",
-    "label": "St George, AK",
-    "lat": 56.577345,
-    "lon": -169.663823,
-    "country": "US",
-    "airportIata": "STG"
-  },
-  {
-    "id": "US|UT|St George",
-    "label": "St George, UT",
-    "lat": 37.036389,
-    "lon": -113.510306,
-    "country": "US",
-    "airportIata": "SGU"
-  },
-  {
-    "id": "US|MO|St Louis",
-    "label": "St Louis, MO",
-    "lat": 38.748697,
-    "lon": -90.370003,
-    "country": "US",
-    "airportIata": "STL"
-  },
-  {
-    "id": "US|AK|St Paul Island",
-    "label": "St Paul Island, AK",
-    "lat": 57.166311,
-    "lon": -170.222555,
-    "country": "US",
-    "airportIata": "SNP"
-  },
-  {
-    "id": "CA|QC|St-Augustin",
-    "label": "St-Augustin, QC",
-    "lat": 51.2117,
-    "lon": -58.658298,
-    "country": "CA",
-    "airportIata": "YIF"
-  },
-  {
-    "id": "CA|NL|St. Anthony",
-    "label": "St. Anthony, NL",
-    "lat": 51.391909,
-    "lon": -56.08321,
-    "country": "CA",
-    "airportIata": "YAY"
-  },
-  {
-    "id": "CA|NL|St. John's",
-    "label": "St. John's, NL",
-    "lat": 47.618599,
-    "lon": -52.7519,
-    "country": "CA",
-    "airportIata": "YYT"
-  },
-  {
-    "id": "US|PA|State College",
-    "label": "State College, PA",
-    "lat": 40.849374,
-    "lon": -77.84852,
-    "country": "US",
-    "airportIata": "SCE"
-  },
-  {
-    "id": "CA|NL|Stephenville",
-    "label": "Stephenville, NL",
-    "lat": 48.54339,
-    "lon": -58.552892,
-    "country": "CA",
-    "airportIata": "YJT"
-  },
-  {
-    "id": "US|OK|Stillwater",
-    "label": "Stillwater, OK",
-    "lat": 36.162132,
-    "lon": -97.085581,
-    "country": "US",
-    "airportIata": "SWO"
-  },
-  {
-    "id": "US|CA|Stockton",
-    "label": "Stockton, CA",
-    "lat": 37.893279,
-    "lon": -121.238079,
-    "country": "US",
-    "airportIata": "SCK"
-  },
-  {
-    "id": "CA|SK|Stony Rapids",
-    "label": "Stony Rapids, SK",
-    "lat": 59.250301361083984,
-    "lon": -105.84100341796875,
-    "country": "CA",
-    "airportIata": "YSF"
-  },
-  {
-    "id": "CA|ON|Sudbury",
-    "label": "Sudbury, ON",
-    "lat": 46.625,
-    "lon": -80.79889678955078,
-    "country": "CA",
-    "airportIata": "YSB"
-  },
-  {
-    "id": "CA|NS|Sydney",
-    "label": "Sydney, NS",
-    "lat": 46.1614,
-    "lon": -60.047798,
-    "country": "CA",
-    "airportIata": "YQY"
-  },
-  {
-    "id": "US|NY|Syracuse",
-    "label": "Syracuse, NY",
-    "lat": 43.11119842529297,
-    "lon": -76.1063003540039,
-    "country": "US",
-    "airportIata": "SYR"
-  },
-  {
-    "id": "US|WA|Tacoma",
-    "label": "Tacoma, WA",
-    "lat": 47.267407,
-    "lon": -122.577295,
-    "country": "US",
-    "airportIata": "TIW"
-  },
-  {
-    "id": "US|FL|Tallahassee",
-    "label": "Tallahassee, FL",
-    "lat": 30.400369,
-    "lon": -84.35433,
-    "country": "US",
-    "airportIata": "TLH"
-  },
-  {
-    "id": "US|FL|Tampa",
     "label": "Tampa, FL",
-    "lat": 27.9755,
-    "lon": -82.533203,
+    "lat": 27.9506,
+    "lon": -82.4572,
     "country": "US",
     "airportIata": "TPA"
   },
   {
-    "id": "US|NM|Taos",
-    "label": "Taos, NM",
-    "lat": 36.452494,
-    "lon": -105.67749,
+    "label": "Atlanta, GA",
+    "lat": 33.749,
+    "lon": -84.388,
     "country": "US",
-    "airportIata": "TSM"
+    "airportIata": "ATL"
   },
   {
-    "id": "US|CO|Telluride",
-    "label": "Telluride, CO",
-    "lat": 37.9538,
-    "lon": -107.907997,
+    "label": "Charlotte, NC",
+    "lat": 35.2271,
+    "lon": -80.8431,
     "country": "US",
-    "airportIata": "TEX"
+    "airportIata": "CLT"
   },
   {
-    "id": "CA|BC|Terrace",
-    "label": "Terrace, BC",
-    "lat": 54.468498,
-    "lon": -128.576009,
-    "country": "CA",
-    "airportIata": "YXT"
-  },
-  {
-    "id": "US|NJ|Teterboro",
-    "label": "Teterboro, NJ",
-    "lat": 40.850101,
-    "lon": -74.060799,
+    "label": "Nashville, TN",
+    "lat": 36.1627,
+    "lon": -86.7816,
     "country": "US",
-    "airportIata": "TEB"
+    "airportIata": "BNA"
   },
   {
-    "id": "US|AR|Texarkana",
-    "label": "Texarkana, AR",
-    "lat": 33.453701,
-    "lon": -93.990997,
+    "label": "Boston, MA",
+    "lat": 42.3601,
+    "lon": -71.0589,
     "country": "US",
-    "airportIata": "TXK"
+    "airportIata": "BOS"
   },
   {
-    "id": "CA|MB|The Pas",
-    "label": "The Pas, MB",
-    "lat": 53.97140121459961,
-    "lon": -101.09100341796875,
-    "country": "CA",
-    "airportIata": "YQD"
-  },
-  {
-    "id": "US|MN|Thief River Falls",
-    "label": "Thief River Falls, MN",
-    "lat": 48.065701,
-    "lon": -96.184998,
-    "country": "US",
-    "airportIata": "TVF"
-  },
-  {
-    "id": "CA|MB|Thompson",
-    "label": "Thompson, MB",
-    "lat": 55.80110168457031,
-    "lon": -97.86419677734375,
-    "country": "CA",
-    "airportIata": "YTH"
-  },
-  {
-    "id": "CA|ON|Thunder Bay",
-    "label": "Thunder Bay, ON",
-    "lat": 48.371899,
-    "lon": -89.323898,
-    "country": "CA",
-    "airportIata": "YQT"
-  },
-  {
-    "id": "CA|ON|Timmins",
-    "label": "Timmins, ON",
-    "lat": 48.569698333699996,
-    "lon": -81.376701355,
-    "country": "CA",
-    "airportIata": "YTS"
-  },
-  {
-    "id": "CA|BC|Tofino",
-    "label": "Tofino, BC",
-    "lat": 49.079833,
-    "lon": -125.775583,
-    "country": "CA",
-    "airportIata": "YAZ"
-  },
-  {
-    "id": "US|OH|Toledo",
-    "label": "Toledo, OH",
-    "lat": 41.5868,
-    "lon": -83.8078,
-    "country": "US",
-    "airportIata": "TOL"
-  },
-  {
-    "id": "CA|ON|Toronto",
-    "label": "Toronto, ON",
-    "lat": 43.675935,
-    "lon": -79.629421,
-    "country": "CA",
-    "airportIata": "YYZ"
-  },
-  {
-    "id": "US|MI|Traverse City",
-    "label": "Traverse City, MI",
-    "lat": 44.741402,
-    "lon": -85.582199,
-    "country": "US",
-    "airportIata": "TVC"
-  },
-  {
-    "id": "US|CA|Truckee",
-    "label": "Truckee, CA",
-    "lat": 39.318628,
-    "lon": -120.140562,
-    "country": "US",
-    "airportIata": "TKF"
-  },
-  {
-    "id": "US|AZ|Tucson",
-    "label": "Tucson, AZ",
-    "lat": 32.115004,
-    "lon": -110.938053,
-    "country": "US",
-    "airportIata": "TUS"
-  },
-  {
-    "id": "US|OK|Tulsa",
-    "label": "Tulsa, OK",
-    "lat": 36.197084,
-    "lon": -95.886225,
-    "country": "US",
-    "airportIata": "TUL"
-  },
-  {
-    "id": "US|MS|Tupelo",
-    "label": "Tupelo, MS",
-    "lat": 34.26810073852539,
-    "lon": -88.7698974609375,
-    "country": "US",
-    "airportIata": "TUP"
-  },
-  {
-    "id": "US|ID|Twin Falls",
-    "label": "Twin Falls, ID",
-    "lat": 42.4818,
-    "lon": -114.487999,
-    "country": "US",
-    "airportIata": "TWF"
-  },
-  {
-    "id": "US|TX|Tyler",
-    "label": "Tyler, TX",
-    "lat": 32.35409927368164,
-    "lon": -95.40239715576172,
-    "country": "US",
-    "airportIata": "TYR"
-  },
-  {
-    "id": "US|AK|Unalakleet",
-    "label": "Unalakleet, AK",
-    "lat": 63.888401,
-    "lon": -160.798996,
-    "country": "US",
-    "airportIata": "UNK"
-  },
-  {
-    "id": "US|AK|Unalaska",
-    "label": "Unalaska, AK",
-    "lat": 53.89881,
-    "lon": -166.544996,
-    "country": "US",
-    "airportIata": "DUT"
-  },
-  {
-    "id": "US|AK|Utopia Creek",
-    "label": "Utopia Creek, AK",
-    "lat": 65.992798,
-    "lon": -153.703995,
-    "country": "US",
-    "airportIata": "UTO"
-  },
-  {
-    "id": "US|AK|Utqiaġvik",
-    "label": "Utqiaġvik, AK",
-    "lat": 71.285402,
-    "lon": -156.766008,
-    "country": "US",
-    "airportIata": "BRW"
-  },
-  {
-    "id": "CA|QC|Val-d'Or",
-    "label": "Val-d'Or, QC",
-    "lat": 48.0532989502,
-    "lon": -77.7827987671,
-    "country": "CA",
-    "airportIata": "YVO"
-  },
-  {
-    "id": "US|AK|Valdez",
-    "label": "Valdez, AK",
-    "lat": 61.132712,
-    "lon": -146.246567,
-    "country": "US",
-    "airportIata": "VDZ"
-  },
-  {
-    "id": "US|GA|Valdosta",
-    "label": "Valdosta, GA",
-    "lat": 30.782499313354492,
-    "lon": -83.27670288085938,
-    "country": "US",
-    "airportIata": "VLD"
-  },
-  {
-    "id": "US|FL|Valparaiso",
-    "label": "Valparaiso, FL",
-    "lat": 30.481315,
-    "lon": -86.515839,
-    "country": "US",
-    "airportIata": "VPS"
-  },
-  {
-    "id": "CA|BC|Vancouver",
-    "label": "Vancouver, BC",
-    "lat": 49.193901,
-    "lon": -123.183998,
-    "country": "CA",
-    "airportIata": "YVR"
-  },
-  {
-    "id": "US|UT|Vernal",
-    "label": "Vernal, UT",
-    "lat": 40.436214,
-    "lon": -109.511661,
-    "country": "US",
-    "airportIata": "VEL"
-  },
-  {
-    "id": "US|FL|Vero Beach",
-    "label": "Vero Beach, FL",
-    "lat": 27.6556,
-    "lon": -80.417901,
-    "country": "US",
-    "airportIata": "VRB"
-  },
-  {
-    "id": "CA|BC|Victoria",
-    "label": "Victoria, BC",
-    "lat": 48.647201,
-    "lon": -123.427792,
-    "country": "CA",
-    "airportIata": "YYJ"
-  },
-  {
-    "id": "US|TX|Victoria",
-    "label": "Victoria, TX",
-    "lat": 28.85260009765625,
-    "lon": -96.91850280761719,
-    "country": "US",
-    "airportIata": "VCT"
-  },
-  {
-    "id": "CA|NL|Wabush",
-    "label": "Wabush, NL",
-    "lat": 52.92190170288086,
-    "lon": -66.8644027709961,
-    "country": "CA",
-    "airportIata": "YWK"
-  },
-  {
-    "id": "US|TX|Waco",
-    "label": "Waco, TX",
-    "lat": 31.611299514770508,
-    "lon": -97.23049926757812,
-    "country": "US",
-    "airportIata": "ACT"
-  },
-  {
-    "id": "US|HI|Waimea (Kamuela)",
-    "label": "Waimea (Kamuela), HI",
-    "lat": 20.001301,
-    "lon": -155.667999,
-    "country": "US",
-    "airportIata": "MUE"
-  },
-  {
-    "id": "US|AK|Wainwright",
-    "label": "Wainwright, AK",
-    "lat": 70.638,
-    "lon": -159.994995,
-    "country": "US",
-    "airportIata": "AIN"
-  },
-  {
-    "id": "US|WA|Walla Walla",
-    "label": "Walla Walla, WA",
-    "lat": 46.09489822,
-    "lon": -118.288002,
-    "country": "US",
-    "airportIata": "ALW"
-  },
-  {
-    "id": "US|DC|Washington",
     "label": "Washington, DC",
-    "lat": 38.8521,
-    "lon": -77.037697,
+    "lat": 38.9072,
+    "lon": -77.0369,
     "country": "US",
     "airportIata": "DCA"
   },
   {
-    "id": "US|IA|Waterloo",
-    "label": "Waterloo, IA",
-    "lat": 42.557098388671875,
-    "lon": -92.40029907226562,
+    "label": "Detroit, MI",
+    "lat": 42.3314,
+    "lon": -83.0458,
     "country": "US",
-    "airportIata": "ALO"
+    "airportIata": "DTW"
   },
   {
-    "id": "US|NY|Watertown",
-    "label": "Watertown, NY",
-    "lat": 43.991901,
-    "lon": -76.021698,
+    "label": "Minneapolis, MN",
+    "lat": 44.9778,
+    "lon": -93.265,
     "country": "US",
-    "airportIata": "ART"
+    "airportIata": "MSP"
   },
   {
-    "id": "US|SD|Watertown",
-    "label": "Watertown, SD",
-    "lat": 44.91400146,
-    "lon": -97.15470123,
+    "label": "Kansas City, MO",
+    "lat": 39.0997,
+    "lon": -94.5786,
     "country": "US",
-    "airportIata": "ATY"
+    "airportIata": "MCI"
   },
   {
-    "id": "CA|YT|Watson Lake",
-    "label": "Watson Lake, YT",
-    "lat": 60.116839,
-    "lon": -128.821993,
+    "label": "St. Louis, MO",
+    "lat": 38.627,
+    "lon": -90.1994,
+    "country": "US",
+    "airportIata": "STL"
+  },
+  {
+    "label": "Cleveland, OH",
+    "lat": 41.4993,
+    "lon": -81.6944,
+    "country": "US",
+    "airportIata": "CLE"
+  },
+  {
+    "label": "Cincinnati, OH",
+    "lat": 39.1031,
+    "lon": -84.512,
+    "country": "US",
+    "airportIata": "CVG"
+  },
+  {
+    "label": "Pittsburgh, PA",
+    "lat": 40.4406,
+    "lon": -79.9959,
+    "country": "US",
+    "airportIata": "PIT"
+  },
+  {
+    "label": "Indianapolis, IN",
+    "lat": 39.7684,
+    "lon": -86.1581,
+    "country": "US",
+    "airportIata": "IND"
+  },
+  {
+    "label": "Milwaukee, WI",
+    "lat": 43.0389,
+    "lon": -87.9065,
+    "country": "US",
+    "airportIata": "MKE"
+  },
+  {
+    "label": "Buffalo, NY",
+    "lat": 42.8864,
+    "lon": -78.8784,
+    "country": "US",
+    "airportIata": "BUF"
+  },
+  {
+    "label": "Green Bay, WI",
+    "lat": 44.5133,
+    "lon": -88.0133,
+    "country": "US",
+    "airportIata": "GRB"
+  },
+  {
+    "label": "New Orleans, LA",
+    "lat": 29.9511,
+    "lon": -90.0715,
+    "country": "US",
+    "airportIata": "MSY"
+  },
+  {
+    "label": "Salt Lake City, UT",
+    "lat": 40.7608,
+    "lon": -111.891,
+    "country": "US",
+    "airportIata": "SLC"
+  },
+  {
+    "label": "Oklahoma City, OK",
+    "lat": 35.4676,
+    "lon": -97.5164,
+    "country": "US",
+    "airportIata": "OKC"
+  },
+  {
+    "label": "Tulsa, OK",
+    "lat": 36.154,
+    "lon": -95.9928,
+    "country": "US",
+    "airportIata": "TUL"
+  },
+  {
+    "label": "Anaheim, CA",
+    "lat": 33.8366,
+    "lon": -117.9143,
+    "country": "US",
+    "airportIata": "SNA"
+  },
+  {
+    "label": "Irvine, CA",
+    "lat": 33.6846,
+    "lon": -117.8265,
+    "country": "US"
+  },
+  {
+    "label": "Riverside, CA",
+    "lat": 33.9806,
+    "lon": -117.3755,
+    "country": "US"
+  },
+  {
+    "label": "San Bernardino, CA",
+    "lat": 34.1083,
+    "lon": -117.2898,
+    "country": "US"
+  },
+  {
+    "label": "Toronto, ON",
+    "lat": 43.6532,
+    "lon": -79.3832,
     "country": "CA",
-    "airportIata": "YQH"
+    "airportIata": "YYZ"
   },
   {
-    "id": "US|WA|Wenatchee",
-    "label": "Wenatchee, WA",
-    "lat": 47.398899,
-    "lon": -120.207001,
-    "country": "US",
-    "airportIata": "EAT"
-  },
-  {
-    "id": "US|IN|West Lafayette",
-    "label": "West Lafayette, IN",
-    "lat": 40.412875,
-    "lon": -86.939363,
-    "country": "US",
-    "airportIata": "LAF"
-  },
-  {
-    "id": "US|FL|West Palm Beach",
-    "label": "West Palm Beach, FL",
-    "lat": 26.683201,
-    "lon": -80.095596,
-    "country": "US",
-    "airportIata": "PBI"
-  },
-  {
-    "id": "US|MT|West Yellowstone",
-    "label": "West Yellowstone, MT",
-    "lat": 44.6884,
-    "lon": -111.117996,
-    "country": "US",
-    "airportIata": "WYS"
-  },
-  {
-    "id": "US|RI|Westerly",
-    "label": "Westerly, RI",
-    "lat": 41.349602,
-    "lon": -71.803398,
-    "country": "US",
-    "airportIata": "WST"
-  },
-  {
-    "id": "US|VA|Weyers Cave",
-    "label": "Weyers Cave, VA",
-    "lat": 38.263802,
-    "lon": -78.8964,
-    "country": "US",
-    "airportIata": "SHD"
-  },
-  {
-    "id": "US|NY|White Plains",
-    "label": "White Plains, NY",
-    "lat": 41.06700134277344,
-    "lon": -73.70760345458984,
-    "country": "US",
-    "airportIata": "HPN"
-  },
-  {
-    "id": "CA|AB|Whitecourt",
-    "label": "Whitecourt, AB",
-    "lat": 54.143902,
-    "lon": -115.787003,
+    "label": "Vancouver, BC",
+    "lat": 49.2827,
+    "lon": -123.1207,
     "country": "CA",
-    "airportIata": "YZU"
+    "airportIata": "YVR"
   },
   {
-    "id": "CA|YT|Whitehorse",
-    "label": "Whitehorse, YT",
-    "lat": 60.708533,
-    "lon": -135.065705,
+    "label": "Montreal, QC",
+    "lat": 45.5017,
+    "lon": -73.5673,
     "country": "CA",
-    "airportIata": "YXY"
+    "airportIata": "YUL"
   },
   {
-    "id": "CA|ON|Wiarton",
-    "label": "Wiarton, ON",
-    "lat": 44.7458,
-    "lon": -81.107201,
+    "label": "Calgary, AB",
+    "lat": 51.0447,
+    "lon": -114.0719,
     "country": "CA",
-    "airportIata": "YVV"
+    "airportIata": "YYC"
   },
   {
-    "id": "US|TX|Wichita Falls",
-    "label": "Wichita Falls, TX",
-    "lat": 33.9888,
-    "lon": -98.491898,
-    "country": "US",
-    "airportIata": "SPS"
-  },
-  {
-    "id": "US|KS|Wichita",
-    "label": "Wichita, KS",
-    "lat": 37.650314,
-    "lon": -97.428583,
-    "country": "US",
-    "airportIata": "ICT"
-  },
-  {
-    "id": "US|PA|Wilkes-Barre/Scranton",
-    "label": "Wilkes-Barre/Scranton, PA",
-    "lat": 41.337064,
-    "lon": -75.724232,
-    "country": "US",
-    "airportIata": "AVP"
-  },
-  {
-    "id": "CA|BC|Williams Lake",
-    "label": "Williams Lake, BC",
-    "lat": 52.1831016541,
-    "lon": -122.054000854,
+    "label": "Edmonton, AB",
+    "lat": 53.5461,
+    "lon": -113.4938,
     "country": "CA",
-    "airportIata": "YWL"
+    "airportIata": "YEG"
   },
   {
-    "id": "US|PA|Williamsport",
-    "label": "Williamsport, PA",
-    "lat": 41.242126,
-    "lon": -76.92245,
-    "country": "US",
-    "airportIata": "IPT"
-  },
-  {
-    "id": "US|ND|Williston",
-    "label": "Williston, ND",
-    "lat": 48.260863,
-    "lon": -103.75116,
-    "country": "US",
-    "airportIata": "XWA"
-  },
-  {
-    "id": "US|DE|Wilmington",
-    "label": "Wilmington, DE",
-    "lat": 39.678699,
-    "lon": -75.606499,
-    "country": "US",
-    "airportIata": "ILG"
-  },
-  {
-    "id": "US|NC|Wilmington",
-    "label": "Wilmington, NC",
-    "lat": 34.271719,
-    "lon": -77.904644,
-    "country": "US",
-    "airportIata": "ILM"
-  },
-  {
-    "id": "CA|ON|Windsor",
-    "label": "Windsor, ON",
-    "lat": 42.2756,
-    "lon": -82.955597,
+    "label": "Ottawa, ON",
+    "lat": 45.4215,
+    "lon": -75.6972,
     "country": "CA",
-    "airportIata": "YQG"
+    "airportIata": "YOW"
   },
   {
-    "id": "CA|MB|Winnipeg",
     "label": "Winnipeg, MB",
-    "lat": 49.909999847399995,
-    "lon": -97.2398986816,
+    "lat": 49.8951,
+    "lon": -97.1384,
     "country": "CA",
     "airportIata": "YWG"
   },
   {
-    "id": "US|MT|Wolf Point",
-    "label": "Wolf Point, MT",
-    "lat": 48.094501,
-    "lon": -105.574997,
-    "country": "US",
-    "airportIata": "OLF"
-  },
-  {
-    "id": "US|MA|Worcester",
-    "label": "Worcester, MA",
-    "lat": 42.2673,
-    "lon": -71.875702,
-    "country": "US",
-    "airportIata": "ORH"
-  },
-  {
-    "id": "US|AK|Wrangell",
-    "label": "Wrangell, AK",
-    "lat": 56.48429871,
-    "lon": -132.3699951,
-    "country": "US",
-    "airportIata": "WRG"
-  },
-  {
-    "id": "US|WA|Yakima",
-    "label": "Yakima, WA",
-    "lat": 46.56819916,
-    "lon": -120.5439987,
-    "country": "US",
-    "airportIata": "YKM"
-  },
-  {
-    "id": "US|AK|Yakutat",
-    "label": "Yakutat, AK",
-    "lat": 59.508717,
-    "lon": -139.660435,
-    "country": "US",
-    "airportIata": "YAK"
-  },
-  {
-    "id": "CA|NT|Yellowknife",
-    "label": "Yellowknife, NT",
-    "lat": 62.462799,
-    "lon": -114.440002,
+    "label": "Halifax, NS",
+    "lat": 44.6488,
+    "lon": -63.5752,
     "country": "CA",
-    "airportIata": "YZF"
+    "airportIata": "YHZ"
   },
   {
-    "id": "US|AZ|Yuma",
-    "label": "Yuma, AZ",
-    "lat": 32.650938,
-    "lon": -114.609375,
-    "country": "US",
-    "airportIata": "YUM"
+    "label": "Victoria, BC",
+    "lat": 48.4284,
+    "lon": -123.3656,
+    "country": "CA",
+    "airportIata": "YYJ"
+  },
+  {
+    "label": "Kelowna, BC",
+    "lat": 49.888,
+    "lon": -119.496,
+    "country": "CA",
+    "airportIata": "YLW"
+  },
+  {
+    "label": "Whistler, BC",
+    "lat": 50.1163,
+    "lon": -122.9574,
+    "country": "CA"
+  },
+  {
+    "label": "Banff, AB",
+    "lat": 51.1784,
+    "lon": -115.5708,
+    "country": "CA"
+  },
+  {
+    "label": "Ann Arbor, MI",
+    "lat": 42.2808,
+    "lon": -83.743,
+    "country": "US"
+  },
+  {
+    "label": "Tuscaloosa, AL",
+    "lat": 33.2098,
+    "lon": -87.5692,
+    "country": "US"
+  },
+  {
+    "label": "College Station, TX",
+    "lat": 30.628,
+    "lon": -96.3344,
+    "country": "US"
+  },
+  {
+    "label": "Chapel Hill, NC",
+    "lat": 35.9132,
+    "lon": -79.0558,
+    "country": "US"
+  },
+  {
+    "label": "Boulder, CO",
+    "lat": 40.015,
+    "lon": -105.2705,
+    "country": "US"
+  },
+  {
+    "label": "Madison, WI",
+    "lat": 43.0731,
+    "lon": -89.4012,
+    "country": "US"
+  },
+  {
+    "label": "Athens, GA",
+    "lat": 33.9519,
+    "lon": -83.3576,
+    "country": "US"
+  },
+  {
+    "label": "Gainesville, FL",
+    "lat": 29.6516,
+    "lon": -82.3248,
+    "country": "US"
+  },
+  {
+    "label": "State College, PA",
+    "lat": 40.7934,
+    "lon": -77.86,
+    "country": "US"
+  },
+  {
+    "label": "Iowa City, IA",
+    "lat": 41.6611,
+    "lon": -91.5302,
+    "country": "US"
+  },
+  {
+    "label": "Auburn, AL",
+    "lat": 32.6099,
+    "lon": -85.4808,
+    "country": "US"
+  },
+  {
+    "label": "Oxford, MS",
+    "lat": 34.3665,
+    "lon": -89.5192,
+    "country": "US"
+  },
+  {
+    "label": "Norman, OK",
+    "lat": 35.2226,
+    "lon": -97.4395,
+    "country": "US"
+  },
+  {
+    "label": "Lincoln, NE",
+    "lat": 40.8136,
+    "lon": -96.7026,
+    "country": "US"
+  },
+  {
+    "label": "Columbia, MO",
+    "lat": 38.9517,
+    "lon": -92.3341,
+    "country": "US"
+  },
+  {
+    "label": "Eugene, OR",
+    "lat": 44.0521,
+    "lon": -123.0868,
+    "country": "US"
+  },
+  {
+    "label": "Corvallis, OR",
+    "lat": 44.5646,
+    "lon": -123.262,
+    "country": "US"
+  },
+  {
+    "label": "Pullman, WA",
+    "lat": 46.7298,
+    "lon": -117.1817,
+    "country": "US"
+  },
+  {
+    "label": "Lubbock, TX",
+    "lat": 33.5779,
+    "lon": -101.8552,
+    "country": "US"
+  },
+  {
+    "label": "Stillwater, OK",
+    "lat": 36.1156,
+    "lon": -97.0584,
+    "country": "US"
+  },
+  {
+    "label": "Fayetteville, AR",
+    "lat": 36.0822,
+    "lon": -94.1719,
+    "country": "US"
+  },
+  {
+    "label": "Baton Rouge, LA",
+    "lat": 30.4515,
+    "lon": -91.1871,
+    "country": "US"
+  },
+  {
+    "label": "Knoxville, TN",
+    "lat": 35.9606,
+    "lon": -83.9207,
+    "country": "US"
+  },
+  {
+    "label": "Clemson, SC",
+    "lat": 34.6834,
+    "lon": -82.8374,
+    "country": "US"
+  },
+  {
+    "label": "Columbia, SC",
+    "lat": 34.0007,
+    "lon": -81.0348,
+    "country": "US"
+  },
+  {
+  "label": "Palm Springs, CA",
+  "lat": 33.8303,
+  "lon": -116.5453,
+  "country": "US",
+  "airportIata": "PSP"
+},
+   {
+    "label": "Morgantown, WV",
+    "lat": 39.6295,
+    "lon": -79.9559,
+    "country": "US"
+  },
+  {
+    "label": "Blacksburg, VA",
+    "lat": 37.2296,
+    "lon": -80.4139,
+    "country": "US"
+  },
+  {
+    "label": "Durham, NC",
+    "lat": 35.994,
+    "lon": -78.8986,
+    "country": "US"
   }
 ]

@@ -15,7 +15,6 @@ type ComboBoxProps<T extends BaseOption> = {
   onChange: (next: T | null) => void;
   disabled?: boolean;
   loading?: boolean;
-  // optional: custom filter
   filter?: (opt: T, query: string) => boolean;
 };
 
@@ -36,7 +35,6 @@ export default function ComboBox<T extends BaseOption>({
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState<number>(-1);
 
-  // Keep input text in sync with selection when closing/opening
   useEffect(() => {
     if (!open) {
       setQuery(value?.label ?? "");
@@ -44,7 +42,6 @@ export default function ComboBox<T extends BaseOption>({
     }
   }, [open, value?.label]);
 
-  // Close on outside click
   useEffect(() => {
     function onDocMouseDown(e: MouseEvent) {
       const el = rootRef.current;
@@ -67,7 +64,6 @@ export default function ComboBox<T extends BaseOption>({
     return options.filter((o) => fn(o, normalizedQuery));
   }, [options, normalizedQuery, filter]);
 
-  // Reset active index when list changes
   useEffect(() => {
     if (!open) return;
     setActiveIndex(filtered.length ? 0 : -1);
@@ -76,7 +72,6 @@ export default function ComboBox<T extends BaseOption>({
   function commit(opt: T | null) {
     onChange(opt);
     setOpen(false);
-    // ensure input shows selection
     setQuery(opt?.label ?? "");
     inputRef.current?.blur();
   }
@@ -123,7 +118,7 @@ export default function ComboBox<T extends BaseOption>({
   }
 
   return (
-    <div ref={rootRef} className="w-full">
+    <div ref={rootRef} className="relative w-full">
       {label ? (
         <div className="mb-1 text-sm font-semibold text-slate-900">
           {label}
@@ -147,7 +142,6 @@ export default function ComboBox<T extends BaseOption>({
           aria-expanded={open}
         />
 
-        {/* Clear button */}
         {value && !disabled && !loading ? (
           <button
             type="button"
@@ -160,7 +154,7 @@ export default function ComboBox<T extends BaseOption>({
         ) : null}
 
         {open ? (
-          <div className="absolute z-50 mt-2 max-h-64 w-full overflow-auto rounded-xl border border-slate-200 bg-white shadow">
+          <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-64 overflow-auto rounded-xl border border-slate-200 bg-white shadow-lg">
             {loading ? (
               <div className="px-3 py-2 text-sm text-slate-600">Loading…</div>
             ) : filtered.length === 0 ? (
@@ -178,7 +172,6 @@ export default function ComboBox<T extends BaseOption>({
                     type="button"
                     onMouseEnter={() => setActiveIndex(idx)}
                     onMouseDown={(e) => {
-                      // prevent input blur before click registers
                       e.preventDefault();
                     }}
                     onClick={() => commit(opt)}

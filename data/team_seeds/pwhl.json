@@ -1,0 +1,74 @@
+[
+  {
+    "name": "Boston Fleet",
+    "league": "PWHL",
+    "sport": "hockey",
+    "country": "US",
+    "region": "MA",
+    "city": "Boston",
+    "aliases": ["Fleet", "Boston"]
+  },
+  {
+    "name": "Minnesota Frost",
+    "league": "PWHL",
+    "sport": "hockey",
+    "country": "US",
+    "region": "MN",
+    "city": "Saint Paul",
+    "aliases": ["Frost", "Minnesota"]
+  },
+  {
+    "name": "Montréal Victoire",
+    "league": "PWHL",
+    "sport": "hockey",
+    "country": "CA",
+    "region": "QC",
+    "city": "Montréal",
+    "aliases": ["Montreal Victoire", "Victoire", "Montreal", "Montréal"]
+  },
+  {
+    "name": "New York Sirens",
+    "league": "PWHL",
+    "sport": "hockey",
+    "country": "US",
+    "region": "NY",
+    "city": "New York",
+    "aliases": ["Sirens", "New York"]
+  },
+  {
+    "name": "Ottawa Charge",
+    "league": "PWHL",
+    "sport": "hockey",
+    "country": "CA",
+    "region": "ON",
+    "city": "Ottawa",
+    "aliases": ["Charge", "Ottawa"]
+  },
+  {
+    "name": "Seattle Torrent",
+    "league": "PWHL",
+    "sport": "hockey",
+    "country": "US",
+    "region": "WA",
+    "city": "Seattle",
+    "aliases": ["Torrent", "Seattle"]
+  },
+  {
+    "name": "Toronto Sceptres",
+    "league": "PWHL",
+    "sport": "hockey",
+    "country": "CA",
+    "region": "ON",
+    "city": "Toronto",
+    "aliases": ["Sceptres", "Toronto"]
+  },
+  {
+    "name": "Vancouver Goldeneyes",
+    "league": "PWHL",
+    "sport": "hockey",
+    "country": "CA",
+    "region": "BC",
+    "city": "Vancouver",
+    "aliases": ["Goldeneyes", "Vancouver"]
+  }
+]

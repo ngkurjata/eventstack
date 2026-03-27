@@ -1,0 +1,122 @@
+{
+  "Arizona Diamondbacks": {
+    "teamName": "Arizona Diamondbacks",
+    "attractionId": "K8vZ9171bp7"
+  },
+  "Atlanta Braves": {
+    "teamName": "Atlanta Braves",
+    "attractionId": "K8vZ9171oA7"
+  },
+  "Baltimore Orioles": {
+    "teamName": "Baltimore Orioles",
+    "attractionId": "K8vZ91718D7"
+  },
+  "Boston Red Sox": {
+    "teamName": "Boston Red Sox",
+    "attractionId": "K8vZ9171okf"
+  },
+  "Chicago Cubs": {
+    "teamName": "Chicago Cubs",
+    "attractionId": "K8vZ9171oAf"
+  },
+  "Chicago White Sox": {
+    "teamName": "Chicago White Sox",
+    "attractionId": "K8vZ9171ok0"
+  },
+  "Cincinnati Reds": {
+    "teamName": "Cincinnati Reds",
+    "attractionId": "K8vZ9171ok7"
+  },
+  "Cleveland Guardians": {
+    "teamName": "Cleveland Guardians",
+    "attractionId": "K8vZ91718DV"
+  },
+  "Colorado Rockies": {
+    "teamName": "Colorado Rockies",
+    "attractionId": "K8vZ91718y0"
+  },
+  "Detroit Tigers": {
+    "teamName": "Detroit Tigers",
+    "attractionId": "K8vZ9171o67"
+  },
+  "Houston Astros": {
+    "teamName": "Houston Astros",
+    "attractionId": "K8vZ91718zV"
+  },
+  "Kansas City Royals": {
+    "teamName": "Kansas City Royals",
+    "attractionId": "K8vZ9171oF7"
+  },
+  "Los Angeles Angels": {
+    "teamName": "Los Angeles Angels",
+    "attractionId": "K8vZ91718D0"
+  },
+  "Los Angeles Dodgers": {
+    "teamName": "Los Angeles Dodgers",
+    "attractionId": "K8vZ9171oA0"
+  },
+  "Miami Marlins": {
+    "teamName": "Miami Marlins",
+    "attractionId": "K8vZ91718yf"
+  },
+  "Milwaukee Brewers": {
+    "teamName": "Milwaukee Brewers",
+    "attractionId": "K8vZ91718H7"
+  },
+  "Minnesota Twins": {
+    "teamName": "Minnesota Twins",
+    "attractionId": "K8vZ91718Hf"
+  },
+  "New York Mets": {
+    "teamName": "New York Mets",
+    "attractionId": "K8vZ91718B7"
+  },
+  "New York Yankees": {
+    "teamName": "New York Yankees",
+    "attractionId": "K8vZ9171okV"
+  },
+  "Oakland Athletics": {
+    "teamName": "Oakland Athletics",
+    "attractionId": "K8vZ9171o60"
+  },
+  "Philadelphia Phillies": {
+    "teamName": "Philadelphia Phillies",
+    "attractionId": "K8vZ91718B0"
+  },
+  "Pittsburgh Pirates": {
+    "teamName": "Pittsburgh Pirates",
+    "attractionId": "K8vZ9171oAV"
+  },
+  "San Diego Padres": {
+    "teamName": "San Diego Padres",
+    "attractionId": "K8vZ91718BV"
+  },
+  "San Francisco Giants": {
+    "teamName": "San Francisco Giants",
+    "attractionId": "K8vZ91718Df"
+  },
+  "Seattle Mariners": {
+    "teamName": "Seattle Mariners",
+    "attractionId": "K8vZ9171o6f"
+  },
+  "St. Louis Cardinals": {
+    "teamName": "St. Louis Cardinals",
+    "attractionId": "K8vZ91718Bf"
+  },
+  "Tampa Bay Rays": {
+    "teamName": "Tampa Bay Rays",
+    "attractionId": "K8vZ9171b17"
+  },
+  "Texas Rangers": {
+    "teamName": "Texas Rangers",
+    "attractionId": "K8vZ9171oF0"
+  },
+  "Toronto Blue Jays": {
+    "teamName": "Toronto Blue Jays",
+    "attractionId": "K8vZ91718W0"
+  },
+  "Washington Nationals": {
+    "teamName": "Washington Nationals",
+    "attractionId": "K8vZ9175lJ0"
+  }
+}

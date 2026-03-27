@@ -1,9 +1,8 @@
-// FILE: lib/favorites/resolve.ts
-
 import fs from "node:fs";
 import path from "node:path";
 
-import type { Favorite, FavoriteKind } from "@/lib/favorites/types";
+import type { Favorite, FavoriteKind, SeriesKey } from "@/lib/favorites/types";
+import { SERIES_FAVORITES } from "@/lib/favorites/catalog";
 import {
   normalizeGenres,
   allVisibleGenreLabels,
@@ -35,6 +34,7 @@ export type FavoriteSearchOption = {
   rawName: string;
   defaultGenre?: string;
   attractionId?: string;
+  seriesKey?: SeriesKey;
   league?: string;
   score?: number;
   source?: "local" | "live";
@@ -80,11 +80,13 @@ const TM_API_KEY = process.env.TICKETMASTER_API_KEY || process.env.TM_API_KEY;
 const TM_BASE = "https://app.ticketmaster.com/discovery/v2/attractions.json";
 const TM_COUNTRY_CODE = "US,CA";
 
-const teamAttractionIds = teamAttractionIdsJson as TeamAttractionIds;
+const teamAttractionIds = teamAttractionIdsJson as unknown as TeamAttractionIds;
 const teamsMaster = (teamsMasterJson as TeamMasterRow[]) || [];
 const artistOptions = (artistOptionsJson as ArtistOptionRow[]) || [];
 
-const VISIBLE_GENRE_SET = new Set(allVisibleGenreLabels().map((g) => g.toLowerCase()));
+const VISIBLE_GENRE_SET = new Set(
+  allVisibleGenreLabels().map((g) => g.toLowerCase())
+);
 
 function normalizeName(input: string) {
   return String(input || "")
@@ -159,8 +161,12 @@ function looksLikeEventTitle(label: string) {
   return (
     !l ||
     l.length > 90 ||
-    /\b(outing|scramble|tournament|showcase|expo|fair|festival|summit|conference|seminar|clinic|camp|meet and greet)\b/.test(l) ||
-    /\b(hotel package|package|upsell|vip|reservation|admission|upgrade)\b/.test(l) ||
+    /\b(outing|scramble|tournament|showcase|expo|fair|festival|summit|conference|seminar|clinic|camp|meet and greet)\b/.test(
+      l
+    ) ||
+    /\b(hotel package|package|upsell|vip|reservation|admission|upgrade)\b/.test(
+      l
+    ) ||
     /\bmini golf\b/.test(l) ||
     /\bgolf club\b/.test(l) ||
     /\bbridal\b/.test(l) ||
@@ -169,14 +175,21 @@ function looksLikeEventTitle(label: string) {
   );
 }
 
-function isTributeOrVariantArtist(option: { label: string; defaultGenre?: string }, query?: string) {
+function isTributeOrVariantArtist(
+  option: { label: string; defaultGenre?: string },
+  query?: string
+) {
   const labelNorm = normalizeName(option.label);
   const genreNorm = normalizeName(option.defaultGenre || "");
   const queryNorm = normalizeName(query || "");
 
   if (queryNorm && labelNorm === queryNorm) return false;
 
-  if (/\b(tribute|tribute band|experience|cover|covers|revue|vs|featuring|feat)\b/.test(labelNorm)) {
+  if (
+    /\b(tribute|tribute band|experience|cover|covers|revue|vs|featuring|feat)\b/.test(
+      labelNorm
+    )
+  ) {
     return true;
   }
 
@@ -307,8 +320,21 @@ function buildTeamLocalOptions(): FavoriteSearchOption[] {
   }));
 }
 
+function buildSeriesLocalOptions(): FavoriteSearchOption[] {
+  return SERIES_FAVORITES.map((fav) => ({
+    key: `series:${fav.seriesKey || fav.id}`,
+    label: fav.label,
+    kind: "series" as const,
+    rawName: fav.label,
+    defaultGenre: String(fav.defaultGenre || "").trim(),
+    seriesKey: fav.seriesKey,
+    source: "local" as const,
+  })).filter((x) => !!x.seriesKey);
+}
+
 const LOCAL_ARTIST_OPTIONS = buildArtistLocalOptions();
 const LOCAL_TEAM_OPTIONS = buildTeamLocalOptions();
+const LOCAL_SERIES_OPTIONS = buildSeriesLocalOptions();
 
 function dedupeArtistOptionsByCanonicalName(
   items: FavoriteSearchOption[]
@@ -360,13 +386,33 @@ function dedupeArtistOptionsByCanonicalName(
   return Array.from(byCanonical.values());
 }
 
+function rankLocalSeriesOptions(
+  query: string,
+  limit = 8
+): FavoriteSearchOption[] {
+  return LOCAL_SERIES_OPTIONS.map((opt) => ({
+    ...opt,
+    score: scoreStringMatch(query, opt.label),
+  }))
+    .filter((opt) => (opt.score || 0) >= 1)
+    .sort((a, b) => {
+      const byScore = (b.score || 0) - (a.score || 0);
+      if (byScore !== 0) return byScore;
+      return a.label.localeCompare(b.label);
+    })
+    .slice(0, limit);
+}
+
 function rankLocalOptions(
   query: string,
   kind: FavoriteSearchKind,
   limit = 8
 ): FavoriteSearchOption[] {
-  const source = kind === "team" ? LOCAL_TEAM_OPTIONS : LOCAL_ARTIST_OPTIONS;
+  if (kind === "series") {
+    return rankLocalSeriesOptions(query, limit);
+  }
 
+  const source = kind === "team" ? LOCAL_TEAM_OPTIONS : LOCAL_ARTIST_OPTIONS;
   const minScore = kind === "artist" ? 250 : 1;
 
   const scored = source
@@ -455,7 +501,11 @@ function attractionGenres(a: TmAttraction) {
     ]) {
       const s = String(v || "").trim();
       if (!s) continue;
-      if (/^(undefined|miscellaneous|artist|individual|group|other)$/i.test(s)) continue;
+      if (
+        /^(undefined|miscellaneous|artist|individual|group|other)$/i.test(s)
+      ) {
+        continue;
+      }
       out.add(s);
     }
   }
@@ -631,7 +681,7 @@ export async function searchFavoriteOptions(
 
   const local = rankLocalOptions(query, kind, limit);
 
-  if (kind !== "artist") {
+  if (kind === "team" || kind === "series") {
     return local.slice(0, limit);
   }
 
@@ -661,7 +711,7 @@ export async function searchFavoriteOptions(
       (x) =>
         x.kind === "team"
           ? `${x.kind}:${x.league}:${x.attractionId}`
-          : `${x.kind}:${x.attractionId || normalizeName(x.label)}`
+          : `${x.kind}:${x.attractionId || x.seriesKey || normalizeName(x.label)}`
     )
   );
 
@@ -685,17 +735,44 @@ export async function resolveFavorite(
     results.find((x) => normalizeName(x.rawName) === qNorm);
 
   const best = exact || results[0];
-  if (!best?.attractionId) return null;
+  if (!best) return null;
 
   if (best.kind === "artist") {
+    if (!best.attractionId) return null;
     queueArtistForEnrichment(best, query);
+
+    return {
+      id: best.key,
+      label: best.label,
+      kind: best.kind,
+      attractionId: best.attractionId,
+      defaultGenre: best.defaultGenre || "",
+    };
   }
 
-  return {
-    id: best.key,
-    label: best.label,
-    kind: best.kind,
-    attractionId: best.attractionId,
-    defaultGenre: best.defaultGenre || "",
-  };
+  if (best.kind === "team") {
+    if (!best.attractionId) return null;
+
+    return {
+      id: best.key,
+      label: best.label,
+      kind: best.kind,
+      attractionId: best.attractionId,
+      defaultGenre: best.defaultGenre || "",
+    };
+  }
+
+  if (best.kind === "series") {
+    if (!best.seriesKey) return null;
+
+    return {
+      id: best.key,
+      label: best.label,
+      kind: best.kind,
+      seriesKey: best.seriesKey,
+      defaultGenre: best.defaultGenre || "",
+    };
+  }
+
+  return null;
 }

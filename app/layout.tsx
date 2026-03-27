@@ -15,8 +15,11 @@ const geistMono = Roboto_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "EventStack",
-  description: "EventStack",
+  title: "Event Stack",
+  description: "Find trips around events",
+  icons: {
+    icon: "/logo-icon.svg",
+  },
 };
 
 export default function RootLayout({
@@ -39,18 +42,18 @@ export default function RootLayout({
             style={{
               maxWidth: 1200,
               margin: "0 auto",
-              padding: "14px 20px",
+              padding: "12px 20px",
               display: "flex",
               alignItems: "center",
             }}
           >
             <Link
-              href="/"
-              aria-label="Go to homepage"
-              style={{ display: "inline-flex", alignItems: "center" }}
-            >
-              <BrandLogo />
-            </Link>
+  href="/"
+  aria-label="Go to homepage"
+  style={{ display: "inline-flex", alignItems: "center", flexShrink: 0 }}
+>
+  <BrandLogo />
+</Link>
           </div>
         </header>
 

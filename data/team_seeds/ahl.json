@@ -1,0 +1,287 @@
+[
+  {
+    "name": "Abbotsford Canucks",
+    "league": "AHL",
+    "sport": "hockey",
+    "country": "CA",
+    "region": "BC",
+    "city": "Abbotsford",
+    "aliases": ["Canucks Abbotsford", "Abbotsford"]
+  },
+  {
+    "name": "Bakersfield Condors",
+    "league": "AHL",
+    "sport": "hockey",
+    "country": "US",
+    "region": "CA",
+    "city": "Bakersfield",
+    "aliases": ["Condors", "Bakersfield"]
+  },
+  {
+    "name": "Belleville Senators",
+    "league": "AHL",
+    "sport": "hockey",
+    "country": "CA",
+    "region": "ON",
+    "city": "Belleville",
+    "aliases": ["Senators Belleville", "Belleville"]
+  },
+  {
+    "name": "Bridgeport Islanders",
+    "league": "AHL",
+    "sport": "hockey",
+    "country": "US",
+    "region": "CT",
+    "city": "Bridgeport",
+    "aliases": ["Islanders Bridgeport", "Bridgeport"]
+  },
+  {
+    "name": "Calgary Wranglers",
+    "league": "AHL",
+    "sport": "hockey",
+    "country": "CA",
+    "region": "AB",
+    "city": "Calgary",
+    "aliases": ["Wranglers", "Calgary"]
+  },
+  {
+    "name": "Charlotte Checkers",
+    "league": "AHL",
+    "sport": "hockey",
+    "country": "US",
+    "region": "NC",
+    "city": "Charlotte",
+    "aliases": ["Checkers", "Charlotte"]
+  },
+  {
+    "name": "Chicago Wolves",
+    "league": "AHL",
+    "sport": "hockey",
+    "country": "US",
+    "region": "IL",
+    "city": "Chicago",
+    "aliases": ["Wolves", "Chicago Wolves Hockey"]
+  },
+  {
+    "name": "Cleveland Monsters",
+    "league": "AHL",
+    "sport": "hockey",
+    "country": "US",
+    "region": "OH",
+    "city": "Cleveland",
+    "aliases": ["Monsters", "Cleveland"]
+  },
+  {
+    "name": "Coachella Valley Firebirds",
+    "league": "AHL",
+    "sport": "hockey",
+    "country": "US",
+    "region": "CA",
+    "city": "Palm Desert",
+    "aliases": ["Firebirds", "Coachella Valley", "CV Firebirds"]
+  },
+  {
+    "name": "Colorado Eagles",
+    "league": "AHL",
+    "sport": "hockey",
+    "country": "US",
+    "region": "CO",
+    "city": "Loveland",
+    "aliases": ["Eagles", "Colorado"]
+  },
+  {
+    "name": "Grand Rapids Griffins",
+    "league": "AHL",
+    "sport": "hockey",
+    "country": "US",
+    "region": "MI",
+    "city": "Grand Rapids",
+    "aliases": ["Griffins", "Grand Rapids"]
+  },
+  {
+    "name": "Hartford Wolf Pack",
+    "league": "AHL",
+    "sport": "hockey",
+    "country": "US",
+    "region": "CT",
+    "city": "Hartford",
+    "aliases": ["Wolf Pack", "Hartford"]
+  },
+  {
+    "name": "Henderson Silver Knights",
+    "league": "AHL",
+    "sport": "hockey",
+    "country": "US",
+    "region": "NV",
+    "city": "Henderson",
+    "aliases": ["Silver Knights", "Henderson"]
+  },
+  {
+    "name": "Hershey Bears",
+    "league": "AHL",
+    "sport": "hockey",
+    "country": "US",
+    "region": "PA",
+    "city": "Hershey",
+    "aliases": ["Bears", "Hershey"]
+  },
+  {
+    "name": "Iowa Wild",
+    "league": "AHL",
+    "sport": "hockey",
+    "country": "US",
+    "region": "IA",
+    "city": "Des Moines",
+    "aliases": ["Wild Iowa", "Iowa"]
+  },
+  {
+    "name": "Laval Rocket",
+    "league": "AHL",
+    "sport": "hockey",
+    "country": "CA",
+    "region": "QC",
+    "city": "Laval",
+    "aliases": ["Rocket", "Laval"]
+  },
+  {
+    "name": "Lehigh Valley Phantoms",
+    "league": "AHL",
+    "sport": "hockey",
+    "country": "US",
+    "region": "PA",
+    "city": "Allentown",
+    "aliases": ["Phantoms", "Lehigh Valley"]
+  },
+  {
+    "name": "Manitoba Moose",
+    "league": "AHL",
+    "sport": "hockey",
+    "country": "CA",
+    "region": "MB",
+    "city": "Winnipeg",
+    "aliases": ["Moose", "Manitoba"]
+  },
+  {
+    "name": "Milwaukee Admirals",
+    "league": "AHL",
+    "sport": "hockey",
+    "country": "US",
+    "region": "WI",
+    "city": "Milwaukee",
+    "aliases": ["Admirals", "Milwaukee"]
+  },
+  {
+    "name": "Ontario Reign",
+    "league": "AHL",
+    "sport": "hockey",
+    "country": "US",
+    "region": "CA",
+    "city": "Ontario",
+    "aliases": ["Reign Ontario", "Ontario CA Reign", "Ontario"]
+  },
+  {
+    "name": "Providence Bruins",
+    "league": "AHL",
+    "sport": "hockey",
+    "country": "US",
+    "region": "RI",
+    "city": "Providence",
+    "aliases": ["Bruins Providence", "Providence"]
+  },
+  {
+    "name": "Rochester Americans",
+    "league": "AHL",
+    "sport": "hockey",
+    "country": "US",
+    "region": "NY",
+    "city": "Rochester",
+    "aliases": ["Americans", "Amerks", "Rochester"]
+  },
+  {
+    "name": "Rockford IceHogs",
+    "league": "AHL",
+    "sport": "hockey",
+    "country": "US",
+    "region": "IL",
+    "city": "Rockford",
+    "aliases": ["IceHogs", "Rockford"]
+  },
+  {
+    "name": "San Diego Gulls",
+    "league": "AHL",
+    "sport": "hockey",
+    "country": "US",
+    "region": "CA",
+    "city": "San Diego",
+    "aliases": ["Gulls", "San Diego"]
+  },
+  {
+    "name": "San Jose Barracuda",
+    "league": "AHL",
+    "sport": "hockey",
+    "country": "US",
+    "region": "CA",
+    "city": "San Jose",
+    "aliases": ["Barracuda", "San Jose"]
+  },
+  {
+    "name": "Springfield Thunderbirds",
+    "league": "AHL",
+    "sport": "hockey",
+    "country": "US",
+    "region": "MA",
+    "city": "Springfield",
+    "aliases": ["Thunderbirds", "Springfield"]
+  },
+  {
+    "name": "Syracuse Crunch",
+    "league": "AHL",
+    "sport": "hockey",
+    "country": "US",
+    "region": "NY",
+    "city": "Syracuse",
+    "aliases": ["Crunch", "Syracuse"]
+  },
+  {
+    "name": "Texas Stars",
+    "league": "AHL",
+    "sport": "hockey",
+    "country": "US",
+    "region": "TX",
+    "city": "Cedar Park",
+    "aliases": ["Stars Texas", "Texas"]
+  },
+  {
+    "name": "Tucson Roadrunners",
+    "league": "AHL",
+    "sport": "hockey",
+    "country": "US",
+    "region": "AZ",
+    "city": "Tucson",
+    "aliases": ["Roadrunners", "Tucson"]
+  },
+  {
+    "name": "Utica Comets",
+    "league": "AHL",
+    "sport": "hockey",
+    "country": "US",
+    "region": "NY",
+    "city": "Utica",
+    "aliases": ["Comets Utica", "Utica"]
+  },
+  {
+    "name": "Wilkes-Barre/Scranton Penguins",
+    "league": "AHL",
+    "sport": "hockey",
+    "country": "US",
+    "region": "PA",
+    "city": "Wilkes-Barre",
+    "aliases": [
+      "WB/Scranton Penguins",
+      "Wilkes-Barre Penguins",
+      "Scranton Penguins",
+      "WBS Penguins",
+      "Penguins Wilkes-Barre"
+    ]
+  }
+]

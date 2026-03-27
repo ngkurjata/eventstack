@@ -2,7 +2,11 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { visibleGenresByBucket } from "@/lib/events/genres";
+import { GROUPED_GENRES } from "@/lib/events/groupedGenres";
+import SharedEventCard from "@/app/components/events/SharedEventCard";
+import SharedEventDateGroup from "@/app/components/events/SharedEventDateGroup";
+
+type FavoriteKind = "team" | "artist" | "series";
 
 type NormEvent = {
   id: string;
@@ -34,7 +38,9 @@ type ApiResp = {
 
 type CarriedFavorite = {
   label: string;
-  attractionId: string;
+  kind: FavoriteKind;
+  attractionId?: string;
+  seriesKey?: string;
   defaultGenre: string;
 };
 
@@ -91,24 +97,16 @@ function countSelectedFromMap(map: Record<string, boolean>) {
   return Object.keys(map).filter((id) => !!map[id]).length;
 }
 
-function sanitizeSelectedMap(
-  selected: Record<string, boolean>,
-  deleted: Record<string, boolean>
-) {
-  const next: Record<string, boolean> = {};
-  for (const id of Object.keys(selected)) {
-    if (!selected[id]) continue;
-    if (deleted[id]) continue;
-    next[id] = true;
-  }
-  return next;
-}
-
 function csvToList(value: string) {
   return String(value || "")
     .split(",")
     .map((v) => v.trim())
     .filter(Boolean);
+}
+
+function favoriteIdentityKey(favorite: CarriedFavorite | null | undefined) {
+  if (!favorite) return "";
+  return String(favorite.attractionId || favorite.seriesKey || "").trim();
 }
 
 function areaQueryKey(input: {
@@ -119,8 +117,8 @@ function areaQueryKey(input: {
   end: string;
   radiusMiles: number;
   countryCode: string;
-  f1AttractionId: string;
-  f2AttractionId: string;
+  f1Key: string;
+  f2Key: string;
   genresCsv: string;
 }) {
   return [
@@ -131,8 +129,8 @@ function areaQueryKey(input: {
     String(input.end || "").trim(),
     String(input.radiusMiles || ""),
     String(input.countryCode || "").trim(),
-    String(input.f1AttractionId || "").trim(),
-    String(input.f2AttractionId || "").trim(),
+    String(input.f1Key || "").trim(),
+    String(input.f2Key || "").trim(),
     String(input.genresCsv || "").trim().toLowerCase(),
   ].join("|");
 }
@@ -155,29 +153,6 @@ function writeLastAreaQueryKey(key: string) {
 
 function isYMD(value: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
-}
-
-function formatDateRange(start: string, end: string) {
-  if (!isYMD(start) || !isYMD(end)) return `${start || "—"} → ${end || "—"}`;
-
-  const s = new Date(`${start}T12:00:00`);
-  const e = new Date(`${end}T12:00:00`);
-
-  const sMonth = s.toLocaleDateString("en-CA", { month: "short" });
-  const eMonth = e.toLocaleDateString("en-CA", { month: "short" });
-  const sDay = s.getDate();
-  const eDay = e.getDate();
-  const year = e.getFullYear();
-
-  if (start === end) {
-    return `${sMonth} ${sDay}, ${year}`;
-  }
-
-  if (s.getFullYear() === e.getFullYear() && s.getMonth() === e.getMonth()) {
-    return `${sMonth} ${sDay} → ${eDay}, ${year}`;
-  }
-
-  return `${sMonth} ${sDay}, ${s.getFullYear()} → ${eMonth} ${eDay}, ${year}`;
 }
 
 function formatSectionDate(dateStr: string) {
@@ -259,6 +234,18 @@ function normalizeToken(value: string | null | undefined) {
   return String(value || "").trim().toLowerCase();
 }
 
+function eventStorageKey(e: NormEvent) {
+  return [
+    String(e.localDate || "").trim(),
+    [String(e.city || "").trim(), String(e.region || "").trim()]
+      .filter(Boolean)
+      .join(", "),
+    String(e.name || "").trim(),
+    String(e.localTime || "").trim(),
+    String(e.url || "").trim(),
+  ].join("|");
+}
+
 function getEventFilterLabels(e: NormEvent): string[] {
   const raw = Array.isArray(e?.matched?.genres) ? e.matched!.genres! : [];
   const seen = new Set<string>();
@@ -312,14 +299,20 @@ function readCarriedFavorite(
   prefix: "f1" | "f2"
 ): CarriedFavorite | null {
   const label = String(sp.get(`${prefix}Label`) || "").trim();
+  const kind = (String(sp.get(`${prefix}Kind`) || "team").trim().toLowerCase() ||
+    "team") as FavoriteKind;
   const attractionId = String(sp.get(`${prefix}AttractionId`) || "").trim();
+  const seriesKey = String(sp.get(`${prefix}SeriesKey`) || "").trim();
   const defaultGenre = String(sp.get(`${prefix}DefaultGenre`) || "").trim();
 
-  if (!label || !attractionId) return null;
+  if (!label) return null;
+  if (!attractionId && !seriesKey) return null;
 
   return {
     label,
-    attractionId,
+    kind,
+    attractionId: attractionId || undefined,
+    seriesKey: seriesKey || undefined,
     defaultGenre,
   };
 }
@@ -341,11 +334,17 @@ function eventMatchesFavorite(e: NormEvent, favorite: CarriedFavorite | null) {
     (v) => normalizeToken(v) === favoriteLabelKey
   );
 
-  const hasAttractionId = matchedAttractionIds.some(
-    (v) => normalizeToken(v) === favoriteAttractionIdKey
-  );
+  const hasAttractionId =
+    !!favoriteAttractionIdKey &&
+    matchedAttractionIds.some(
+      (v) => normalizeToken(v) === favoriteAttractionIdKey
+    );
 
-  return hasFavoriteLabel || hasAttractionId;
+  if (favoriteAttractionIdKey) {
+    return hasAttractionId;
+  }
+
+  return hasFavoriteLabel;
 }
 
 export default function AreaResultsPage() {
@@ -359,6 +358,7 @@ export default function AreaResultsPage() {
   const end = (sp.get("end") || "").trim();
   const radiusMiles = Number(sp.get("radiusMiles") || "90");
   const countryCode = sp.get("countryCode") || "US,CA";
+  const selectedEventIdFromQuery = (sp.get("selectedEventId") || "").trim();
 
   const tripDestIata = (sp.get("airportIata") || sp.get("destIata") || "")
     .trim()
@@ -393,6 +393,15 @@ export default function AreaResultsPage() {
 
   const [selectedEventsOpen, setSelectedEventsOpen] = useState(true);
 
+  function syncFromStorage() {
+    const nextDeletedMap = readDeletedMap();
+    const nextSelectedMap = readSelectedMap();
+
+    setDeletedMap(nextDeletedMap);
+    setSelectedMap(nextSelectedMap);
+    setSelectedCount(countSelectedFromMap(nextSelectedMap));
+  }
+
   useEffect(() => {
     const key = areaQueryKey({
       cityLabel,
@@ -402,8 +411,8 @@ export default function AreaResultsPage() {
       end,
       radiusMiles,
       countryCode,
-      f1AttractionId: carriedF1?.attractionId || "",
-      f2AttractionId: carriedF2?.attractionId || "",
+      f1Key: favoriteIdentityKey(carriedF1),
+      f2Key: favoriteIdentityKey(carriedF2),
       genresCsv: carriedGenres.join(","),
     });
 
@@ -415,19 +424,7 @@ export default function AreaResultsPage() {
 
     writeLastAreaQueryKey(key);
 
-    const nextDeletedMap = readDeletedMap();
-    const rawSelectedMap = readSelectedMap();
-    const nextSelectedMap = sanitizeSelectedMap(rawSelectedMap, nextDeletedMap);
-
-    if (
-      JSON.stringify(rawSelectedMap) !== JSON.stringify(nextSelectedMap)
-    ) {
-      writeSelectedMap(nextSelectedMap);
-    }
-
-    setDeletedMap(nextDeletedMap);
-    setSelectedMap(nextSelectedMap);
-    setSelectedCount(countSelectedFromMap(nextSelectedMap));
+    syncFromStorage();
 
     setLastDismissed(null);
     setActiveGenres(carriedGenres.length > 0 ? carriedGenres : []);
@@ -440,10 +437,26 @@ export default function AreaResultsPage() {
     end,
     radiusMiles,
     countryCode,
-    carriedF1?.attractionId,
-    carriedF2?.attractionId,
+    carriedF1,
+    carriedF2,
     carriedGenres,
   ]);
+
+  useEffect(() => {
+    function handleSync() {
+      syncFromStorage();
+    }
+
+    window.addEventListener("focus", handleSync);
+    window.addEventListener("pageshow", handleSync);
+    document.addEventListener("visibilitychange", handleSync);
+
+    return () => {
+      window.removeEventListener("focus", handleSync);
+      window.removeEventListener("pageshow", handleSync);
+      document.removeEventListener("visibilitychange", handleSync);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -508,7 +521,101 @@ export default function AreaResultsPage() {
 
   const allEvents = resp?.events || [];
 
-  const visibleBucketDefs = useMemo(() => visibleGenresByBucket(), []);
+  useEffect(() => {
+    if (!allEvents.length) return;
+
+    setSelectedMap((prev) => {
+      let changed = false;
+      const next = { ...prev };
+
+      for (const e of allEvents) {
+        if (!next[e.id]) continue;
+        if (!deletedMap[eventStorageKey(e)]) continue;
+
+        delete next[e.id];
+        changed = true;
+      }
+
+      if (!changed) return prev;
+
+      writeSelectedMap(next);
+      setSelectedCount(countSelectedFromMap(next));
+      return next;
+    });
+  }, [allEvents, deletedMap]);
+
+  useEffect(() => {
+    if (!selectedEventIdFromQuery) return;
+    if (loading || err) return;
+    if (!allEvents.length) return;
+
+    const matchingEvent = allEvents.find((e) => e.id === selectedEventIdFromQuery);
+    if (!matchingEvent) return;
+
+    const deleteKey = eventStorageKey(matchingEvent);
+    if (deletedMap[deleteKey]) return;
+
+    setSelectedMap((prev) => {
+      if (prev[selectedEventIdFromQuery]) return prev;
+
+      const next = {
+        [selectedEventIdFromQuery]: true,
+        ...prev,
+      };
+
+      writeSelectedMap(next);
+      setSelectedCount(countSelectedFromMap(next));
+      return next;
+    });
+  }, [selectedEventIdFromQuery, loading, err, allEvents, deletedMap]);
+
+  useEffect(() => {
+    if (loading || err) return;
+    if (!allEvents.length) return;
+    if (!hasCarriedFavorites || hasCarriedGenres) return;
+
+    const idsToSeed = allEvents
+      .filter((e) => eventMatchesFavorite(e, carriedF1) || eventMatchesFavorite(e, carriedF2))
+      .filter((e) => !deletedMap[eventStorageKey(e)])
+      .map((e) => e.id);
+
+    if (idsToSeed.length === 0) return;
+
+    setSelectedMap((prev) => {
+      const next = { ...prev };
+      let changed = false;
+
+      for (const id of idsToSeed) {
+        if (!next[id]) {
+          next[id] = true;
+          changed = true;
+        }
+      }
+
+      if (!changed) return prev;
+
+      writeSelectedMap(next);
+      setSelectedCount(countSelectedFromMap(next));
+      return next;
+    });
+  }, [
+    loading,
+    err,
+    allEvents,
+    carriedF1,
+    carriedF2,
+    hasCarriedFavorites,
+    hasCarriedGenres,
+    deletedMap,
+  ]);
+
+  const visibleBucketDefs = useMemo(() => {
+    return {
+      sports: GROUPED_GENRES.filter((g) => g.family === "sports").map((g) => g.label),
+      music: GROUPED_GENRES.filter((g) => g.family === "music").map((g) => g.label),
+    };
+  }, []);
+
   const visibleGenreSet = useMemo(() => {
     return new Set(
       [...visibleBucketDefs.sports, ...visibleBucketDefs.music].map((g) =>
@@ -528,10 +635,8 @@ export default function AreaResultsPage() {
   );
 
   const availableGenres = useMemo(() => {
-    const raw = Array.isArray(resp?.genres) ? resp!.genres : [];
-    return sortAlpha(
-      raw.filter((g) => visibleGenreSet.has(normalizeGenreKey(g)))
-    );
+    const raw = Array.isArray(resp?.genres) ? resp.genres : [];
+    return sortAlpha(raw.filter((g) => visibleGenreSet.has(normalizeGenreKey(g))));
   }, [resp, visibleGenreSet]);
 
   const availableGenreKeys = useMemo(
@@ -543,9 +648,7 @@ export default function AreaResultsPage() {
     if (loading || err) return;
 
     setActiveGenres((prev) => {
-      const kept = prev.filter((g) =>
-        availableGenreKeys.has(normalizeGenreKey(g))
-      );
+      const kept = prev.filter((g) => availableGenreKeys.has(normalizeGenreKey(g)));
 
       const merged: string[] = [];
       const seen = new Set<string>();
@@ -566,11 +669,27 @@ export default function AreaResultsPage() {
     [activeGenres]
   );
 
+  useEffect(() => {
+    if (activeGenres.length === 0) return;
+
+    const first = normalizeGenreKey(activeGenres[0]);
+
+    if (sportsGenreKeys.has(first)) {
+      setFilterPanelMode("sports");
+      return;
+    }
+
+    if (musicGenreKeys.has(first)) {
+      setFilterPanelMode("music");
+      return;
+    }
+  }, [activeGenres, sportsGenreKeys, musicGenreKeys]);
+
   const deletedEventKeySet = useMemo(() => {
     return new Set(Object.keys(deletedMap).filter((id) => !!deletedMap[id]));
   }, [deletedMap]);
 
-  const selectedEventKeySet = useMemo(() => {
+  const selectedEventIdSet = useMemo(() => {
     return new Set(Object.keys(selectedMap).filter((id) => !!selectedMap[id]));
   }, [selectedMap]);
 
@@ -587,51 +706,37 @@ export default function AreaResultsPage() {
 
   const visibleEvents = useMemo(() => {
     return allEvents.filter((e) => {
-      if (deletedEventKeySet.has(e.id)) return false;
+      const deleteKey = eventStorageKey(e);
 
-      if (selectedEventKeySet.has(e.id)) return true;
+      if (deletedEventKeySet.has(deleteKey)) return false;
+      if (selectedEventIdSet.has(e.id)) return true;
       if (!e.url) return false;
 
       const labels = getEventFilterLabels(e).filter((label) =>
         visibleGenreSet.has(normalizeGenreKey(label))
       );
       if (labels.length === 0) return false;
+      if (activeGenreKeys.size === 0) return false;
 
-      const matchesCarriedFavorite =
-        eventMatchesFavorite(e, carriedF1) || eventMatchesFavorite(e, carriedF2);
-
-      const matchesActiveGenre =
-        activeGenreKeys.size > 0 &&
-        labels.some((label) => activeGenreKeys.has(normalizeGenreKey(label)));
-
-      const hasAnyVisibleFilter =
-        hasCarriedFavorites || hasCarriedGenres || activeGenreKeys.size > 0;
-
-      if (!hasAnyVisibleFilter) return false;
-
-      return matchesCarriedFavorite || matchesActiveGenre;
+      return labels.some((label) => activeGenreKeys.has(normalizeGenreKey(label)));
     });
   }, [
     allEvents,
     deletedEventKeySet,
-    selectedEventKeySet,
+    selectedEventIdSet,
     activeGenreKeys,
-    carriedF1,
-    carriedF2,
-    hasCarriedFavorites,
-    hasCarriedGenres,
     visibleGenreSet,
   ]);
 
   const selectedVisibleEvents = useMemo(() => {
     return sortEventsChronologically(
-      visibleEvents.filter((e) => selectedEventKeySet.has(e.id))
+      visibleEvents.filter((e) => selectedEventIdSet.has(e.id))
     );
-  }, [visibleEvents, selectedEventKeySet]);
+  }, [visibleEvents, selectedEventIdSet]);
 
   const unselectedVisibleEvents = useMemo(() => {
-    return visibleEvents.filter((e) => !selectedEventKeySet.has(e.id));
-  }, [visibleEvents, selectedEventKeySet]);
+    return visibleEvents.filter((e) => !selectedEventIdSet.has(e.id));
+  }, [visibleEvents, selectedEventIdSet]);
 
   const groupedSelectedEvents = useMemo(
     () => groupByDate(selectedVisibleEvents),
@@ -643,8 +748,11 @@ export default function AreaResultsPage() {
     [unselectedVisibleEvents]
   );
 
-  const titleCity = resp?.city?.label || cityLabel || "Area Results";
-  const subtitleRange = formatDateRange(start, end);
+  const noUnselectedEventsForActiveFilters =
+    filterPanelMode !== "hidden" &&
+    activeGenreKeys.size > 0 &&
+    visibleEvents.length > 0 &&
+    unselectedVisibleEvents.length === 0;
 
   const carriedFilterSummary = useMemo(() => {
     const parts: string[] = [];
@@ -657,10 +765,12 @@ export default function AreaResultsPage() {
   }, [carriedF1, carriedF2, carriedGenres]);
 
   function toggleSelectedEventsOpen() {
-  setSelectedEventsOpen((prev) => !prev);
-}
+    setSelectedEventsOpen((prev) => !prev);
+  }
+
   function onToggleEvent(e: NormEvent) {
-    if (deletedMap[e.id]) return;
+    const deleteKey = eventStorageKey(e);
+    if (deletedMap[deleteKey]) return;
 
     setSelectedMap((prev) => {
       const next = { ...prev };
@@ -677,35 +787,34 @@ export default function AreaResultsPage() {
     });
   }
 
+  function onRemoveSelectedEvent(eventIdToRemove: string) {
+    setSelectedMap((prev) => {
+      if (!prev[eventIdToRemove]) return prev;
+
+      const next = { ...prev };
+      delete next[eventIdToRemove];
+      writeSelectedMap(next);
+      setSelectedCount(countSelectedFromMap(next));
+      return next;
+    });
+  }
+
   function onToggleGenre(genre: string) {
     const key = normalizeGenreKey(genre);
-
     if (!availableGenreKeys.has(key)) return;
 
     setActiveGenres((prev) => {
       const exists = prev.some((g) => normalizeGenreKey(g) === key);
-
-      if (exists) {
-        return prev.filter((g) => normalizeGenreKey(g) !== key);
-      }
-
-      return [...prev, genre];
+      if (exists) return [];
+      return [genre];
     });
   }
 
-  function clearBucketFilters(bucket: "sports" | "music") {
-    setActiveGenres((prev) =>
-      prev.filter((genre) => {
-        const key = normalizeGenreKey(genre);
-        if (bucket === "sports") return !sportsGenreKeys.has(key);
-        return !musicGenreKeys.has(key);
-      })
-    );
-  }
-
   function onDismissEvent(event: NormEvent) {
+    const deleteKey = eventStorageKey(event);
+
     setDeletedMap((prevDeleted) => {
-      const nextDeleted = { ...prevDeleted, [event.id]: true };
+      const nextDeleted = { ...prevDeleted, [deleteKey]: true };
       writeDeletedMap(nextDeleted);
       return nextDeleted;
     });
@@ -726,9 +835,11 @@ export default function AreaResultsPage() {
   function onUndoDismiss() {
     if (!lastDismissed) return;
 
+    const deleteKey = eventStorageKey(lastDismissed);
+
     setDeletedMap((prevDeleted) => {
       const nextDeleted = { ...prevDeleted };
-      delete nextDeleted[lastDismissed.id];
+      delete nextDeleted[deleteKey];
       writeDeletedMap(nextDeleted);
       return nextDeleted;
     });
@@ -755,6 +866,26 @@ export default function AreaResultsPage() {
       q.set("destIata", tripDestIata);
     }
 
+    if (carriedF1?.label) {
+      q.set("f1Label", carriedF1.label);
+      q.set("f1Kind", carriedF1.kind);
+      if (carriedF1.attractionId) q.set("f1AttractionId", carriedF1.attractionId);
+      if (carriedF1.seriesKey) q.set("f1SeriesKey", carriedF1.seriesKey);
+      if (carriedF1.defaultGenre) q.set("f1DefaultGenre", carriedF1.defaultGenre);
+    }
+
+    if (carriedF2?.label) {
+      q.set("f2Label", carriedF2.label);
+      q.set("f2Kind", carriedF2.kind);
+      if (carriedF2.attractionId) q.set("f2AttractionId", carriedF2.attractionId);
+      if (carriedF2.seriesKey) q.set("f2SeriesKey", carriedF2.seriesKey);
+      if (carriedF2.defaultGenre) q.set("f2DefaultGenre", carriedF2.defaultGenre);
+    }
+
+    if (carriedGenres.length) {
+      q.set("genres", carriedGenres.join(","));
+    }
+
     router.push(`/build-trip?${q.toString()}`);
   }
 
@@ -766,9 +897,11 @@ export default function AreaResultsPage() {
   function toggleFilterPanelMode(nextMode: Exclude<FilterPanelMode, "hidden">) {
     setFilterPanelMode((prev) => {
       if (prev === nextMode) {
-        clearBucketFilters(nextMode);
+        setActiveGenres([]);
         return "hidden";
       }
+
+      setActiveGenres([]);
       return nextMode;
     });
   }
@@ -875,196 +1008,195 @@ export default function AreaResultsPage() {
     const pill = pickDisplayPill(e, activeGenreKeys, carriedGenreKeys);
 
     return (
-      <div
-        key={e.id}
-        role="button"
-        tabIndex={0}
-        onClick={() => onToggleEvent(e)}
-        onKeyDown={(evt) => {
-          if (evt.key === "Enter" || evt.key === " ") {
-            evt.preventDefault();
-            onToggleEvent(e);
-          }
-        }}
-        style={{
-          display: "block",
-          background: selected ? "#f8fbff" : "#fff",
-          border: selected ? "2px solid #17315f" : "1px solid #d9e0ea",
-          borderRadius: 18,
-          padding: "12px 12px",
-          cursor: "pointer",
-          boxShadow: selected ? "0 6px 18px rgba(23,49,95,0.10)" : "none",
-          transition: "border-color 120ms ease, box-shadow 120ms ease, background 120ms ease",
-        }}
-      >
-        <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "flex-start",
-                gap: 8,
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 16,
-                  fontWeight: 800,
-                  color: "#071b3b",
-                  minWidth: 0,
-                  flex: 1,
-                  lineHeight: 1.2,
-                  paddingRight: 2,
-                  wordBreak: "break-word",
-                }}
-              >
-                {e.name}
-              </div>
-
-              <button
-                type="button"
-                aria-label="Hide event"
-                onClick={(evt) => {
-                  evt.preventDefault();
-                  evt.stopPropagation();
-                  onDismissEvent(e);
-                }}
-                style={{
-                  flexShrink: 0,
-                  width: 28,
-                  height: 28,
-                  borderRadius: 999,
-                  border: "1px solid #dc2626",
-                  background: "#fff5f5",
-                  color: "#dc2626",
-                  fontSize: 16,
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  lineHeight: 1,
-                }}
-              >
-                ×
-              </button>
-            </div>
-
-            <div
-              style={{
-                marginTop: 4,
-                fontSize: 14,
-                color: "#5e7597",
-                lineHeight: 1.3,
-                wordBreak: "break-word",
-              }}
-            >
-              {e.city}
-              {e.region ? `, ${e.region}` : ""}
-              {e.localTime ? ` • ${formatTime12h(e.localTime)}` : ""}
-            </div>
-
-            <div
-              style={{
-                marginTop: 10,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 10,
-                flexWrap: "wrap",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                {pill ? (
-                  <div
-                    style={{
-                      minHeight: 24,
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      boxSizing: "border-box",
-                      fontSize: 11,
-                      fontWeight: 700,
-                      padding: "2px 8px",
-                      borderRadius: 999,
-                      background: "#111",
-                      color: "#fff",
-                      textAlign: "center",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {pill}
-                  </div>
-                ) : null}
-
-                {selected ? (
-                  <div
-                    style={{
-                      minHeight: 24,
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      boxSizing: "border-box",
-                      fontSize: 11,
-                      fontWeight: 800,
-                      padding: "2px 8px",
-                      borderRadius: 999,
-                      background: "#e8f0ff",
-                      color: "#17315f",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    Selected
-                  </div>
-                ) : null}
-              </div>
-
-              <div
-                style={{
-                  marginLeft: "auto",
-                  flex: "0 0 auto",
-                }}
-              >
-                {e.url ? (
-                  <button
-                    type="button"
-                    onClick={(evt) => {
-                      evt.preventDefault();
-                      evt.stopPropagation();
-                      window.open(e.url || "", "_blank", "noopener,noreferrer");
-                    }}
-                    style={{
-                      minHeight: 32,
-                      padding: "0 12px",
-                      borderRadius: 999,
-                      border: "1px solid #17315f",
-                      background: "#17315f",
-                      color: "#fff",
-                      fontSize: 13,
-                      fontWeight: 800,
-                      cursor: "pointer",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    Tickets
-                  </button>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <SharedEventCard
+        title={e.name}
+        subtitle={`${e.city}${e.region ? `, ${e.region}` : ""}${
+          e.localTime ? ` • ${formatTime12h(e.localTime)}` : ""
+        }`}
+        primaryPill={pill}
+        ticketHref={e.url}
+        showTickets={!!e.url}
+        selected={selected}
+        onCardClick={
+          selected
+            ? undefined
+            : () => {
+                onToggleEvent(e);
+              }
+        }
+        onRemove={
+          selected
+            ? () => {
+                onRemoveSelectedEvent(e.id);
+              }
+            : undefined
+        }
+        removeAriaLabel="Remove from selected events"
+      />
     );
   }
 
   return (
     <div style={{ minHeight: "100vh", background: "#f5f7fb", fontFamily: "system-ui" }}>
       <div style={{ maxWidth: 860, margin: "0 auto", padding: "14px 10px 96px" }}>
-        <div style={{ paddingBottom: 14, borderBottom: "1px solid #d9e0ea", marginBottom: 14 }}>
-          <div style={{ fontSize: 19, fontWeight: 800, color: "#0d2244" }}>{titleCity}</div>
+        {loading && <div>Loading…</div>}
+        {err && <div style={{ color: "crimson" }}>{err}</div>}
 
-          <div style={{ marginTop: 8, fontSize: 14, fontWeight: 700, color: "#17315f" }}>
-            {subtitleRange}
+        {!loading && !err && (
+          <div
+            style={{
+              marginBottom: 16,
+              background: "#eef4ff",
+              border: "1px solid #c9d8f2",
+              borderRadius: 20,
+              padding: 14,
+              boxShadow: "0 10px 24px rgba(23,49,95,0.08)",
+            }}
+          >
+            <button
+              type="button"
+              onClick={toggleSelectedEventsOpen}
+              aria-expanded={selectedEventsOpen}
+              aria-label={selectedEventsOpen ? "Hide selected events" : "Show selected events"}
+              style={{
+                width: "100%",
+                background: "transparent",
+                border: "none",
+                padding: 0,
+                marginBottom: selectedEventsOpen ? 14 : 0,
+                cursor: "pointer",
+              }}
+            >
+              <div
+                style={{
+                  margin: "6px 0 14px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 10,
+                  width: "100%",
+                }}
+              >
+                <div
+                  style={{
+                    flex: 1,
+                    height: 2,
+                    background: "linear-gradient(to right, transparent, #17315f)",
+                    borderRadius: 2,
+                  }}
+                />
+
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "8px 14px",
+                    borderRadius: 999,
+                    background: "#17315f",
+                    color: "#fff",
+                    fontSize: 12,
+                    fontWeight: 800,
+                    letterSpacing: 0.4,
+                    textTransform: "uppercase",
+                    boxShadow: "0 4px 12px rgba(23,49,95,0.25)",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 14,
+                      transform: selectedEventsOpen ? "rotate(0deg)" : "rotate(-90deg)",
+                      transition: "transform 120ms ease",
+                    }}
+                  >
+                    ↓
+                  </span>
+                  EVENTS YOU ARE INTERESTED IN
+                  <span
+                    style={{
+                      fontSize: 14,
+                      transform: selectedEventsOpen ? "rotate(0deg)" : "rotate(-90deg)",
+                      transition: "transform 120ms ease",
+                    }}
+                  >
+                    ↓
+                  </span>
+                </div>
+
+                <div
+                  style={{
+                    flex: 1,
+                    height: 2,
+                    background: "linear-gradient(to left, transparent, #17315f)",
+                    borderRadius: 2,
+                  }}
+                />
+              </div>
+            </button>
+
+            {selectedEventsOpen && (
+              <>
+                {groupedSelectedEvents.length > 0 ? (
+                  groupedSelectedEvents.map(([date, items]) => (
+                    <SharedEventDateGroup
+                      key={`selected-${date}`}
+                      title={formatSectionDate(date)}
+                      className="mb-[14px]"
+                    >
+                      {items.map((e) => (
+                        <React.Fragment key={e.id}>
+                          {renderEventCard(e)}
+                        </React.Fragment>
+                      ))}
+                    </SharedEventDateGroup>
+                  ))
+                ) : (
+                  <div
+  style={{
+    background: "#fff",
+    border: "1px solid #d9e0ea",
+    borderRadius: 16,
+    padding: "16px 14px",
+    color: "#536b8f",
+    fontWeight: 700,
+    textAlign: "center",
+  }}
+>
+  <div style={{ color: "#dc2626", fontWeight: 800 }}>
+    ADD EVENTS BELOW
+  </div>
+
+  <div style={{ marginTop: 4, fontWeight: 600 }}>
+    Selected events will appear here.
+  </div>
+</div>
+                )}
+
+                <div style={{ marginTop: 14 }}>
+                  <button
+                    onClick={onBuildTrip}
+                    disabled={!canBuild}
+                    style={{
+                      width: "100%",
+                      height: 44,
+                      borderRadius: 16,
+                      border: "none",
+                      background: "#07173a",
+                      color: "#fff",
+                      fontSize: 16,
+                      fontWeight: 800,
+                      opacity: canBuild ? 1 : 0.45,
+                      cursor: canBuild ? "pointer" : "default",
+                    }}
+                  >
+                    Save / Share Trip
+                  </button>
+                </div>
+              </>
+            )}
           </div>
-        </div>
+        )}
 
         {!loading && !err && (
           <div
@@ -1086,171 +1218,123 @@ export default function AreaResultsPage() {
                 letterSpacing: 0.3,
               }}
             >
-              Event Types Available
+              <div
+                style={{
+                  margin: "6px 0 14px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 10,
+                }}
+              >
+                <div
+                  style={{
+                    flex: 1,
+                    height: 2,
+                    background: "linear-gradient(to right, transparent, #17315f)",
+                    borderRadius: 2,
+                  }}
+                />
+
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "8px 14px",
+                    borderRadius: 999,
+                    background: "#17315f",
+                    color: "#fff",
+                    fontSize: 12,
+                    fontWeight: 800,
+                    letterSpacing: 0.4,
+                    textTransform: "uppercase",
+                    boxShadow: "0 4px 12px rgba(23,49,95,0.25)",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  <span style={{ fontSize: 14 }}>↓</span>
+                  ADD EVENTS USING THESE FILTERS
+                  <span style={{ fontSize: 14 }}>↓</span>
+                </div>
+
+                <div
+                  style={{
+                    flex: 1,
+                    height: 2,
+                    background: "linear-gradient(to left, transparent, #17315f)",
+                    borderRadius: 2,
+                  }}
+                />
+              </div>
             </div>
 
             {renderTopLevelBucketButtons()}
 
             {filterPanelMode !== "hidden" && (
               <div style={{ marginTop: 12 }}>
-                <div
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 800,
-                    color: "#536b8f",
-                    marginBottom: 8,
-                    textTransform: "uppercase",
-                    letterSpacing: 0.3,
-                  }}
-                >
-                  {filterPanelMode === "sports" ? "Sports Filters" : "Music Filters"}
-                </div>
+                {renderGenreButtons(
+                  filterPanelMode === "sports"
+                    ? bucketedGenres.sports
+                    : bucketedGenres.music
+                )}
+              </div>
+            )}
 
-                {filterPanelMode === "sports"
-                  ? renderGenreButtons(bucketedGenres.sports)
-                  : renderGenreButtons(bucketedGenres.music)}
+            {noUnselectedEventsForActiveFilters && (
+              <div
+                style={{
+                  marginTop: 12,
+                  background: "#f8fbff",
+                  border: "1px solid #d9e0ea",
+                  borderRadius: 14,
+                  padding: "12px 14px",
+                  color: "#536b8f",
+                  fontWeight: 700,
+                  fontSize: 13,
+                }}
+              >
+                All matching events are already in your selected list.
               </div>
             )}
           </div>
         )}
 
-        {loading && <div>Loading…</div>}
-        {err && <div style={{ color: "crimson" }}>{err}</div>}
-
-        {!loading && !err && groupedSelectedEvents.length > 0 && (
-  <div
-    style={{
-      marginBottom: 22,
-      background: "#eef4ff",
-      border: "1px solid #c9d8f2",
-      borderRadius: 20,
-      padding: 14,
-      boxShadow: "0 10px 24px rgba(23,49,95,0.08)",
-    }}
-  >
-    <button
-      type="button"
-      onClick={toggleSelectedEventsOpen}
-      aria-expanded={selectedEventsOpen}
-      aria-label={selectedEventsOpen ? "Hide selected events" : "Show selected events"}
-      style={{
-        width: "100%",
-        background: "#071b3b",
-        color: "#fff",
-        borderRadius: 14,
-        padding: "12px 14px",
-        marginBottom: selectedEventsOpen ? 14 : 0,
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        fontSize: 13,
-        fontWeight: 800,
-        letterSpacing: 0.4,
-        textTransform: "uppercase",
-        boxShadow: "inset 0 -1px 0 rgba(255,255,255,0.08)",
-        border: "none",
-        cursor: "pointer",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <span>Selected Events</span>
-        <span style={{ opacity: 0.9 }}>({selectedVisibleEvents.length})</span>
-      </div>
-
-      <span
-        aria-hidden="true"
-        style={{
-          fontSize: 16,
-          lineHeight: 1,
-          opacity: 0.9,
-          transform: selectedEventsOpen ? "rotate(0deg)" : "rotate(-90deg)",
-          transition: "transform 120ms ease",
-        }}
-      >
-        ▾
-      </span>
-    </button>
-
-    {selectedEventsOpen && (
-      <>
-        {groupedSelectedEvents.map(([date, items]) => (
-          <div key={`selected-${date}`} style={{ marginBottom: 14 }}>
+        {!loading &&
+          !err &&
+          groupedEvents.length === 0 &&
+          selectedVisibleEvents.length === 0 &&
+          (carriedFilterSummary.length > 0 || activeGenreKeys.size > 0) && (
             <div
               style={{
-                fontSize: 13,
-                fontWeight: 800,
-                color: "#36527f",
-                marginBottom: 10,
+                background: "#fff",
+                border: "1px solid #d9e0ea",
+                borderRadius: 18,
+                padding: "16px 14px",
+                color: "#536b8f",
+                fontWeight: 700,
               }}
             >
-              {formatSectionDate(date)}
+              {carriedFilterSummary.length > 0
+                ? "No events match the carried Favorites / genre filters."
+                : "No events match the current filters."}
             </div>
-
-            <div style={{ display: "grid", gap: 10 }}>
-              {items.map((e) => renderEventCard(e))}
-            </div>
-          </div>
-        ))}
-      </>
-    )}
-  </div>
-)}
-
-        {!loading && !err && groupedEvents.length === 0 && selectedVisibleEvents.length === 0 && (
-          <div
-            style={{
-              background: "#fff",
-              border: "1px solid #d9e0ea",
-              borderRadius: 18,
-              padding: "16px 14px",
-              color: "#536b8f",
-              fontWeight: 700,
-            }}
-          >
-            {carriedFilterSummary.length > 0
-              ? "No events match the carried Favorites / genre filters."
-              : activeGenreKeys.size === 0
-              ? "Select Sports or Music, then choose one or more event types to see events."
-              : "No events match the current filters."}
-          </div>
-        )}
+          )}
 
         {!loading && !err && groupedEvents.length > 0 && (
-          <div style={{ marginTop: groupedSelectedEvents.length > 0 ? 6 : 0 }}>
-            <div
-              style={{
-                background: "#e8edf5",
-                color: "#17315f",
-                borderRadius: 12,
-                padding: "10px 12px",
-                marginBottom: 12,
-                fontSize: 13,
-                fontWeight: 800,
-                letterSpacing: 0.4,
-                textTransform: "uppercase",
-                border: "1px solid #d9e0ea",
-              }}
-            >
-              Other Events to Add
-            </div>
-
+          <div>
             {groupedEvents.map(([date, items]) => (
-              <div key={date} style={{ marginBottom: 14 }}>
-                <div
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 800,
-                    color: "#536b8f",
-                    marginBottom: 10,
-                  }}
-                >
-                  {formatSectionDate(date)}
-                </div>
-
-                <div style={{ display: "grid", gap: 10 }}>
-                  {items.map((e) => renderEventCard(e))}
-                </div>
-              </div>
+              <SharedEventDateGroup
+                key={date}
+                title={formatSectionDate(date)}
+                className="mb-[14px]"
+              >
+                {items.map((e) => (
+                  <React.Fragment key={e.id}>
+                    {renderEventCard(e)}
+                  </React.Fragment>
+                ))}
+              </SharedEventDateGroup>
             ))}
           </div>
         )}
@@ -1314,29 +1398,6 @@ export default function AreaResultsPage() {
           </div>
         </div>
       )}
-
-      <div style={{ position: "sticky", bottom: 0, padding: 12, background: "#f5f7fb" }}>
-        <div style={{ maxWidth: 860, margin: "0 auto" }}>
-          <button
-            onClick={onBuildTrip}
-            disabled={!canBuild}
-            style={{
-              width: "100%",
-              height: 44,
-              borderRadius: 16,
-              border: "none",
-              background: "#07173a",
-              color: "#fff",
-              fontSize: 16,
-              fontWeight: 800,
-              opacity: canBuild ? 1 : 0.45,
-              cursor: canBuild ? "pointer" : "default",
-            }}
-          >
-            Build trip {selectedCount > 0 ? `(${selectedCount})` : ""}
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

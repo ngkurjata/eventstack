@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-export default function proxy(req: NextRequest) {
+export default function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
 
   if (
@@ -9,7 +9,8 @@ export default function proxy(req: NextRequest) {
     pathname.startsWith("/favicon") ||
     pathname === "/pin" ||
     pathname.startsWith("/api/pin") ||
-    pathname === "/share"
+    pathname.startsWith("/share/") ||
+    pathname.startsWith("/build-trip")
   ) {
     return NextResponse.next();
   }

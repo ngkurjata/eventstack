@@ -10,7 +10,7 @@ import {
   type FavoriteSearchKind,
 } from "@/lib/favorites/resolve";
 
-type ResolveKind = "team" | "artist";
+type ResolveKind = "team" | "artist" | "series";
 
 function json(payload: unknown, status = 200) {
   return NextResponse.json(payload, { status });
@@ -23,6 +23,7 @@ function parseSearchKind(value: string | null): FavoriteSearchKind | "all" {
 
   if (v === "team") return "team";
   if (v === "artist") return "artist";
+  if (v === "series") return "series";
   return "all";
 }
 
@@ -33,6 +34,7 @@ function parseResolveKind(value: string | null): ResolveKind | null {
 
   if (v === "team") return "team";
   if (v === "artist") return "artist";
+  if (v === "series") return "series";
   return null;
 }
 
@@ -56,18 +58,20 @@ export async function GET(req: Request) {
     }
 
     if (kind === "all") {
-      const [artistItems, teamItems] = await Promise.all([
+      const [artistItems, teamItems, seriesItems] = await Promise.all([
         searchFavoriteOptions(q, "artist", limit),
         searchFavoriteOptions(q, "team", limit),
+        searchFavoriteOptions(q, "series", limit),
       ]);
 
-      const merged = [...artistItems, ...teamItems]
+      const merged = [...artistItems, ...teamItems, ...seriesItems]
         .sort((a, b) => {
           const byScore = Number(b.score || 0) - Number(a.score || 0);
           if (byScore !== 0) return byScore;
 
           if (a.kind !== b.kind) {
-            return a.kind === "artist" ? -1 : 1;
+            const rank = { series: 0, team: 1, artist: 2 } as const;
+            return rank[a.kind] - rank[b.kind];
           }
 
           return a.label.localeCompare(b.label);
@@ -110,7 +114,7 @@ export async function POST(req: Request) {
     const label = String(body?.label || "").trim();
 
     if (!kind) {
-      return json({ error: "kind must be 'team' or 'artist'" }, 400);
+      return json({ error: "kind must be 'team', 'artist', or 'series'" }, 400);
     }
 
     if (!label) {
