@@ -12,21 +12,12 @@ export type RowEvent = {
 };
 
 export type BuildTripPayload = {
-  rowKey?: string;
-  tripStyle?: string;
-
-  destIata?: string;
+  tripName?: string | null;
   cityState?: string;
-
   startYMD?: string | null;
   endYMD?: string | null;
-
-  radiusMiles?: number;
-  countryCode?: string;
-
-  airport?: string; // origin IATA
-  anchor?: RowEvent;
-  events?: RowEvent[];
+  anchor?: RowEvent | null;
+  events: RowEvent[];
 };
 
 export function encodeBuildTripDataParam(payload: BuildTripPayload) {

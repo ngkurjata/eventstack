@@ -5,10 +5,10 @@ export default function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
 
   if (
+    pathname.startsWith("/api") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
     pathname === "/pin" ||
-    pathname.startsWith("/api/pin") ||
     pathname.startsWith("/share/") ||
     pathname.startsWith("/build-trip")
   ) {

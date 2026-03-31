@@ -1,4 +1,3 @@
-// FILE: app/components/events/SharedEventDateGroup.tsx
 "use client";
 
 import React from "react";
@@ -15,12 +14,16 @@ export default function SharedEventDateGroup({
   className,
 }: Props) {
   return (
-    <div className={className}>
-      <div className="mb-[10px] text-[13px] font-extrabold uppercase tracking-wide text-[#536b8f]">
-        {title}
+    <section className={className}>
+      <div className="sticky top-0 z-10 mb-2 sm:mb-3">
+        <div className="border-b border-slate-200 bg-slate-50/95 pb-2 pt-2 backdrop-blur supports-[backdrop-filter]:bg-slate-50/80">
+          <div className="text-[13px] font-black uppercase tracking-[0.06em] text-slate-900 sm:text-[15px]">
+            {title}
+          </div>
+        </div>
       </div>
 
-      <div className="grid gap-[10px]">{children}</div>
-    </div>
+      <div className="grid gap-2 sm:gap-3">{children}</div>
+    </section>
   );
 }

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Inter, Roboto_Mono } from "next/font/google";
 import BrandLogo from "@/app/components/BrandLogo";
 import "./globals.css";
+import "leaflet/dist/leaflet.css";
 
 const geistSans = Inter({
   variable: "--font-geist-sans",
@@ -18,8 +19,9 @@ export const metadata: Metadata = {
   title: "Event Stack",
   description: "Find trips around events",
   icons: {
-    icon: "/logo-icon.svg",
+    icon: "/logo.svg", // ✅ fixed (must exist in /public)
   },
+  viewport: "width=device-width, initial-scale=1, viewport-fit=cover",
 };
 
 export default function RootLayout({
@@ -30,34 +32,23 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} app-shell antialiased`}
       >
-        <header
-          style={{
-            borderBottom: "1px solid #e5e7eb",
-            background: "#fff",
-          }}
-        >
-          <div
-            style={{
-              maxWidth: 1200,
-              margin: "0 auto",
-              padding: "12px 20px",
-              display: "flex",
-              alignItems: "center",
-            }}
-          >
+        <header className="border-b border-slate-200 bg-white">
+          <div className="mx-auto flex w-full max-w-[1200px] items-center px-4 py-3 sm:px-5">
             <Link
-  href="/"
-  aria-label="Go to homepage"
-  style={{ display: "inline-flex", alignItems: "center", flexShrink: 0 }}
->
-  <BrandLogo />
-</Link>
+              href="/"
+              aria-label="Go to homepage"
+              className="inline-flex shrink-0 items-center"
+            >
+              <BrandLogo />
+            </Link>
           </div>
         </header>
 
-        <main>{children}</main>
+        <main className="min-h-[calc(100dvh-65px)] bg-white">
+          {children}
+        </main>
       </body>
     </html>
   );

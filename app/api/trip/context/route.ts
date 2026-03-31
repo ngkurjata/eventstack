@@ -1,5 +1,3 @@
-// FILE: app/api/trip/context/route.ts
-
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -12,12 +10,18 @@ import {
   mergeMatched,
   uniqueStrings,
 } from "@/lib/events/match";
-import { allVisibleGenreLabels } from "@/lib/events/genres";
+import { resolveGenreKey } from "@/lib/events/genres";
 import {
   anchorWindowYMD,
   isYMD,
   ymdToTmRangeInclusive,
 } from "@/lib/time/window";
+
+/* =========================
+   🔥 CACHE (NEW)
+========================= */
+const CONTEXT_CACHE = new Map<string, { ts: number; value: any }>();
+const CONTEXT_TTL = 1000 * 60 * 5; // 5 minutes
 
 function json(payload: any, status = 200) {
   return NextResponse.json(payload, { status });
@@ -71,10 +75,6 @@ function toFiniteNumber(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function normalizeToken(v: string | null | undefined): string {
-  return String(v || "").trim().toLowerCase();
-}
-
 function pickAnchor(body: Body): AnchorInput | null {
   const a = body.anchor || null;
   const aLocalDate = a?.localDate ? String(a.localDate).trim() : "";
@@ -111,13 +111,12 @@ function isIncompleteEvent(e: NormEvent): boolean {
   if (!e.url?.trim()) return true;
   if (!e.city?.trim()) return true;
   if (!e.venueName?.trim()) return true;
-  if (!Array.isArray(e.canonicalGenres) || e.canonicalGenres.length === 0) {
+  if (!Array.isArray(e.canonicalGenres) || e.canonicalGenres.length === 0)
     return true;
-  }
 
-  const name = e.name.trim().toLowerCase();
-  const city = e.city.trim().toLowerCase();
-  const venue = e.venueName.trim().toLowerCase();
+  const name = e.name.toLowerCase();
+  const city = e.city.toLowerCase();
+  const venue = e.venueName.toLowerCase();
 
   if (name.includes("untitled")) return true;
   if (city.includes("tbd")) return true;
@@ -126,59 +125,59 @@ function isIncompleteEvent(e: NormEvent): boolean {
   return false;
 }
 
-function eventQualityScore(e: NormEvent): number {
-  let score = 0;
+function sanitizeUserGenres(input: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
 
-  if (e.name && !e.name.toLowerCase().includes("untitled")) score += 100;
-  if (e.url) score += 10;
-  if (e.city && !e.city.toLowerCase().includes("tbd")) score += 5;
-  if (e.venueName && !e.venueName.toLowerCase().includes("tbd")) score += 3;
-  if (e.localTime) score += 1;
-  if (Array.isArray(e.canonicalGenres) && e.canonicalGenres.length > 0) {
-    score += 2;
+  for (const raw of input) {
+    const key = resolveGenreKey(raw);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(key);
+    if (out.length >= 4) break;
   }
 
-  return score;
+  return out;
 }
 
-function isPlaceholderRow(e: NormEvent): boolean {
-  const name = String(e.name || "").trim().toLowerCase();
-  const city = String(e.city || "").trim().toLowerCase();
-  const venue = String(e.venueName || "").trim().toLowerCase();
+function normalizeCanonicalGenres(input: unknown): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
 
-  if (name === "untitled event") return true;
-  if (name.startsWith("untitled")) return true;
-  if (city === "location tbd" || city.includes("location tbd")) return true;
-  if (venue === "location tbd" || venue.includes("location tbd")) return true;
+  for (const raw of Array.isArray(input) ? input : []) {
+    const key = resolveGenreKey(String(raw || "").trim());
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(key);
+  }
 
-  return false;
-}
-
-function sanitizeUserGenres(input: string[]): string[] {
-  const allowed = new Set(allVisibleGenreLabels().map((g) => g.toLowerCase()));
-
-  return uniqueStrings(input)
-    .map((s) => String(s).trim())
-    .filter((s) => allowed.has(s.toLowerCase()))
-    .slice(0, 4);
+  return out;
 }
 
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as Body;
 
+    /* =========================
+       🔥 CACHE KEY (NEW)
+    ========================= */
+    const cacheKey = JSON.stringify({
+      anchorDate: body.anchorLocalDate || body.localDate,
+      lat: body.anchorLat || body.lat,
+      lon: body.anchorLon || body.lon,
+      genres: body.genres || [],
+      favorites: body.favorites || [],
+    });
+
+    const cached = CONTEXT_CACHE.get(cacheKey);
+    if (cached && Date.now() - cached.ts < CONTEXT_TTL) {
+      return json(cached.value);
+    }
+
     const favorites: RequestFavorite[] = (body.favorites || [])
       .filter(
         (f): f is Body["favorites"][number] =>
-          Boolean(
-            f &&
-              typeof f.id === "string" &&
-              f.id.trim() &&
-              typeof f.label === "string" &&
-              f.label.trim() &&
-              typeof f.attractionId === "string" &&
-              f.attractionId.trim()
-          )
+          Boolean(f?.id && f?.label && f?.attractionId)
       )
       .map((f) => ({
         id: String(f.id).trim(),
@@ -187,19 +186,13 @@ export async function POST(req: Request) {
         defaultGenre: String(f.defaultGenre || "").trim(),
       }));
 
-    if (favorites.length < 1) {
-      return json({ error: "favorites required" }, 400);
+    if (favorites.length < 1 && (body.genres || []).length < 1) {
+      return json({ error: "favorites or genres required" }, 400);
     }
 
     const anchor = pickAnchor(body);
     if (!anchor) {
-      return json(
-        {
-          error:
-            "anchor required (provide anchor.localDate/lat/lon OR anchorLocalDate/anchorLat/anchorLon OR localDate/lat/lon)",
-        },
-        400
-      );
+      return json({ error: "anchor required" }, 400);
     }
 
     const userGenres = sanitizeUserGenres(
@@ -212,11 +205,7 @@ export async function POST(req: Request) {
       w.end
     );
 
-    const radiusMiles = Math.max(
-      5,
-      Math.min(200, Number(body.radiusMiles ?? 90) || 90)
-    );
-    const countryCode = String(body.countryCode || "US,CA").trim() || "US,CA";
+    const radiusMiles = Math.max(5, Math.min(200, Number(body.radiusMiles ?? 90)));
 
     const tmEvents = await TM.tmSearchEventsAll(
       {
@@ -225,7 +214,6 @@ export async function POST(req: Request) {
         unit: "miles",
         startDateTime,
         endDateTime,
-        countryCode,
         sort: "date,asc",
         size: 200,
       },
@@ -237,13 +225,15 @@ export async function POST(req: Request) {
     for (const tm of tmEvents) {
       const ne = normalizeTMEvent(tm);
       if (!ne) continue;
+
+      ne.canonicalGenres = normalizeCanonicalGenres(ne.canonicalGenres);
+      ne.pillLabel = ne.canonicalGenres[0] || ne.pillLabel || null;
+
       if (isIncompleteEvent(ne)) continue;
 
-      const embeddedAttractions: string[] = (
-        (tm?._embedded?.attractions || []) as any[]
-      )
+      const embeddedAttractions = (tm?._embedded?.attractions || [])
         .map((a: any) => String(a?.id || ""))
-        .filter((id: string) => Boolean(id));
+        .filter(Boolean);
 
       applyMatchesToEvent(ne, {
         favorites: favorites as any,
@@ -251,122 +241,41 @@ export async function POST(req: Request) {
         attractionIdsOnEvent: embeddedAttractions,
       });
 
-      ne.pillLabel = ne.canonicalGenres[0] || null;
       normalized.push(ne);
     }
 
-    const deduped = dedupeEvents(normalized);
-    const byKey = new Map<string, NormEvent>();
+    const cleanedEvents = dedupeEvents(normalized);
 
-    for (const event of deduped) {
-      const key =
-        event.canonicalKey ||
-        `${event.ts || ""}|${event.name || ""}|${
-          event.venueName || event.city || ""
-        }`;
-
-      const prev = byKey.get(key);
-
-      if (!prev) {
-        byKey.set(key, event);
-        continue;
-      }
-
-      const prevScore = eventQualityScore(prev);
-      const nextScore = eventQualityScore(event);
-
-      if (nextScore > prevScore) {
-        mergeMatched(event, prev);
-        byKey.set(key, event);
-      } else {
-        mergeMatched(prev, event);
-      }
-    }
-
-    const cleanedEvents = Array.from(byKey.values()).filter(
-      (e) => !isIncompleteEvent(e) && !isPlaceholderRow(e)
-    );
-
-    const presentFavorites = uniqueStrings(
-      cleanedEvents.flatMap((e) => e.matched?.favorites || [])
-    );
-
-    const presentGenres = uniqueStrings(
-      cleanedEvents.flatMap((e) => e.canonicalGenres || [])
-    ).sort((a, b) => a.localeCompare(b));
-
-    const requiredFavoriteIds = favorites.map((f) => f.id);
-
-    const favoriteRequirementMet =
-      favorites.length === 1
-        ? true
-        : requiredFavoriteIds.every((id) =>
-            presentFavorites.some(
-              (pf) => normalizeToken(pf) === normalizeToken(id)
-            )
-          );
-
-    const genreRequirementMet = userGenres.every((g) =>
-      presentGenres.some((pg) =>
-        normalizeToken(pg).includes(normalizeToken(g))
-      )
-    );
-
-    const requirementsMet = favoriteRequirementMet && genreRequirementMet;
-
-    const hasTwoFavs = favorites.length >= 2;
-    const crossoverInWindow =
-      hasTwoFavs &&
-      cleanedEvents.some((e) => {
-        const matchedFavorites = uniqueStrings(e.matched?.favorites || []);
-        return matchedFavorites.length >= 2;
-      });
-
-    return json({
-      anchor: {
-        localDate: anchor.localDate,
-        lat: anchor.lat,
-        lon: anchor.lon,
-        city: anchor.city || "",
-      },
-      anchorWindow: {
-        start: w.start,
-        end: w.end,
-        daysEachSide: 2,
-      },
-      filters: {
-        userGenres,
-        radiusMiles,
-        countryCode,
-      },
-      required: {
-        favorites: requiredFavoriteIds,
-        genres: userGenres,
-      },
-      present: {
-        favorites: presentFavorites,
-        genres: presentGenres,
-      },
-      requirementsMet,
-      crossoverInWindow,
+    const responsePayload = {
+      mode: "context",
+      anchor,
       count: cleanedEvents.length,
+      favorites: uniqueStrings(
+        cleanedEvents.flatMap((e) => e.matched?.favorites || [])
+      ),
+      genres: uniqueStrings(
+        cleanedEvents.flatMap((e) => e.canonicalGenres || [])
+      ),
       events: cleanedEvents,
+    };
+
+    /* =========================
+       🔥 SAVE CACHE (NEW)
+    ========================= */
+    CONTEXT_CACHE.set(cacheKey, {
+      ts: Date.now(),
+      value: responsePayload,
     });
-  } catch (e: any) {
-    const msg = String(e?.message || "Failed");
 
-    if (
-      msg.toLowerCase().includes("quota") ||
-      msg.toLowerCase().includes("rate limit")
-    ) {
-      console.error("api/trip/context rate-limited:", e);
-      return json(
-        { error: "Ticketmaster rate limit hit. Wait a bit, then try again." },
-        429
-      );
-    }
+    return json(responsePayload);
+  } catch (err) {
+    const message =
+  err instanceof Error
+    ? err.message
+    : typeof err === "string"
+    ? err
+    : "Failed";
 
-    console.error("api/trip/context error:", e);
-    return json({ error: msg }, 500);
+return json({ error: message }, 500);
   }
 }

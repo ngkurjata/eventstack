@@ -200,7 +200,9 @@ function matchFavoritesForEvent(
       !!favAttractionIdKey && eventAttractionIdKeys.has(favAttractionIdKey);
     const byLabel = !!favLabelKey && eventAttractionNameKeys.has(favLabelKey);
     const bySeries =
-      fav.kind === "series" && !!fav.seriesKey && eventMatchesSeriesKeyword(tm, fav.seriesKey);
+      fav.kind === "series" &&
+      !!fav.seriesKey &&
+      eventMatchesSeriesKeyword(tm, fav.seriesKey);
 
     if (!byAttractionId && !byLabel && !bySeries) continue;
 
@@ -218,6 +220,59 @@ function matchFavoritesForEvent(
     attractionIds: uniqCaseInsensitive(matchedAttractionIds),
     defaultGenres: uniqCaseInsensitive(matchedDefaultGenres),
   };
+}
+
+function clampRadiusMiles(value: number | undefined) {
+  return Math.max(10, Math.min(300, Number(value ?? 90)));
+}
+
+function distanceMiles(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 3958.8;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) ** 2;
+
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+function normalizePlaceToken(s: string | null | undefined) {
+  return String(s || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+function placesMatch(
+  searchedCity: { label: string; lat: number; lon: number },
+  event: NormEvent
+) {
+  const searchedLabel = normalizePlaceToken(searchedCity.label);
+  const eventCity = normalizePlaceToken(event.city);
+  const eventRegion = normalizePlaceToken(event.region);
+
+  if (!searchedLabel || !eventCity) return false;
+
+  // exact city match
+  if (searchedLabel === eventCity) return true;
+
+  // handle "Calgary, AB"
+  if (searchedLabel.includes(",")) {
+    const [cityPart, regionPart] = searchedLabel.split(",").map((x) => x.trim());
+
+    if (cityPart === eventCity) {
+      if (!regionPart) return true;
+      return regionPart === eventRegion;
+    }
+  }
+
+  return false;
 }
 
 export async function POST(req: Request) {
@@ -248,12 +303,16 @@ export async function POST(req: Request) {
 
     const favorites = sanitizeFavorites(body.favorites);
     const requestedGenres = sanitizeGenres(body.genres);
+    const radiusMiles = clampRadiusMiles(body.radiusMiles);
 
-    const { startDateTime, endDateTime } = ymdToTmRangeInclusive(body.startDate, body.endDate);
+    const { startDateTime, endDateTime } = ymdToTmRangeInclusive(
+      body.startDate,
+      body.endDate
+    );
 
     const tmEvents = await TM.tmSearchEventsAll({
       latlong: `${body.city.lat},${body.city.lon}`,
-      radius: Math.max(10, Math.min(300, Number(body.radiusMiles ?? 90))),
+      radius: radiusMiles,
       unit: "miles",
       startDateTime,
       endDateTime,
@@ -287,7 +346,7 @@ export async function POST(req: Request) {
 
     const deduped = dedupeEvents(normalized);
 
-    const events: NormEvent[] =
+    const genreFiltered: NormEvent[] =
       requestedGenres.length > 0
         ? deduped.filter((e) =>
             requestedGenres.some((g) =>
@@ -295,6 +354,19 @@ export async function POST(req: Request) {
             )
           )
         : deduped;
+
+    const events: NormEvent[] = genreFiltered.filter((e) => {
+  const lat = typeof e.lat === "number" ? e.lat : null;
+  const lon = typeof e.lon === "number" ? e.lon : null;
+
+  if (lat === null || lon === null) return false;
+
+  const d = distanceMiles(body.city!.lat, body.city!.lon, lat, lon);
+if (d > radiusMiles) return false;
+
+return placesMatch(body.city!, e);
+
+});
 
     const genres = collectResponseGenres(events);
 

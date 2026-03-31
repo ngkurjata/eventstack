@@ -1,15 +1,22 @@
 // FILE: lib/time/window.ts
 
-export function isYMD(s: any): s is string {
-  return /^\d{4}-\d{2}-\d{2}$/.test(String(s || ""));
+export function isYMD(s: unknown): s is string {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(s ?? ""));
+}
+
+function parseYMDToUTCNoon(ymd: string): Date {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
 }
 
 function addDaysYMD(ymd: string, delta: number): string {
-  const d = new Date(`${ymd}T12:00:00`);
-  d.setDate(d.getDate() + delta);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
+  const dt = parseYMDToUTCNoon(ymd);
+  dt.setUTCDate(dt.getUTCDate() + delta);
+
+  const yyyy = dt.getUTCFullYear();
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getUTCDate()).padStart(2, "0");
+
   return `${yyyy}-${mm}-${dd}`;
 }
 
@@ -20,10 +27,12 @@ export function anchorWindowYMD(anchorDate: string, daysEachSide = 3) {
 }
 
 // Ticketmaster endDateTime behaves best treated as an exclusive bound.
-// So we add +1 day to include the full end date.
+// We use 12:00:00Z instead of 00:00:00Z to avoid previous-day bleed caused
+// by timezone conversion when searching North American events.
 export function ymdToTmRangeInclusive(startYMD: string, endYMD: string) {
-  const start = `${startYMD}T00:00:00Z`;
+  const startDateTime = `${startYMD}T12:00:00Z`;
   const endExclusiveYMD = addDaysYMD(endYMD, 1);
-  const end = `${endExclusiveYMD}T00:00:00Z`;
-  return { startDateTime: start, endDateTime: end };
+  const endDateTime = `${endExclusiveYMD}T12:00:00Z`;
+
+  return { startDateTime, endDateTime };
 }

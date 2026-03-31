@@ -1,0 +1,194 @@
+warning: in the working copy of 'app/build-trip/page.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/components/date/DateField.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/globals.css', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/layout.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/page.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/results/area/page.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/results/favorites/page.tsx', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/app/api/availability/route.js b/app/api/availability/route.js[m
+[1mdeleted file mode 100644[m
+[1mindex e5ebb4a..0000000[m
+[1m--- a/app/api/availability/route.js[m
+[1m+++ /dev/null[m
+[36m@@ -1,146 +0,0 @@[m
+[31m-// FILE: app/api/availability/route.js[m
+[31m-import { NextResponse } from "next/server";[m
+[31m-[m
+[31m-const TM_BASE = "https://app.ticketmaster.com/discovery/v2";[m
+[31m-const TM_EVENTS = `${TM_BASE}/events.json`;[m
+[31m-const TM_KEY = process.env.TICKETMASTER_API_KEY;[m
+[31m-[m
+[31m-/**[m
+[31m- * Simple in-memory cache per serverless instance.[m
+[31m- * (Good enough to prevent repeated checks during the same warm runtime.)[m
+[31m- */[m
+[31m-const TTL_MS = 12 * 60 * 60 * 1000; // 12 hours[m
+[31m-const g = globalThis;[m
+[31m-g.__availabilityCache = g.__availabilityCache || new Map();[m
+[31m-const CACHE = g.__availabilityCache;[m
+[31m-[m
+[31m-/**[m
+[31m- * @param {string} id Ticketmaster attractionId[m
+[31m- * @param {string} countryCode e.g. "US,CA"[m
+[31m- */[m
+[31m-async function fetchHasUpcomingEvents(id, countryCode = "US,CA") {[m
+[31m-  // Ticketmaster can be picky about startDateTime formatting; keep no milliseconds.[m
+[31m-  const nowIso = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");[m
+[31m-[m
+[31m-  const url = new URL(TM_EVENTS);[m
+[31m-  url.searchParams.set("apikey", TM_KEY || "");[m
+[31m-  url.searchParams.set("attractionId", String(id));[m
+[31m-  url.searchParams.set("size", "1");[m
+[31m-  url.searchParams.set("sort", "date,asc");[m
+[31m-  url.searchParams.set("startDateTime", nowIso);[m
+[31m-[m
+[31m-  // ✅ IMPORTANT: align availability check to your app’s search universe[m
+[31m-  // If your app searches only US/CA, availability must do the same.[m
+[31m-  if (countryCode) url.searchParams.set("countryCode", countryCode);[m
+[31m-[m
+[31m-  const res = await fetch(url.toString(), { cache: "no-store" });[m
+[31m-[m
+[31m-  let data = null;[m
+[31m-  try {[m
+[31m-    data = await res.json();[m
+[31m-  } catch {[m
+[31m-    return {[m
+[31m-      hasUpcomingEvents: true, // fail open[m
+[31m-      nextEventDate: null,[m
+[31m-      warning: "non_json_response",[m
+[31m-      debug: {[m
+[31m-        attractionIdUsed: String(id),[m
+[31m-        httpStatus: res.status,[m
+[31m-        attempt: "startDateTime_no_millis",[m
+[31m-        countryCodeUsed: countryCode,[m
+[31m-      },[m
+[31m-    };[m
+[31m-  }[m
+[31m-[m
+[31m-  // If Ticketmaster returns an error payload, fail open (do NOT claim “no events”)[m
+[31m-  if (!res.ok || data?.errors?.length || data?.fault) {[m
+[31m-    return {[m
+[31m-      hasUpcomingEvents: true, // fail open[m
+[31m-      nextEventDate: null,[m
+[31m-      warning: "tm_error_payload",[m
+[31m-      debug: {[m
+[31m-        attractionIdUsed: String(id),[m
+[31m-        httpStatus: res.status,[m
+[31m-        hasErrors: !!data?.errors?.length,[m
+[31m-        hasFault: !!data?.fault,[m
+[31m-        attempt: "startDateTime_no_millis",[m
+[31m-        countryCodeUsed: countryCode,[m
+[31m-      },[m
+[31m-    };[m
+[31m-  }[m
+[31m-[m
+[31m-  const total = Number(data?.page?.totalElements ?? 0);[m
+[31m-  const hasUpcomingEvents = Number.isFinite(total) ? total > 0 : false;[m
+[31m-[m
+[31m-  let nextEventDate = null;[m
+[31m-  const first = data?._embedded?.events?.[0];[m
+[31m-  if (first?.dates?.start?.dateTime) nextEventDate = first.dates.start.dateTime;[m
+[31m-  else if (first?.dates?.start?.localDate) nextEventDate = first.dates.start.localDate;[m
+[31m-[m
+[31m-  return {[m
+[31m-    hasUpcomingEvents,[m
+[31m-    nextEventDate,[m
+[31m-    debug: {[m
+[31m-      attractionIdUsed: String(id),[m
+[31m-      httpStatus: res.status,[m
+[31m-      totalElements: total,[m
+[31m-      attempt: "startDateTime_no_millis",[m
+[31m-      countryCodeUsed: countryCode,[m
+[31m-    },[m
+[31m-  };[m
+[31m-}[m
+[31m-[m
+[31m-export async function GET(req) {[m
+[31m-  if (!TM_KEY) {[m
+[31m-    return NextResponse.json({ error: "Missing TICKETMASTER_API_KEY" }, { status: 500 });[m
+[31m-  }[m
+[31m-[m
+[31m-  const { searchParams } = new URL(req.url);[m
+[31m-  const one = String(searchParams.get("id") || "").trim();[m
+[31m-  const many = String(searchParams.get("ids") || "").trim();[m
+[31m-[m
+[31m-  // Optional override, default is US/CA to match your app.[m
+[31m-  const cc = String(searchParams.get("countryCode") || "US,CA").trim();[m
+[31m-[m
+[31m-  const ids = (many ? many.split(",") : one ? [one] : [])[m
+[31m-    .map((x) => String(x).trim())[m
+[31m-    .filter(Boolean);[m
+[31m-[m
+[31m-  if (!ids.length) {[m
+[31m-    return NextResponse.json({ error: "Provide id=... or ids=a,b,c" }, { status: 400 });[m
+[31m-  }[m
+[31m-[m
+[31m-  const out = {};[m
+[31m-  const now = Date.now();[m
+[31m-[m
+[31m-  for (const id of ids) {[m
+[31m-    const key = String(id);[m
+[31m-[m
+[31m-    // Cache key should include countryCode so you don’t mix results.[m
+[31m-    const cacheKey = `${key}__cc=${cc}`;[m
+[31m-[m
+[31m-    const cached = CACHE.get(cacheKey);[m
+[31m-    if (cached && cached.expiresAt > now) {[m
+[31m-      out[key] = cached.value;[m
+[31m-      continue;[m
+[31m-    }[m
+[31m-[m
+[31m-    try {[m
+[31m-      const value = await fetchHasUpcomingEvents(key, cc);[m
+[31m-      const wrapped = { ...value, checkedAt: new Date().toISOString() };[m
+[31m-      CACHE.set(cacheKey, { value: wrapped, expiresAt: now + TTL_MS });[m
+[31m-      out[key] = wrapped;[m
+[31m-    } catch {[m
+[31m-      const wrapped = {[m
+[31m-        hasUpcomingEvents: true, // fail open[m
+[31m-        nextEventDate: null,[m
+[31m-        checkedAt: new Date().toISOString(),[m
+[31m-        warning: "availability_check_failed",[m
+[31m-      };[m
+[31m-      CACHE.set(cacheKey, { value: wrapped, expiresAt: now + 15 * 60 * 1000 }); // short TTL[m
+[31m-      out[key] = wrapped;[m
+[31m-    }[m
+[31m-  }[m
+[31m-[m
+[31m-  return NextResponse.json(out);[m
+[31m-}[m
+[1mdiff --git a/app/api/build-trip/route.js b/app/api/build-trip/route.js[m
+[1mdeleted file mode 100644[m
+[1mindex 412d96c..0000000[m
+[1m--- a/app/api/build-trip/route.js[m
+[1m+++ /dev/null[m
+[36m@@ -1,317 +0,0 @@[m
+[31m-// FILE: app/api/build-trip/route.js[m
+[31m-[m
+[31m-import { NextResponse } from "next/server";[m
+[31m-import { normalizeTMEvent } from "@/lib/events/normalize";[m
+[31m-[m
+[31m-const TM_BASE = "https://app.ticketmaster.com/discovery/v2";[m
+[31m-const TM_KEY = process.env.TICKETMASTER_API_KEY;[m
+[31m-[m
+[31m-// TM event details endpoint: /events/{id}.json[m
+[31m-function tmEventUrl(id) {[m
+[31m-  return `${TM_BASE}/events/${encodeURIComponent(id)}.json`;[m
+[31m-}[m
+[31m-[m
+[31m-/* -------------------- helpers -------------------- */[m
+[31m-[m
+[31m-function json(res, status = 200) {[m
+[31m-  return NextResponse.json(res, { status });[m
+[31m-}[m
+[31m-[m
+[31m-function isYMD(s) {[m
+[31m-  return /^\d{4}-\d{2}-\d{2}$/.test(String(s || "").trim());[m
+[31m-}[m
+[31m-[m
+[31m-function clampInt(n, lo, hi, fallback) {[m
+[31m-  const v = Number(n);[m
+[31m-  if (!Number.isFinite(v)) return fallback;[m
+[31m-  const iv = Math.trunc(v);[m
+[31m-  if (iv < lo) return lo;[m
+

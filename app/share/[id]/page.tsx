@@ -20,5 +20,5 @@ export default async function ShareTripByIdPage({
     notFound();
   }
 
-  redirect(`/build-trip?share=${encodeURIComponent(cleanId)}`);
+  redirect(`/build-trip?shareId=${encodeURIComponent(cleanId)}`);
 }

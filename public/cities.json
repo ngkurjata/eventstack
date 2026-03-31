@@ -13,6 +13,229 @@
     "country": "US",
     "airportIata": "LAX"
   },
+
+{
+  "label": "Newark, NJ",
+  "lat": 40.7357,
+  "lon": -74.1724,
+  "country": "US",
+  "airportIata": "EWR"
+},
+{
+  "label": "Long Island, NY",
+  "lat": 40.7891,
+  "lon": -73.135,
+  "country": "US"
+},
+{
+  "label": "Palo Alto, CA",
+  "lat": 37.4419,
+  "lon": -122.143,
+  "country": "US"
+},
+{
+  "label": "Fort Worth, TX",
+  "lat": 32.7555,
+  "lon": -97.3308,
+  "country": "US"
+},
+{
+  "label": "Jacksonville, FL",
+  "lat": 30.3322,
+  "lon": -81.6557,
+  "country": "US",
+  "airportIata": "JAX"
+},
+{
+  "label": "Raleigh, NC",
+  "lat": 35.7796,
+  "lon": -78.6382,
+  "country": "US",
+  "airportIata": "RDU"
+},
+{
+  "label": "Columbus, OH",
+  "lat": 39.9612,
+  "lon": -82.9988,
+  "country": "US",
+  "airportIata": "CMH"
+},
+{
+  "label": "Richmond, VA",
+  "lat": 37.5407,
+  "lon": -77.436,
+  "country": "US",
+  "airportIata": "RIC"
+},
+{
+  "label": "Virginia Beach, VA",
+  "lat": 36.8529,
+  "lon": -75.978,
+  "country": "US",
+  "airportIata": "ORF"
+},
+{
+  "label": "Louisville, KY",
+  "lat": 38.2527,
+  "lon": -85.7585,
+  "country": "US",
+  "airportIata": "SDF"
+},
+{
+  "label": "Birmingham, AL",
+  "lat": 33.5186,
+  "lon": -86.8104,
+  "country": "US",
+  "airportIata": "BHM"
+},
+{
+  "label": "Des Moines, IA",
+  "lat": 41.5868,
+  "lon": -93.625,
+  "country": "US",
+  "airportIata": "DSM"
+},
+{
+  "label": "Omaha, NE",
+  "lat": 41.2565,
+  "lon": -95.9345,
+  "country": "US",
+  "airportIata": "OMA"
+},
+{
+  "label": "Boise, ID",
+  "lat": 43.615,
+  "lon": -116.2023,
+  "country": "US",
+  "airportIata": "BOI"
+},
+{
+  "label": "Spokane, WA",
+  "lat": 47.6588,
+  "lon": -117.426,
+  "country": "US",
+  "airportIata": "GEG"
+},
+{
+  "label": "Albuquerque, NM",
+  "lat": 35.0844,
+  "lon": -106.6504,
+  "country": "US",
+  "airportIata": "ABQ"
+},
+{
+  "label": "El Paso, TX",
+  "lat": 31.7619,
+  "lon": -106.485,
+  "country": "US",
+  "airportIata": "ELP"
+},
+{
+  "label": "Tucson, AZ",
+  "lat": 32.2226,
+  "lon": -110.9747,
+  "country": "US",
+  "airportIata": "TUS"
+},
+{
+  "label": "Fort Myers, FL",
+  "lat": 26.6406,
+  "lon": -81.8723,
+  "country": "US",
+  "airportIata": "RSW"
+},
+{
+  "label": "Sarasota, FL",
+  "lat": 27.3364,
+  "lon": -82.5307,
+  "country": "US"
+},
+{
+  "label": "Pensacola, FL",
+  "lat": 30.4213,
+  "lon": -87.2169,
+  "country": "US",
+  "airportIata": "PNS"
+},
+{
+  "label": "Greenville, SC",
+  "lat": 34.8526,
+  "lon": -82.394,
+  "country": "US",
+  "airportIata": "GSP"
+},
+{
+  "label": "Charleston, SC",
+  "lat": 32.7765,
+  "lon": -79.9311,
+  "country": "US",
+  "airportIata": "CHS"
+},
+{
+  "label": "Fort Lauderdale, FL",
+  "lat": 26.1224,
+  "lon": -80.1373,
+  "country": "US",
+  "airportIata": "FLL"
+},
+{
+  "label": "Quebec City, QC",
+  "lat": 46.8139,
+  "lon": -71.208,
+  "country": "CA",
+  "airportIata": "YQB"
+},
+{
+  "label": "St. John's, NL",
+  "lat": 47.5615,
+  "lon": -52.7126,
+  "country": "CA",
+  "airportIata": "YYT"
+},
+{
+  "label": "London, ON",
+  "lat": 42.9849,
+  "lon": -81.2453,
+  "country": "CA",
+  "airportIata": "YXU"
+},
+{
+  "label": "Kitchener, ON",
+  "lat": 43.4516,
+  "lon": -80.4925,
+  "country": "CA",
+  "airportIata": "YKF"
+},
+{
+  "label": "Windsor, ON",
+  "lat": 42.3149,
+  "lon": -83.0364,
+  "country": "CA"
+},
+{
+  "label": "Sherbrooke, QC",
+  "lat": 45.4042,
+  "lon": -71.8929,
+  "country": "CA"
+},
+{
+  "label": "Trois-Rivières, QC",
+  "lat": 46.343,
+  "lon": -72.5433,
+  "country": "CA"
+},
+{
+  "label": "Kamloops, BC",
+  "lat": 50.6745,
+  "lon": -120.3273,
+  "country": "CA"
+},
+{
+  "label": "Prince George, BC",
+  "lat": 53.9171,
+  "lon": -122.7497,
+  "country": "CA"
+},
   {
     "label": "Chicago, IL",
     "lat": 41.8781,
@@ -20,6 +243,20 @@
     "country": "US",
     "airportIata": "ORD"
   },
+
+  {
+  "label": "Elmont, NY",
+  "lat": 40.7004,
+  "lon": -73.7126,
+  "country": "US"
+},
+{
+  "label": "Norfolk, VA",
+  "lat": 36.8508,
+  "lon": -76.2859,
+  "country": "US",
+  "airportIata": "ORF"
+},
   {
     "label": "Houston, TX",
     "lat": 29.7604,
@@ -27,6 +264,35 @@
     "country": "US",
     "airportIata": "IAH"
   },
+
+{
+  "label": "Austin, TX",
+  "lat": 30.2672,
+  "lon": -97.7431,
+  "country": "US",
+  "airportIata": "AUS"
+},
+{
+  "label": "Baltimore, MD",
+  "lat": 39.2904,
+  "lon": -76.6122,
+  "country": "US",
+  "airportIata": "BWI"
+},
+{
+  "label": "Regina, SK",
+  "lat": 50.4452,
+  "lon": -104.6189,
+  "country": "CA",
+  "airportIata": "YQR"
+},
+{
+  "label": "Saskatoon, SK",
+  "lat": 52.1579,
+  "lon": -106.6702,
+  "country": "CA",
+  "airportIata": "YXE"
+},
   {
     "label": "Phoenix, AZ",
     "lat": 33.4484,

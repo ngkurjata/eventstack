@@ -24,9 +24,9 @@ const redis =
     : null;
 
 const SHARE_KEY_PREFIX = "share:trip:v1:";
-const MIN_TTL_SECONDS = 60 * 60 * 24; // 1 day minimum
-const MAX_TTL_SECONDS = 60 * 60 * 24 * 365; // 1 year maximum safety cap
-const END_DATE_BUFFER_DAYS = 7; // keep link alive a week after trip ends
+const MIN_TTL_SECONDS = 60 * 60 * 24;
+const MAX_TTL_SECONDS = 60 * 60 * 24 * 365;
+const END_DATE_BUFFER_DAYS = 7;
 
 function shareKey(id: string) {
   return `${SHARE_KEY_PREFIX}${id}`;
@@ -142,4 +142,34 @@ export async function getSharedTrip(id: string): Promise<SharedTripDoc | null> {
   if (!cleanId) return null;
 
   return await redisGetDoc(shareKey(cleanId));
+}
+
+export async function updateSharedTrip(
+  id: string,
+  trip: BuildTripPayload
+): Promise<SharedTripDoc | null> {
+  if (!redis) {
+    throw new Error("Share storage is not configured.");
+  }
+
+  const cleanId = sanitizeId(id);
+  if (!cleanId) return null;
+
+  const existing = await redisGetDoc(shareKey(cleanId));
+  if (!existing) return null;
+
+  const now = new Date().toISOString();
+
+  const nextDoc: SharedTripDoc = {
+    id: existing.id,
+    createdAt: existing.createdAt,
+    updatedAt: now,
+    version: Number(existing.version || 0) + 1,
+    trip,
+  };
+
+  const ttlSeconds = computeShareTtlSeconds(trip);
+  await redisSetDoc(shareKey(cleanId), ttlSeconds, nextDoc);
+
+  return nextDoc;
 }

@@ -2,7 +2,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
-import type { SeriesKey } from "@/lib/favorites/types";
+import type { FavoriteKind, SeriesKey } from "@/lib/favorites/types";
+import { makeFavorite } from "@/lib/favorites/factory";
 import TM from "@/lib/tm/client";
 import { normalizeTMEvent, type NormEvent } from "@/lib/events/normalize";
 import { dedupeEvents } from "@/lib/events/dedupe";
@@ -16,10 +17,10 @@ function json(payload: any, status = 200) {
 type FavoriteInput = {
   id?: string;
   label: string;
-  kind?: "team" | "artist" | "series";
+  kind?: FavoriteKind;
   attractionId?: string;
   seriesKey?: SeriesKey;
-  defaultGenre?: string;
+  defaultGenre?: string | null;
 };
 
 type Body = {
@@ -51,7 +52,7 @@ type SearchCacheEntry = {
 type ResolvedFavorite = {
   id: string;
   label: string;
-  kind: "team" | "artist" | "series";
+  kind: FavoriteKind;
   attractionId?: string;
   seriesKey?: SeriesKey;
   defaultGenre: string;
@@ -112,40 +113,55 @@ function normalizeGenresInput(values: string[] | null | undefined) {
   return uniqueStrings((values || []).map((g) => String(g || "").trim())).slice(0, MAX_GENRES);
 }
 
+function normalizeFavoriteKind(value: unknown): FavoriteKind {
+  const raw = String(value || "").trim().toLowerCase();
+  if (raw === "artist" || raw === "series") return raw;
+  return "team";
+}
+
 function resolveFavorite(
   input: FavoriteInput | null | undefined,
   fallbackId: string
 ): ResolvedFavorite | null {
   if (!input) return null;
 
+  const kind = normalizeFavoriteKind(input.kind);
   const label = String(input.label || "").trim();
-  const kind = (String(input.kind || "").trim() || "team") as ResolvedFavorite["kind"];
   const attractionId = String(input.attractionId || "").trim();
-  const seriesKey = String(input.seriesKey || "").trim() as SeriesKey;
   const defaultGenre = String(input.defaultGenre || "").trim();
   const id = String(input.id || fallbackId).trim() || fallbackId;
+  const seriesKey = input.seriesKey;
 
   if (!label) return null;
 
-  if (kind === "series") {
-    if (!seriesKey) return null;
-    return {
-      id,
-      label,
-      kind,
-      seriesKey,
-      defaultGenre,
-    };
-  }
-
-  if (!attractionId) return null;
-
-  return {
+  const favorite = makeFavorite({
     id,
     label,
     kind,
-    attractionId,
     defaultGenre,
+    attractionId: kind === "series" ? undefined : attractionId || undefined,
+    seriesKey: kind === "series" ? seriesKey : undefined,
+  });
+
+  if (favorite.kind === "series") {
+    if (!favorite.seriesKey) return null;
+    return {
+      id: favorite.id,
+      label: favorite.label,
+      kind: favorite.kind,
+      seriesKey: favorite.seriesKey,
+      defaultGenre: favorite.defaultGenre || "",
+    };
+  }
+
+  if (!favorite.attractionId) return null;
+
+  return {
+    id: favorite.id,
+    label: favorite.label,
+    kind: favorite.kind,
+    attractionId: favorite.attractionId,
+    defaultGenre: favorite.defaultGenre || "",
   };
 }
 
@@ -564,11 +580,16 @@ async function runSearch(body: Body) {
 
   return {
     mode: "favorites",
-    favorites: [favorite1, ...(favorite2 ? [favorite2] : [])].map((fav) => ({
-      id: fav.id,
-      label: fav.label,
-      defaultGenre: fav.defaultGenre,
-    })),
+    favorites: [favorite1, ...(favorite2 ? [favorite2] : [])].map((fav) =>
+      makeFavorite({
+        id: fav.id,
+        label: fav.label,
+        kind: fav.kind,
+        defaultGenre: fav.defaultGenre,
+        attractionId: fav.attractionId,
+        seriesKey: fav.seriesKey,
+      })
+    ),
     genres,
     requiredInputs: {
       favorites: [favorite1, ...(favorite2 ? [favorite2] : [])].map((fav) => fav.id),

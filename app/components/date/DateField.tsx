@@ -72,12 +72,18 @@ export default function DateField({
         type="button"
         onClick={() => setOpen((s) => !s)}
         className={cx(
-          "inline-flex h-11 w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none hover:border-slate-300",
+          "inline-flex h-10 w-full items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white px-3 text-[13px] font-semibold text-slate-900 outline-none hover:border-slate-300 sm:h-11 sm:gap-3 sm:px-4 sm:text-sm",
           buttonClassName
         )}
       >
-        <span>{value ? fmtDateChip(value) : placeholder}</span>
-        <span aria-hidden="true" className="text-base">
+        <span className="min-w-0 truncate">
+          {value ? fmtDateChip(value) : placeholder}
+        </span>
+
+        <span
+          aria-hidden="true"
+          className="hidden text-base leading-none sm:inline-block"
+        >
           📅
         </span>
       </button>
@@ -98,12 +104,10 @@ export default function DateField({
               onChange(ymdFromLocalDate(day));
               setOpen(false);
             }}
-
             onDayClick={(day, modifiers) => {
-  if (!modifiers.selected) return;
-  setOpen(false);
-}}
-
+              if (!modifiers.selected) return;
+              setOpen(false);
+            }}
             disabled={disabledDays}
             className="text-slate-900"
             classNames={{

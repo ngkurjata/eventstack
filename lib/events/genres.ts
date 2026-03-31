@@ -1,5 +1,3 @@
-// FILE: lib/events/genres.ts
-
 export type GenreBucket = "sports" | "music";
 
 export type GenreKey =
@@ -12,6 +10,7 @@ export type GenreKey =
   | "tennis"
   | "combat_sports"
   | "motorsports"
+  | "equestrian"
   | "country"
   | "rock"
   | "pop"
@@ -51,7 +50,6 @@ export const GENRES: Record<GenreKey, GenreDef> = {
       "ncaa baseball",
     ],
   },
-
   basketball: {
     key: "basketball",
     label: "Basketball",
@@ -65,7 +63,6 @@ export const GENRES: Record<GenreKey, GenreDef> = {
       "ncaa basketball",
     ],
   },
-
   hockey: {
     key: "hockey",
     label: "Hockey",
@@ -84,7 +81,6 @@ export const GENRES: Record<GenreKey, GenreDef> = {
       "ncaa hockey",
     ],
   },
-
   football: {
     key: "football",
     label: "Football",
@@ -99,7 +95,6 @@ export const GENRES: Record<GenreKey, GenreDef> = {
       "ncaa football",
     ],
   },
-
   soccer: {
     key: "soccer",
     label: "Soccer",
@@ -114,33 +109,20 @@ export const GENRES: Record<GenreKey, GenreDef> = {
       "concacaf",
     ],
   },
-
   golf: {
     key: "golf",
     label: "Golf",
     bucket: "sports",
     visible: true,
-    aliases: [
-      "golf",
-      "pga",
-      "lpga",
-      "champions tour",
-    ],
+    aliases: ["golf", "pga", "lpga", "champions tour", "liv golf"],
   },
-
   tennis: {
     key: "tennis",
     label: "Tennis",
     bucket: "sports",
     visible: true,
-    aliases: [
-      "tennis",
-      "atp",
-      "wta",
-      "grand slam",
-    ],
+    aliases: ["tennis", "atp", "wta", "grand slam"],
   },
-
   combat_sports: {
     key: "combat_sports",
     label: "Combat Sports",
@@ -163,9 +145,11 @@ export const GENRES: Record<GenreKey, GenreDef> = {
       "grappling",
       "jiu jitsu",
       "bjj",
+      "rodeo",
+      "bull riding",
+      "pbr",
     ],
   },
-
   motorsports: {
     key: "motorsports",
     label: "Motorsports",
@@ -174,7 +158,6 @@ export const GENRES: Record<GenreKey, GenreDef> = {
     aliases: [
       "motorsports",
       "motor sports",
-      "racing",
       "auto racing",
       "auto-racing",
       "motocross",
@@ -188,9 +171,25 @@ export const GENRES: Record<GenreKey, GenreDef> = {
       "drag racing",
       "monster truck",
       "monster trucks",
+      "grand prix",
+      "motogp",
+      "racing",
     ],
   },
-
+  equestrian: {
+    key: "equestrian",
+    label: "Horse Racing",
+    bucket: "sports",
+    visible: true,
+    aliases: [
+      "horse racing",
+      "horse race",
+      "thoroughbred",
+      "equestrian",
+      "racetrack",
+      "derby",
+    ],
+  },
   country: {
     key: "country",
     label: "Country",
@@ -207,7 +206,6 @@ export const GENRES: Record<GenreKey, GenreDef> = {
       "country rock",
     ],
   },
-
   rock: {
     key: "rock",
     label: "Rock",
@@ -220,6 +218,7 @@ export const GENRES: Record<GenreKey, GenreDef> = {
       "alternative",
       "alternative rock",
       "alt rock",
+      "indie",
       "indie rock",
       "punk",
       "punk rock",
@@ -229,20 +228,13 @@ export const GENRES: Record<GenreKey, GenreDef> = {
       "grunge",
     ],
   },
-
   pop: {
     key: "pop",
     label: "Pop",
     bucket: "music",
     visible: true,
-    aliases: [
-      "pop",
-      "dance pop",
-      "teen pop",
-      "adult contemporary",
-    ],
+    aliases: ["pop", "dance pop", "teen pop", "adult contemporary"],
   },
-
   hip_hop: {
     key: "hip_hop",
     label: "Hip-Hop/Rap",
@@ -260,7 +252,6 @@ export const GENRES: Record<GenreKey, GenreDef> = {
       "drill",
     ],
   },
-
   metal: {
     key: "metal",
     label: "Metal",
@@ -276,7 +267,6 @@ export const GENRES: Record<GenreKey, GenreDef> = {
       "hardcore",
     ],
   },
-
   jazz: {
     key: "jazz",
     label: "Jazz",
@@ -293,19 +283,13 @@ export const GENRES: Record<GenreKey, GenreDef> = {
       "jazz rock",
     ],
   },
-
   blues: {
     key: "blues",
     label: "Blues",
     bucket: "music",
     visible: true,
-    aliases: [
-      "blues",
-      "delta blues",
-      "electric blues",
-    ],
+    aliases: ["blues", "delta blues", "electric blues"],
   },
-
   rnb: {
     key: "rnb",
     label: "R&B",
@@ -319,9 +303,9 @@ export const GENRES: Record<GenreKey, GenreDef> = {
       "funk",
       "neo soul",
       "contemporary r&b",
+      "rhythm and blues",
     ],
   },
-
   electronic: {
     key: "electronic",
     label: "Electronic",
@@ -329,17 +313,19 @@ export const GENRES: Record<GenreKey, GenreDef> = {
     visible: true,
     aliases: [
       "electronic",
+      "electronic dance",
+      "electronic/dance",
+      "dance/electronic",
       "edm",
       "dance",
-      "dance/electronic",
       "house",
       "techno",
       "trance",
       "dubstep",
       "electronica",
+      "dj",
     ],
   },
-
   latin: {
     key: "latin",
     label: "Latin",
@@ -356,7 +342,6 @@ export const GENRES: Record<GenreKey, GenreDef> = {
       "latin pop",
     ],
   },
-
   classical: {
     key: "classical",
     label: "Classical",
@@ -369,11 +354,11 @@ export const GENRES: Record<GenreKey, GenreDef> = {
       "symphony",
       "orchestral",
       "orchestra",
+      "philharmonic",
       "chamber music",
       "new age",
     ],
   },
-
   theatre: {
     key: "theatre",
     label: "Theatre",
@@ -389,40 +374,24 @@ export const GENRES: Record<GenreKey, GenreDef> = {
       "performance arts",
     ],
   },
-
   comedy: {
     key: "comedy",
     label: "Comedy",
     bucket: "music",
     visible: true,
-    aliases: [
-      "comedy",
-      "comedian",
-      "stand-up",
-      "stand up",
-      "improv",
-      "drag",
-    ],
+    aliases: ["comedy", "comedian", "stand-up", "stand up", "improv", "drag"],
   },
-
   religious: {
     key: "religious",
     label: "Religious",
     bucket: "music",
     visible: false,
-    aliases: [
-      "religious",
-      "gospel",
-      "christian",
-      "christian rock",
-      "worship",
-    ],
+    aliases: ["religious", "gospel", "christian", "christian rock", "worship"],
   },
-
   other: {
     key: "other",
     label: "Other",
-    bucket: "music",
+    bucket: "sports",
     visible: false,
     aliases: [
       "other",
@@ -431,10 +400,6 @@ export const GENRES: Record<GenreKey, GenreDef> = {
       "community civic",
       "community",
       "civic",
-      "equestrian",
-      "horse racing",
-      "rodeo",
-      "lacrosse",
     ],
   },
 };
@@ -521,10 +486,23 @@ export function genreKeyFromRaw(raw: string | null | undefined): GenreKey | null
   const value = norm(raw || "");
   if (!value) return null;
 
+  const direct = LABEL_TO_KEY.get(value);
+  if (direct) return direct;
+
   const hits = scoreGenreMatches(value);
   if (hits.length === 0) return "other";
 
   return hits[0] || "other";
+}
+
+export function resolveGenreKey(value: string | null | undefined): GenreKey | null {
+  return findGenreKeyByLabel(value) || genreKeyFromRaw(value);
+}
+
+export function canonicalGenreLabel(value: string | null | undefined): string | null {
+  const key = resolveGenreKey(value);
+  if (!key || !isVisibleGenreKey(key)) return null;
+  return genreKeyToLabel(key);
 }
 
 export function normalizeGenreKeys(
@@ -534,16 +512,10 @@ export function normalizeGenreKeys(
   const keys: GenreKey[] = [];
 
   for (const raw of values) {
-    const value = norm(raw || "");
-    if (!value) continue;
-
-    const hits = scoreGenreMatches(value);
-    if (hits.length === 0) continue;
-
-    for (const key of hits) {
-      if (!isVisibleGenreKey(key)) continue;
-      keys.push(key);
-    }
+    const key = resolveGenreKey(raw);
+    if (!key) continue;
+    if (!isVisibleGenreKey(key)) continue;
+    keys.push(key);
   }
 
   return uniqueKeys(keys).slice(0, Math.max(1, max));
@@ -562,10 +534,10 @@ export function includesGenre(
   values: Array<string | null | undefined>,
   target: string | null | undefined
 ): boolean {
-  const targetKey = findGenreKeyByLabel(target);
+  const targetKey = resolveGenreKey(target);
   if (!targetKey) return false;
 
-  const keys = normalizeGenreKeys(values, 2);
+  const keys = normalizeGenreKeys(values, 4);
   return keys.includes(targetKey);
 }
 
